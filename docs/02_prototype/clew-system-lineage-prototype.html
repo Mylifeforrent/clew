@@ -1,0 +1,1525 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clew · 系统级血缘原型（系统 / 数据集 / 字段三级视图）</title>
+<style>
+  /* ===== Clew Design Tokens（与 docs/02_prototype/clew-hifi-prototype.html 同一套）===== */
+  :root {
+    --page: #F8FAFC; --card: #FFFFFF; --subtle: #F1F5F9;
+    --ink: #0F172A; --ink-soft: #334155; --ink-muted: #475569; --ink-faint: #64748B;
+    --line: #E2E8F0; --line-strong: #CBD5E1; --line-soft: #F1F5F9;
+    --brand-50: #FFF7ED; --brand-100: #FFEDD5; --brand-200: #FED7AA; --brand-300: #FDBA74;
+    --brand-400: #FB923C; --brand-500: #F97316; --brand-600: #EA580C; --brand-700: #C2410C;
+    --brand-800: #9A3412; --brand-900: #7C2D12;
+    --success: #15803D; --success-soft: #F0FDF4; --success-deep: #166534;
+    --warning: #B45309; --warning-soft: #FFFBEB; --warning-deep: #92400E;
+    --danger: #DC2626; --danger-soft: #FEF2F2; --danger-deep: #B91C1C;
+    --info: #2563EB; --info-soft: #EFF6FF; --info-deep: #1E40AF;
+    --ai: #4F46E5; --ai-soft: #EEF2FF; --ai-deep: #3730A3;
+    --lineage-imported: #475569; --lineage-manual: #0D9488; --lineage-ai: #4F46E5;
+    --lineage-derived: #94A3B8; --lineage-focus: #EA580C;
+    --radius: 8px; --radius-lg: 12px;
+    --shadow-card: 0 1px 2px rgba(15,23,42,.05);
+    --shadow-pop: 0 10px 30px rgba(15,23,42,.14), 0 2px 6px rgba(15,23,42,.08);
+    --shadow-node: 0 1px 3px rgba(15,23,42,.10);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--page); color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--brand-100); }
+  button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--brand-600); outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  [hidden] { display: none !important; }
+
+  /* ===== 通用组件 ===== */
+  .btn {
+    appearance: none; display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink-soft); font: inherit; font-size: 12.5px;
+    cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--line-strong); background: var(--subtle); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: var(--brand-700); border-color: var(--brand-700); color: #fff; }
+  .btn-primary:hover { background: var(--brand-800); border-color: var(--brand-800); }
+  .btn-ghost { border-color: transparent; background: transparent; color: var(--ink-muted); }
+  .btn-ghost:hover { background: var(--subtle); color: var(--ink-soft); }
+  .btn-xs { padding: 2px 8px; font-size: 11.5px; border-radius: 5px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px;
+    border-radius: 999px; font-size: 11px; border: 1px solid var(--line);
+    color: var(--ink-muted); background: var(--subtle); white-space: nowrap;
+  }
+  .badge-ok { background: var(--success-soft); color: var(--success-deep); border-color: transparent; }
+  .badge-warn { background: var(--warning-soft); color: var(--warning-deep); border-color: transparent; }
+  .badge-danger { background: var(--danger-soft); color: var(--danger-deep); border-color: transparent; }
+  .badge-info { background: var(--info-soft); color: var(--info-deep); border-color: transparent; }
+  .badge-ai { background: var(--ai-soft); color: var(--ai-deep); border-color: transparent; }
+  .badge-brand { background: var(--brand-50); color: var(--brand-800); border-color: var(--brand-200); }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+  .input, .select {
+    font: inherit; font-size: 12.5px; color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; width: 100%;
+    transition: border-color .15s ease;
+  }
+  .input:focus, .select:focus { border-color: var(--brand-600); outline: none; box-shadow: 0 0 0 3px rgba(234,88,12,.12); }
+  .input::placeholder { color: var(--ink-faint); }
+  code, pre, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  .muted { color: var(--ink-muted); } .faint { color: var(--ink-faint); }
+  .sep { height: 1px; background: var(--line-soft); margin: 10px 0; }
+
+  /* ===== 应用框架 ===== */
+  #app { height: 100%; display: flex; flex-direction: column; }
+  .topbar {
+    display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+    background: var(--card); border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .logo-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--brand-800);
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .navpill { display: flex; gap: 3px; background: var(--subtle); border-radius: 9px; padding: 3px; }
+  .navpill button {
+    appearance: none; border: none; background: transparent; color: var(--ink-muted);
+    font: inherit; font-size: 12.5px; padding: 4px 12px; border-radius: 7px; cursor: pointer;
+    transition: all .15s ease;
+  }
+  .navpill button:hover { color: var(--ink); }
+  .navpill button.active { background: var(--card); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-card); }
+  .navpill button:disabled { opacity: .4; cursor: not-allowed; }
+  .searchbox {
+    display: flex; align-items: center; gap: 6px; flex: 1; max-width: 330px;
+    border: 1px solid var(--line); border-radius: 7px; padding: 4px 10px; background: var(--card);
+  }
+  .searchbox input { all: unset; font: inherit; font-size: 12.5px; color: var(--ink); flex: 1; }
+  .userchip { display: flex; align-items: center; gap: 8px; }
+  .main { flex: 1; min-height: 0; display: flex; }
+
+  /* ===== 画布 ===== */
+  .canvas-screen { display: flex; flex-direction: column; height: 100%; flex: 1; min-width: 0; }
+  .canvas-toolbar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 8px 14px;
+    background: var(--card); border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .canvas-area { flex: 1; position: relative; overflow: hidden; background: var(--page); }
+  .canvas-area::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: radial-gradient(circle, rgba(148,163,184,.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .canvas-inner { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  #edgeSvg { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
+  #edgeSvg .edge-hit { pointer-events: stroke; cursor: pointer; }
+  #edgeSvg .edge-visible { pointer-events: none; }
+
+  .side { width: 230px; border-right: 1px solid var(--line); background: var(--card); padding: 10px;
+    overflow: auto; flex-shrink: 0; display: flex; flex-direction: column; gap: 14px; }
+  .side h4 { margin: 0 0 6px; font-size: 11px; font-weight: 600; color: var(--ink-muted); letter-spacing: .3px; }
+  .side-item { padding: 7px 8px; border-radius: 7px; cursor: pointer; border: 1px solid transparent; transition: all .15s ease; }
+  .side-item:hover { background: var(--subtle); }
+  .side-item.active { border-color: var(--line); background: var(--subtle); }
+  .side-item .nm { font-size: 12.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+  .side-item .nm b { font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-item .sub { font-size: 10.5px; color: var(--ink-faint); margin-top: 1px; }
+  .side-item .count { margin-left: auto; font-size: 10.5px; color: var(--ink-faint); }
+  .type-mark {
+    width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center;
+    justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .tm-source { background: #EFF6FF; color: #1E40AF; }
+  .tm-application { background: #F0FDF4; color: #166534; }
+  .tm-warehouse { background: #FFF7ED; color: #9A3412; }
+  .tm-bi { background: #EEF2FF; color: #3730A3; }
+  .tm-external { background: #FEF2F2; color: #B91C1C; }
+  .tm-other { background: var(--subtle); color: var(--ink-muted); }
+
+  .detail { width: 330px; border-left: 1px solid var(--line); background: var(--card); padding: 12px;
+    overflow: auto; flex-shrink: 0; }
+  .detail h3 { margin: 0 0 4px; font-size: 14px; }
+  .detail .sub { font-size: 11px; color: var(--ink-faint); margin-bottom: 10px; }
+  .kv { display: flex; gap: 8px; font-size: 12px; margin: 3px 0; }
+  .kv .k { width: 70px; color: var(--ink-faint); flex-shrink: 0; }
+  .kv .v { color: var(--ink-soft); min-width: 0; }
+  .sec-t { font-size: 11px; font-weight: 600; color: var(--ink-muted); margin: 14px 0 6px;
+    display: flex; align-items: center; justify-content: space-between; }
+  .anno { border-left: 2px solid var(--brand-200); padding: 2px 0 2px 9px; margin: 7px 0; font-size: 12px; color: var(--ink-soft); }
+  .anno .meta { font-size: 10.5px; color: var(--ink-faint); margin-top: 2px; }
+  .codelist { background: var(--subtle); border-radius: 7px; padding: 8px 10px; font-size: 10.5px;
+    color: var(--ink-soft); white-space: pre-wrap; word-break: break-all; line-height: 1.55; }
+  .updown { display: flex; flex-direction: column; gap: 3px; }
+  .updown a { font-size: 12px; color: var(--brand-700); cursor: pointer; text-decoration: none; }
+  .updown a:hover { text-decoration: underline; }
+  .updown .hop { color: var(--ink-faint); font-size: 10.5px; }
+  .evi { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; margin: 6px 0;
+    font-size: 11.5px; color: var(--ink-soft); cursor: pointer; transition: all .15s ease; background: var(--card); }
+  .evi:hover { border-color: var(--brand-300); background: var(--brand-50); }
+  .evi .f { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink); word-break: break-all; }
+  .evi .m { color: var(--ink-faint); font-size: 10.5px; margin-top: 2px; }
+
+  /* ===== 系统节点 ===== */
+  .sys-node {
+    position: absolute; width: 220px; background: var(--card);
+    border: 1px solid var(--line-strong); border-radius: 12px;
+    box-shadow: var(--shadow-node); cursor: pointer; user-select: none;
+    transition: box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .sys-node:hover { box-shadow: 0 4px 14px rgba(15,23,42,.12); transform: translateY(-1px); }
+  .sys-node.selected { border-color: var(--brand-600); box-shadow: 0 0 0 1.5px var(--brand-600), 0 4px 16px rgba(234,88,12,.16); }
+  .sys-node.seed { border-color: var(--brand-300); }
+  .sys-node.dimmed { opacity: .35; }
+  .sys-stripe { height: 3px; border-radius: 12px 12px 0 0; }
+  .sys-body { padding: 10px 12px 11px; }
+  .sys-head { display: flex; align-items: center; gap: 8px; }
+  .sys-name { font-weight: 600; font-size: 13px; color: var(--ink); flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sys-id { font-size: 10px; color: var(--ink-faint); font-family: ui-monospace, Menlo, monospace; margin-top: 1px; }
+  .sys-meta { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .sys-desc { font-size: 10.5px; color: var(--ink-faint); margin-top: 6px; line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hop-badge { position: absolute; top: -9px; right: 8px; font-size: 9.5px; padding: 1px 6px; border-radius: 999px;
+    background: var(--brand-700); color: #fff; border: 2px solid var(--card); }
+  .cycle-badge { position: absolute; top: -9px; left: 8px; font-size: 9.5px; padding: 1px 6px; border-radius: 999px;
+    background: var(--warning-soft); color: var(--warning-deep); border: 1px solid var(--warning); }
+
+  /* ===== 数据集/字段节点 ===== */
+  .ds-node {
+    position: absolute; width: 200px; background: var(--card);
+    border: 1px solid var(--line-strong); border-radius: 10px;
+    box-shadow: var(--shadow-node); cursor: pointer; user-select: none;
+    transition: box-shadow .18s ease, border-color .18s ease;
+  }
+  .ds-node:hover { box-shadow: 0 4px 14px rgba(15,23,42,.12); }
+  .ds-node.selected { border-color: var(--brand-600); box-shadow: 0 0 0 1.5px var(--brand-600), 0 4px 16px rgba(234,88,12,.16); }
+  .ds-node.dimmed { opacity: .35; }
+  .ds-head { display: flex; align-items: center; gap: 7px; padding: 8px 9px; border-bottom: 1px solid var(--line-soft); }
+  .ds-name { font-weight: 600; font-size: 12px; color: var(--ink); flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ds-id { font-size: 9.5px; color: var(--ink-faint); font-family: ui-monospace, Menlo, monospace; }
+  .ds-sys { font-size: 9.5px; color: var(--ink-faint); padding: 0 5px; border-radius: 4px; background: var(--subtle); }
+  .field-row { display: flex; align-items: center; gap: 6px; padding: 0 9px; height: 24px;
+    border-bottom: 1px solid var(--line-soft); cursor: pointer; position: relative; transition: background .15s ease; }
+  .field-row:last-child { border-bottom: none; }
+  .field-row:hover { background: var(--subtle); }
+  .field-row.selected { background: var(--brand-50); }
+  .field-row.in-chain { background: var(--brand-50); }
+  .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11.5px; color: var(--ink-soft); }
+  .ftype { font-size: 9.5px; color: var(--ink-faint); font-family: ui-monospace, Menlo, monospace; }
+  .f-dot { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--line-strong); flex-shrink: 0; }
+  .field-row.selected .f-dot, .field-row.in-chain .f-dot { border-color: var(--brand-600); background: var(--brand-100); }
+
+  /* ===== 图例 / 缩放 / 边抽屉 ===== */
+  .legend { position: absolute; left: 12px; bottom: 12px; background: rgba(255,255,255,.94);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 11px;
+    color: var(--ink-muted); display: flex; flex-direction: column; gap: 4px; pointer-events: none; z-index: 3; }
+  .legend .lg-row { display: flex; align-items: center; gap: 7px; }
+  .lg-line { width: 26px; height: 0; border-top: 2px solid; flex-shrink: 0; }
+  .zoomctl { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 4px; z-index: 3; }
+  .zoomctl button { width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--card); font-size: 14px; cursor: pointer; color: var(--ink-soft); }
+  .zoomctl button:hover { background: var(--subtle); }
+
+  .edge-drawer { position: absolute; left: 12px; right: 54px; bottom: 12px; max-height: 190px;
+    background: rgba(255,255,255,.97); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow-pop); overflow: hidden; z-index: 4; display: flex; flex-direction: column; }
+  .edge-drawer-head { display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    border-bottom: 1px solid var(--line-soft); font-size: 11.5px; color: var(--ink-muted); }
+  .edge-drawer-head b { color: var(--ink); font-size: 12px; }
+  .edge-drawer-body { overflow: auto; }
+  .edge-row { display: grid; grid-template-columns: 70px 1fr 78px 56px; gap: 8px; align-items: center;
+    padding: 5px 10px; border-bottom: 1px solid var(--line-soft); font-size: 11.5px; cursor: pointer; }
+  .edge-row:hover { background: var(--subtle); }
+  .edge-row.active { background: var(--brand-50); }
+  .edge-row .route { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink-soft);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .origin-explicit { color: var(--success-deep); background: var(--success-soft); }
+  .origin-derived { color: var(--ink-muted); background: var(--subtle); }
+  .origin-both { color: var(--info-deep); background: var(--info-soft); }
+  .origin-ai { color: var(--ai-deep); background: var(--ai-soft); }
+
+  /* ===== 弹层 ===== */
+  .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.42); display: flex;
+    align-items: center; justify-content: center; z-index: 60; padding: 24px; }
+  .modal { background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop);
+    width: min(960px, 94vw); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+  .modal-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .modal-head h3 { margin: 0; font-size: 14px; flex: 1; }
+  .modal-body { padding: 14px 16px; overflow: auto; }
+  .modal-foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .arch-box { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px 14px; }
+  .arch-box h4 { margin: 0 0 8px; font-size: 12.5px; display: flex; align-items: center; gap: 7px; }
+  .arch-box ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--ink-soft); }
+  .arch-box li { margin: 3px 0; }
+  .arch-tag { font-size: 10px; padding: 1px 7px; border-radius: 999px; }
+  .flowrow { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-muted); margin: 12px 0; flex-wrap: wrap; }
+  .flowrow b { color: var(--ink-soft); }
+  .principle { flex: 1; border-radius: 12px; padding: 12px 14px; font-size: 12.5px; }
+  .principle .pt { font-weight: 700; margin-bottom: 5px; display: flex; gap: 7px; align-items: center; }
+  .principle .pn { width: 20px; height: 20px; border-radius: 6px; color: #fff; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+
+  .toast-wrap { position: fixed; top: 14px; right: 14px; z-index: 90; display: flex; flex-direction: column; gap: 8px; }
+  .toast { background: var(--ink); color: #fff; border-radius: 9px; padding: 9px 14px; font-size: 12.5px;
+    box-shadow: var(--shadow-pop); display: flex; gap: 8px; align-items: center; animation: slidein .25s ease; }
+  .toast.ok::before { content: "✓"; color: #6EE7A8; font-weight: 700; }
+  .toast.warn::before { content: "!"; color: #FCD34D; font-weight: 700; }
+  @keyframes slidein { from { transform: translateX(20px); opacity: 0; } }
+
+  .yarn { stroke: var(--brand-300); stroke-width: 2.2; fill: none; stroke-linecap: round; }
+  .yarn2 { stroke: #fff; stroke-width: 2.2; fill: none; stroke-linecap: round; opacity: .9; }
+  @media (max-width: 1100px) { .side, .detail { display: none; } .arch-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   Clew 系统级血缘原型 · mock 数据（电商订单主题）
+   目标：验证「系统 / 数据集 / 字段」三级视图与系统边证据下钻
+   存储分层：SQLite 管实体属性与入口检索；Kùzu 管关系实例与链路遍历
+   ============================================================ */
+
+const TYPE_META = {
+  source:      { label: "源系统", mark: "源", cls: "tm-source",      color: "#2563EB", stripe: "#BFDBFE" },
+  application: { label: "业务应用", mark: "应", cls: "tm-application", color: "#15803D", stripe: "#BBF7D0" },
+  warehouse:   { label: "数仓/湖", mark: "仓", cls: "tm-warehouse",   color: "#EA580C", stripe: "#FED7AA" },
+  bi:          { label: "分析/BI", mark: "BI", cls: "tm-bi",          color: "#4F46E5", stripe: "#C7D2FE" },
+  external:    { label: "外部系统", mark: "外", cls: "tm-external",    color: "#DC2626", stripe: "#FECACA" },
+  other:       { label: "其他", mark: "他", cls: "tm-other",          color: "#64748B", stripe: "#E2E8F0" },
+};
+const SRC_LABEL = { imported: "导入", manual: "人工", ai: "AI 建议", derived: "投影" };
+const ORIGIN_LABEL = { explicit: "显式", derived: "投影", both: "显式+投影" };
+
+/* ---- 系统目录（SQLite system 表） ---- */
+const SYSTEMS = [
+  { id: "crm",             name: "CRM 客户系统", type: "source",      owner: "客户平台组", desc: "客户主数据、联系人与标签", x: 20,  y: 100 },
+  { id: "product_center",  name: "商品中心",     type: "source",      owner: "商品平台组", desc: "SKU、类目与商品主数据", x: 20,  y: 360 },
+  { id: "order_center",    name: "订单中心",     type: "application", owner: "交易平台组", desc: "订单创建、状态与金额", x: 270, y: 60 },
+  { id: "finance",         name: "财务系统",     type: "external",    owner: "财务部",     desc: "结算、对账与财务口径", x: 270, y: 400 },
+  { id: "payment_gateway", name: "支付网关",     type: "application", owner: "支付平台组", desc: "支付单、渠道回调与对账", x: 520, y: 60 },
+  { id: "dw_platform",     name: "数据仓库",     type: "warehouse",   owner: "数据平台组", desc: "ODS / DWD / DWS 分层与指标", x: 520, y: 320 },
+  { id: "bi_portal",       name: "BI 看板",      type: "bi",          owner: "经营分析组", desc: "GMV、用户增长与经营看板", x: 770, y: 120 },
+  { id: "risk_engine",     name: "风控引擎",     type: "application", owner: "风控组",     desc: "交易异常与反欺诈", x: 770, y: 320 },
+  { id: "marketing",       name: "营销平台",     type: "application", owner: "增长组",     desc: "人群圈选与活动效果", x: 770, y: 500 },
+];
+const SYSTEM_MAP = Object.fromEntries(SYSTEMS.map(s => [s.id, s]));
+
+/* ---- 数据集（SQLite dataset 表；systemId = dataset.system_id） ---- */
+const DATASETS = [
+  { id: "ods_crm_customer",      name: "CRM 客户主数据", systemId: "crm",             x: 40,   y: 40,  fields: [
+    { name: "customer_id", type: "STRING", desc: "客户唯一标识" },
+    { name: "name", type: "STRING", desc: "客户名称" },
+    { name: "city", type: "STRING", desc: "常驻城市" },
+    { name: "register_date", type: "DATE", desc: "注册日期" },
+  ]},
+  { id: "ods_crm_contact",       name: "CRM 联系人", systemId: "crm",             x: 40,   y: 250, fields: [
+    { name: "contact_id", type: "STRING", desc: "联系人标识" },
+    { name: "customer_id", type: "STRING", desc: "所属客户" },
+    { name: "phone", type: "STRING", desc: "联系电话" },
+  ]},
+  { id: "ods_product",           name: "商品主数据", systemId: "product_center",  x: 40,   y: 440, fields: [
+    { name: "sku_id", type: "STRING", desc: "商品编码" },
+    { name: "sku_name", type: "STRING", desc: "商品名称" },
+    { name: "category", type: "STRING", desc: "类目" },
+  ]},
+  { id: "ods_order",             name: "订单主表", systemId: "order_center",    x: 300,  y: 40,  fields: [
+    { name: "order_id", type: "STRING", desc: "订单号" },
+    { name: "customer_id", type: "STRING", desc: "下单客户" },
+    { name: "amount", type: "DECIMAL", desc: "订单金额" },
+    { name: "status", type: "STRING", desc: "订单状态" },
+  ]},
+  { id: "ods_payment",           name: "支付流水", systemId: "payment_gateway", x: 300,  y: 250, fields: [
+    { name: "pay_id", type: "STRING", desc: "支付单号" },
+    { name: "order_no", type: "STRING", desc: "关联订单号" },
+    { name: "amount", type: "DECIMAL", desc: "支付金额" },
+    { name: "channel", type: "STRING", desc: "支付渠道" },
+  ]},
+  { id: "ods_finance_settlement", name: "财务结算流水", systemId: "finance",      x: 300,  y: 440, fields: [
+    { name: "pay_id", type: "STRING", desc: "支付单号" },
+    { name: "settle_amount", type: "DECIMAL", desc: "结算金额" },
+    { name: "settle_date", type: "DATE", desc: "结算日期" },
+  ]},
+  { id: "ods_raw_order",         name: "原始订单明细", systemId: "dw_platform",  x: 560,  y: 40,  fields: [
+    { name: "order_no", type: "STRING", desc: "订单号" },
+    { name: "order_date", type: "DATE", desc: "下单日期" },
+    { name: "user_id", type: "STRING", desc: "下单用户" },
+    { name: "sku_id", type: "STRING", desc: "商品编码" },
+    { name: "quantity", type: "INT", desc: "购买数量" },
+    { name: "unit_price", type: "DECIMAL", desc: "成交单价" },
+    { name: "amount", type: "DECIMAL", desc: "订单金额" },
+  ]},
+  { id: "ods_raw_user",          name: "原始用户信息", systemId: "dw_platform",  x: 560,  y: 300, fields: [
+    { name: "user_id", type: "STRING", desc: "用户唯一标识" },
+    { name: "user_name", type: "STRING", desc: "昵称" },
+    { name: "city", type: "STRING", desc: "常驻城市" },
+    { name: "register_date", type: "DATE", desc: "注册日期" },
+  ]},
+  { id: "ods_raw_pay",           name: "原始支付流水", systemId: "dw_platform",  x: 560,  y: 500, fields: [
+    { name: "pay_id", type: "STRING", desc: "支付单号" },
+    { name: "order_no", type: "STRING", desc: "关联订单号" },
+    { name: "pay_amount", type: "DECIMAL", desc: "实付金额" },
+    { name: "pay_channel", type: "STRING", desc: "支付渠道" },
+  ]},
+  { id: "ods_raw_sku",           name: "原始商品主数据", systemId: "dw_platform", x: 560,  y: 700, fields: [
+    { name: "sku_id", type: "STRING", desc: "商品编码" },
+    { name: "sku_name", type: "STRING", desc: "商品名称" },
+    { name: "category", type: "STRING", desc: "类目" },
+  ]},
+  { id: "dwd_order",             name: "订单明细宽表", systemId: "dw_platform",  x: 800,  y: 60,  fields: [
+    { name: "order_no", type: "STRING", desc: "订单号" },
+    { name: "order_amount", type: "DECIMAL", desc: "订单金额" },
+    { name: "pay_amount", type: "DECIMAL", desc: "实付金额" },
+    { name: "user_id", type: "STRING", desc: "下单用户" },
+    { name: "city", type: "STRING", desc: "用户城市" },
+  ]},
+  { id: "dwd_user",              name: "用户维度表", systemId: "dw_platform",    x: 800,  y: 300, fields: [
+    { name: "user_id", type: "STRING", desc: "用户标识" },
+    { name: "user_name", type: "STRING", desc: "昵称" },
+    { name: "register_date", type: "DATE", desc: "注册日期" },
+  ]},
+  { id: "dws_order_daily",       name: "订单日汇总", systemId: "dw_platform",    x: 1040, y: 200, fields: [
+    { name: "stat_date", type: "DATE", desc: "统计日期" },
+    { name: "order_cnt", type: "INT", desc: "订单数（去重）" },
+    { name: "gmv", type: "DECIMAL", desc: "成交额" },
+    { name: "pay_user_cnt", type: "INT", desc: "支付用户数" },
+  ]},
+  { id: "ads_gmv_dashboard",     name: "GMV 经营看板", systemId: "bi_portal",      x: 1280, y: 60,  fields: [
+    { name: "gmv_daily", type: "DECIMAL", desc: "当日 GMV" },
+    { name: "order_cnt_daily", type: "INT", desc: "当日订单数" },
+    { name: "pay_rate", type: "DECIMAL", desc: "支付转化率" },
+  ]},
+  { id: "ads_user_growth",       name: "用户增长看板", systemId: "bi_portal",      x: 1280, y: 240, fields: [
+    { name: "new_user_cnt", type: "INT", desc: "新增用户数" },
+    { name: "active_user_cnt", type: "INT", desc: "活跃用户数" },
+  ]},
+  { id: "ads_risk_alerts",       name: "风控告警", systemId: "risk_engine",    x: 1280, y: 420, fields: [
+    { name: "alert_id", type: "STRING", desc: "告警 ID" },
+    { name: "gmv_anomaly", type: "DECIMAL", desc: "GMV 异常偏离度" },
+    { name: "risk_level", type: "STRING", desc: "风险等级" },
+  ]},
+  { id: "ads_campaign",          name: "营销活动效果", systemId: "marketing",     x: 1280, y: 600, fields: [
+    { name: "campaign_id", type: "STRING", desc: "活动 ID" },
+    { name: "gmv_target", type: "DECIMAL", desc: "活动 GMV 目标" },
+    { name: "conversion_rate", type: "DECIMAL", desc: "转化率" },
+  ]},
+  { id: "tmp_manual_export",     name: "临时手工导出", systemId: null,            x: 40,   y: 620, fields: [
+    { name: "col_1", type: "STRING", desc: "手工导出列 1" },
+    { name: "col_2", type: "STRING", desc: "手工导出列 2" },
+  ]},
+];
+const DATASET_MAP = Object.fromEntries(DATASETS.map(d => [d.id, d]));
+
+/* ---- 数据集级血缘（SQLite edge 表） ---- */
+const DATASET_EDGES = [
+  { id: 1,  from: "ods_crm_customer",       fromField: "customer_id",   to: "ods_order",             toField: "customer_id",   source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 2,  from: "ods_crm_customer",       fromField: "customer_id",   to: "ods_raw_user",          toField: "user_id",       source: "imported", confidence: 1.0,  transform: "客户 ID 映射" },
+  { id: 3,  from: "ods_crm_customer",       fromField: "name",          to: "ods_raw_user",          toField: "user_name",     source: "imported", confidence: 0.95, transform: "名称清洗" },
+  { id: 4,  from: "ods_order",              fromField: "order_id",      to: "ods_payment",           toField: "order_no",      source: "imported", confidence: 1.0,  transform: "支付下单关联" },
+  { id: 5,  from: "ods_order",              fromField: "order_id",      to: "ods_raw_order",         toField: "order_no",      source: "imported", confidence: 1.0,  transform: "trim / cast" },
+  { id: 6,  from: "ods_order",              fromField: "amount",        to: "ods_raw_order",         toField: "amount",        source: "imported", confidence: 0.98, transform: "金额口径对齐" },
+  { id: 7,  from: "ods_payment",            fromField: "pay_id",        to: "ods_raw_pay",           toField: "pay_id",        source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 8,  from: "ods_payment",            fromField: "amount",        to: "ods_raw_pay",           toField: "pay_amount",    source: "imported", confidence: 1.0,  transform: "ROUND(2)" },
+  { id: 9,  from: "ods_product",            fromField: "sku_id",        to: "ods_raw_sku",           toField: "sku_id",        source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 10, from: "ods_finance_settlement", fromField: "pay_id",        to: "dws_order_daily",       toField: "pay_user_cnt",  source: "manual",   confidence: 0.8,  transform: "对账口径：按支付单去重" },
+  { id: 11, from: "ods_raw_order",          fromField: "order_no",      to: "dwd_order",             toField: "order_no",      source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 12, from: "ods_raw_order",          fromField: "amount",        to: "dwd_order",             toField: "order_amount",  source: "imported", confidence: 1.0,  transform: "SUM(quantity × unit_price)" },
+  { id: 13, from: "ods_raw_user",           fromField: "user_id",       to: "dwd_user",              toField: "user_id",       source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 14, from: "ods_raw_user",           fromField: "user_name",     to: "dwd_user",              toField: "user_name",     source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 15, from: "dwd_order",              fromField: "order_amount",  to: "dws_order_daily",       toField: "gmv",           source: "imported", confidence: 1.0,  transform: "SUM(order_amount)" },
+  { id: 16, from: "dwd_user",               fromField: "user_id",       to: "dws_order_daily",       toField: "pay_user_cnt",  source: "manual",   confidence: 0.9,  transform: "COUNT(DISTINCT user_id)" },
+  { id: 17, from: "dws_order_daily",        fromField: "gmv",           to: "ads_gmv_dashboard",     toField: "gmv_daily",     source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 18, from: "dws_order_daily",        fromField: "gmv",           to: "ads_risk_alerts",       toField: "gmv_anomaly",   source: "imported", confidence: 0.97, transform: "异常检测输入" },
+  { id: 19, from: "dws_order_daily",        fromField: "gmv",           to: "ads_campaign",          toField: "gmv_target",    source: "imported", confidence: 0.96, transform: "活动目标参考" },
+  { id: 20, from: "dwd_user",               fromField: "user_id",       to: "ads_user_growth",       toField: "new_user_cnt",  source: "imported", confidence: 1.0,  transform: "COUNT(DISTINCT user_id)" },
+];
+
+/* ---- 显式系统级血缘（SQLite system_edge 表） ---- */
+const EXPLICIT_SYSTEM_EDGES = [
+  {
+    from: "finance", to: "dw_platform", source: "manual", confidence: 0.8,
+    transform: "月度对账文件（Excel 手工上传）",
+    note: "财务每月 3 日上传对账文件；系统级接口无完整表级明细，同时存在 1 条数据集级血缘。",
+  },
+  {
+    from: "crm", to: "marketing", source: "ai", confidence: 0.62,
+    transform: "客户标签人群圈选（推断）",
+    note: "AI 建议：CRM 客户标签可能直接供营销平台圈选，待 editor 确认后转 manual。",
+  },
+];
+
+/* ---- 演示环：可切换，用于验证系统级聚合环的展示与检测 ---- */
+const CYCLE_EDGE = {
+  from: "bi_portal", to: "dw_platform", source: "ai", confidence: 0.4,
+  transform: "指标口径回写（演示）",
+  note: "演示用：BI 看板把指标口径回写到数仓，形成系统级聚合环；数据集级并不存在反向血缘。",
+};
+
+/* ---- 系统注释（SQLite annotation，target_kind='system'） ---- */
+const SYSTEM_ANNOTATIONS = {
+  dw_platform: [
+    { body: "数仓是系统级血缘的汇聚点：ODS 层承接 5 个源系统，DWD/DWS 层内部加工不再产生系统边。", author: "陈明", at: "2026-11-12 10:20" },
+    { body: "系统边默认由数据集级血缘投影；只有无法从表级推导的接口才显式登记。", author: "李雪", at: "2026-11-13 15:05" },
+  ],
+  finance: [
+    { body: "财务系统与数仓之间是「显式 + 投影」双来源：月度对账文件是显式接口，结算流水有数据集级血缘。", author: "李雪", at: "2026-11-13 16:40" },
+  ],
+};
+
+/* ============================================================
+   派生：系统边 = 显式边 ∪ 数据集边投影
+   ============================================================ */
+function buildSystemEdges(includeCycle) {
+  const map = new Map();
+  DATASET_EDGES.forEach(e => {
+    const fs = DATASET_MAP[e.from] && DATASET_MAP[e.from].systemId;
+    const ts = DATASET_MAP[e.to] && DATASET_MAP[e.to].systemId;
+    if (!fs || !ts || fs === ts) return;
+    const key = fs + "->" + ts;
+    if (!map.has(key)) {
+      map.set(key, { from: fs, to: ts, origin: "derived", source: "derived", confidence: 1, evidence: [] });
+    }
+    const se = map.get(key);
+    se.evidence.push(e);
+    se.confidence = Math.min(se.confidence, e.confidence);
+  });
+  const explicit = EXPLICIT_SYSTEM_EDGES.concat(includeCycle ? [CYCLE_EDGE] : []);
+  explicit.forEach(x => {
+    const key = x.from + "->" + x.to;
+    const existing = map.get(key);
+    if (existing) {
+      map.set(key, Object.assign({}, existing, x, { origin: "both", evidence: existing.evidence }));
+    } else {
+      map.set(key, Object.assign({}, x, { origin: "explicit", evidence: [] }));
+    }
+  });
+  return Array.from(map.values()).map(e => {
+    const pairs = new Set(e.evidence.map(x => x.from + "->" + x.to));
+    return Object.assign({}, e, {
+      datasetEdgeCount: pairs.size,
+      evidence: e.evidence.slice().sort((a, b) => a.id - b.id),
+    });
+  }).sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
+}
+
+/* ============================================================
+   状态
+   ============================================================ */
+const S = {
+  level: "system",              // system | dataset | field
+  seed: "dw_platform",
+  selectedSystem: "dw_platform",
+  selectedDataset: "dws_order_daily",
+  selectedField: { ds: "dws_order_daily", f: "gmv" },
+  selectedEdge: null,           // 系统边 key：from->to；字段边：id
+  hops: 3,
+  direction: "both",
+  filters: { explicit: true, derived: true, ai: true },
+  search: "",
+  showEdgeDrawer: true,
+  showAllDatasets: false,
+  demoCycle: false,
+  expandedDatasets: { dws_order_daily: true },
+  role: "admin",
+  graphState: "clean",          // clean | dirty | cte
+  panX: 30, panY: 20, zoom: 1,
+  needsFit: true,
+  systemEdges: [],
+};
+S.systemEdges = buildSystemEdges(S.demoCycle);
+
+function canWrite() { return S.role !== "viewer"; }
+function isAdmin() { return S.role === "admin"; }
+let selectTimer = null;
+function delayedSelectSystem(id) {
+  clearTimeout(selectTimer);
+  selectTimer = setTimeout(() => selectSystem(id), 220);
+}
+function delayedSelectDataset(id) {
+  clearTimeout(selectTimer);
+  selectTimer = setTimeout(() => selectDataset(id), 220);
+}
+function drillSystemNow(id) { clearTimeout(selectTimer); drillSystem(id); }
+function drillDatasetNow(id) { clearTimeout(selectTimer); drillDataset(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function sys(id) { return SYSTEM_MAP[id]; }
+function ds(id) { return DATASET_MAP[id]; }
+function typeMeta(t) { return TYPE_META[t] || TYPE_META.other; }
+function edgeKey(e) { return e.from + "->" + e.to; }
+
+function toast(msg, kind) {
+  const t = document.createElement("div");
+  t.className = "toast " + (kind || "ok");
+  t.textContent = msg;
+  document.getElementById("toasts").appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+/* ---- 系统图可见性：过滤 + 闭包 + 方向 ---- */
+function visibleSystemEdges() {
+  return S.systemEdges.filter(e => {
+    const f = S.filters;
+    if (e.origin === "explicit" && !f.explicit) return false;
+    if (e.origin === "derived" && !f.derived) return false;
+    if (e.origin === "both" && !f.explicit && !f.derived) return false;
+    if (e.source === "ai" && !f.ai) return false;
+    return true;
+  });
+}
+function systemClosure() {
+  const edges = visibleSystemEdges();
+  const adj = {};
+  const add = (a, b) => { (adj[a] = adj[a] || []).push(b); };
+  edges.forEach(e => {
+    if (S.direction !== "down") add(e.to, e.from);  // 反向：找上游
+    if (S.direction !== "up") add(e.from, e.to);    // 正向：找下游
+  });
+  const hop = new Map([[S.seed, 0]]);
+  const queue = [S.seed];
+  while (queue.length) {
+    const cur = queue.shift();
+    const h = hop.get(cur);
+    if (h >= S.hops) continue;
+    (adj[cur] || []).forEach(nxt => {
+      if (!hop.has(nxt)) { hop.set(nxt, h + 1); queue.push(nxt); }
+    });
+  }
+  return hop;
+}
+function closureEdges(hop) {
+  return visibleSystemEdges().filter(e => {
+    if (!hop.has(e.from) || !hop.has(e.to)) return false;
+    if (S.direction === "up") return hop.get(e.from) > hop.get(e.to);
+    if (S.direction === "down") return hop.get(e.from) < hop.get(e.to);
+    return true;
+  });
+}
+
+/* ---- 简单环检测（用于演示系统级聚合环） ---- */
+function systemsInCycle() {
+  const ids = new Set();
+  const adj = {};
+  S.systemEdges.forEach(e => { (adj[e.from] = adj[e.from] || []).push(e.to); });
+  const visiting = new Set(), visited = new Set(), stack = [];
+  function dfs(n) {
+    if (visiting.has(n)) {
+      const i = stack.indexOf(n);
+      stack.slice(i).forEach(x => ids.add(x));
+      return;
+    }
+    if (visited.has(n)) return;
+    visiting.add(n); stack.push(n);
+    (adj[n] || []).forEach(dfs);
+    stack.pop(); visiting.delete(n); visited.add(n);
+  }
+  Object.keys(adj).forEach(dfs);
+  return ids;
+}
+
+/* ---- 数据集视图可见性 ---- */
+function visibleDatasets() {
+  const hop = systemClosure();
+  return DATASETS.filter(d => {
+    if (S.showAllDatasets) return true;
+    if (!d.systemId) return false;
+    return hop.has(d.systemId);
+  });
+}
+function visibleDatasetEdges() {
+  const ids = new Set(visibleDatasets().map(d => d.id));
+  return DATASET_EDGES.filter(e => ids.has(e.from) && ids.has(e.to));
+}
+
+/* ---- 字段视图：焦点数据集 + 直接邻居 ---- */
+function fieldViewData() {
+  const focus = S.selectedDataset;
+  const ids = new Set([focus]);
+  const edges = DATASET_EDGES.filter(e => e.from === focus || e.to === focus);
+  edges.forEach(e => { ids.add(e.from); ids.add(e.to); });
+  const nodes = Array.from(ids).map(id => ds(id)).filter(Boolean);
+  return { focus, nodes, edges };
+}
+function involvedFields(datasetId, edges, focus) {
+  const names = new Set();
+  edges.forEach(e => {
+    if (e.from === datasetId) names.add(e.fromField);
+    if (e.to === datasetId) names.add(e.toField);
+  });
+  if (datasetId === focus) return ds(datasetId).fields.map(f => f.name);
+  return Array.from(names);
+}
+
+/* ============================================================
+   渲染
+   ============================================================ */
+function render() {
+  const app = document.getElementById("app");
+  app.innerHTML = shellHtml();
+  drawCanvas();
+  renderDetail();
+  if (S.needsFit) {
+    S.needsFit = false;
+    focusCanvas(S.level);
+  }
+}
+
+function yarnSvg() {
+  return '<svg width="18" height="18" viewBox="0 0 24 24"><path class="yarn" d="M4 15c2-7 10-9 14-5M5 9c5-3 12 0 13 6M7 17c4-6 10-2 11 2" /><path class="yarn2" d="M6 13c3-4 9-3 11 1" /></svg>';
+}
+
+function shellHtml() {
+  const gs = S.graphState;
+  const gBadge = gs === "clean"
+    ? '<span class="badge badge-ok" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu 图与 SQLite 一致；点击切换演示状态">图 clean · Kùzu</span>'
+    : gs === "dirty"
+    ? '<span class="badge badge-warn" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu 图待重建；点击切换演示状态">图 dirty · 待重建</span>'
+    : '<span class="badge badge-info" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu 不可用，已降级 SQLite 递归 CTE；点击切换">降级 CTE</span>';
+  const cycleIds = systemsInCycle();
+  const cycleBadge = cycleIds.size
+    ? '<span class="badge badge-warn" title="系统级聚合环（不代表数据集级有环）">环 · ' + cycleIds.size + ' 个系统</span>'
+    : "";
+  return '<div class="topbar">' +
+    '<div class="logo" onclick="goLevel(\'system\')"><span class="logo-mark">' + yarnSvg() + '</span>Clew</div>' +
+    '<div class="navpill">' +
+      levelBtn("system", "系统") + levelBtn("dataset", "数据集") + levelBtn("field", "字段") +
+    '</div>' +
+    '<div class="searchbox"><span class="faint">⌕</span><input placeholder="搜索系统 / 数据集 / 字段（SQLite LIKE）" value="' + esc(S.search) + '" oninput="onSearch(this.value)"></div>' +
+    '<span style="flex:1"></span>' + cycleBadge + gBadge +
+    '<div class="userchip">' +
+      '<select class="select" style="width:auto" onchange="switchRole(this.value)" title="切换角色视角（演示 RBAC）">' +
+        [["admin", "陈明（管理员）"], ["editor", "李雪（维护者）"], ["viewer", "王珂（只读）"]].map(x =>
+          '<option value="' + x[0] + '" ' + (S.role === x[0] ? "selected" : "") + '>' + x[1] + '</option>').join("") +
+      '</select>' +
+    '</div>' +
+  '</div>' +
+  '<div class="main">' + canvasScreenHtml() + '</div>';
+}
+function levelBtn(level, label) {
+  const disabled = level === "field" && !S.selectedDataset;
+  return '<button class="' + (S.level === level ? "active" : "") + '" ' + (disabled ? "disabled" : "") +
+    ' onclick="goLevel(\'' + level + '\')" title="' + (disabled ? "先在数据集视图选择一个数据集" : "") + '">' + label + '</button>';
+}
+
+function canvasScreenHtml() {
+  return '<div class="canvas-screen">' + toolbarHtml() +
+    '<div style="flex:1;display:flex;min-height:0">' +
+      sideHtml() +
+      '<div class="canvas-area" id="canvasArea" onmousedown="panStart(event)">' +
+        '<div class="canvas-inner" id="canvasInner" style="transform:translate(' + S.panX + 'px,' + S.panY + 'px) scale(' + S.zoom + ')">' +
+          '<svg id="edgeSvg"></svg><div id="nodeLayer"></div>' +
+        '</div>' +
+        legendHtml() +
+        '<div class="zoomctl">' +
+          '<button onclick="zoomBy(1.25)" title="放大">+</button>' +
+          '<button onclick="zoomBy(0.8)" title="缩小">−</button>' +
+          '<button onclick="resetView()" title="重置视图" style="font-size:10px">⌂</button>' +
+        '</div>' +
+        (S.showEdgeDrawer ? edgeDrawerHtml() : "") +
+      '</div>' +
+      '<div class="detail" id="detailPanel">' + detailHtml() + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function toolbarHtml() {
+  const f = S.filters;
+  const seedOpts = SYSTEMS.map(s => '<option value="' + s.id + '" ' + (S.seed === s.id ? "selected" : "") + '>' + s.id + ' · ' + s.name + '</option>').join("");
+  return '<div class="canvas-toolbar">' +
+    '<label class="muted">起点系统</label><select class="select" style="width:210px" onchange="setSeed(this.value)">' + seedOpts + '</select>' +
+    '<label class="muted">跳数</label><select class="select" style="width:64px" onchange="setHops(this.value)">' +
+      [1, 2, 3, 5].map(h => '<option value="' + h + '" ' + (S.hops === h ? "selected" : "") + '>' + h + '</option>').join("") +
+    '</select>' +
+    '<label class="muted">方向</label><select class="select" style="width:76px" onchange="setDirection(this.value)">' +
+      [["both", "双向"], ["up", "上游"], ["down", "下游"]].map(x => '<option value="' + x[0] + '" ' + (S.direction === x[0] ? "selected" : "") + '>' + x[1] + '</option>').join("") +
+    '</select>' +
+    '<span style="width:1px;height:20px;background:var(--line)"></span>' +
+    '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
+      '<input type="checkbox" ' + (f.explicit ? "checked" : "") + ' onchange="toggleFilter(\'explicit\', this.checked)">显式边</label>' +
+    '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
+      '<input type="checkbox" ' + (f.derived ? "checked" : "") + ' onchange="toggleFilter(\'derived\', this.checked)">投影边</label>' +
+    '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
+      '<input type="checkbox" ' + (f.ai ? "checked" : "") + ' onchange="toggleFilter(\'ai\', this.checked)">AI 候选</label>' +
+    '<span style="flex:1"></span>' +
+    (S.level === "dataset" ? '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer"><input type="checkbox" ' + (S.showAllDatasets ? "checked" : "") + ' onchange="toggleAllDatasets(this.checked)">显示全部数据集</label>' : "") +
+    (S.level === "system" ? '<button class="btn btn-xs" onclick="toggleEdgeDrawer()">' + (S.showEdgeDrawer ? "收起关系实例" : "关系实例") + '</button>' : "") +
+    '<button class="btn btn-xs" onclick="openArch()">架构说明</button>' +
+    (canWrite() ? '<button class="btn btn-xs" onclick="toast(\'原型演示：打开新建系统表单（editor+）\',\'warn\')">+ 新建系统</button>' : '<span class="badge">只读视角</span>') +
+  '</div>';
+}
+
+function legendHtml() {
+  if (S.level !== "system") {
+    return '<div class="legend">' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported);border-top-style:solid"></span>导入血缘</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>人工血缘</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI 建议</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>当前选中 / 证据链</div>' +
+    '</div>';
+  }
+  return '<div class="legend">' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>显式系统边（人工/导入）</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-derived);border-top-style:dashed"></span>数据集边投影</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI 候选（待确认）</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>当前选中 / 证据链</div>' +
+    '<div class="lg-row faint" style="margin-top:2px">边上数字 = 贡献的数据集边数</div>' +
+  '</div>';
+}
+
+function sideHtml() {
+  const q = S.search.trim().toLowerCase();
+  if (S.level === "system") {
+    const hop = systemClosure();
+    const cycleIds = systemsInCycle();
+    const list = SYSTEMS.filter(s => hop.has(s.id)).filter(s =>
+      !q || s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || (s.owner || "").toLowerCase().includes(q));
+    return '<div class="side">' +
+      '<div><h4>系统（' + list.length + ' / ' + SYSTEMS.length + '）</h4>' +
+        list.sort((a, b) => (hop.get(a.id) - hop.get(b.id)) || a.name.localeCompare(b.name)).map(s => {
+          const t = typeMeta(s.type);
+          const count = DATASETS.filter(d => d.systemId === s.id).length;
+          return '<div class="side-item ' + (S.selectedSystem === s.id ? "active" : "") + '" onclick="delayedSelectSystem(\'' + s.id + '\')" ondblclick="drillSystemNow(\'' + s.id + '\')" title="单击查看详情，双击下钻数据集">' +
+            '<div class="nm"><span class="type-mark ' + t.cls + '">' + t.mark + '</span><b>' + esc(s.name) + '</b>' +
+              (cycleIds.has(s.id) ? '<span class="badge badge-warn" style="font-size:9px;padding:0 5px">环</span>' : '') +
+              '<span class="count">' + count + '</span></div>' +
+            '<div class="sub">' + s.id + ' · ' + t.label + ' · hop ' + hop.get(s.id) + '</div>' +
+          '</div>';
+        }).join("") +
+      '</div>' +
+      unassignedCard() +
+      '<div class="faint" style="font-size:10.5px;line-height:1.6">系统目录/归属/搜索走 SQLite；<br>N 跳链路走 Kùzu LINEAGE_SYSTEM；<br>系统边 = 显式边 ∪ 数据集边投影。</div>' +
+    '</div>';
+  }
+  if (S.level === "dataset") {
+    const list = visibleDatasets().filter(d =>
+      !q || d.id.toLowerCase().includes(q) || d.name.toLowerCase().includes(q) ||
+      d.fields.some(f => f.name.toLowerCase().includes(q)));
+    const bySys = {};
+    list.forEach(d => { const k = d.systemId || "__unassigned__"; (bySys[k] = bySys[k] || []).push(d); });
+    return '<div class="side">' +
+      '<div><h4>数据集（' + list.length + '）</h4>' +
+        Object.keys(bySys).sort().map(k => {
+          const s = k === "__unassigned__" ? null : sys(k);
+          return '<div style="margin-top:7px">' +
+            '<div class="faint" style="font-size:10px;margin-bottom:3px">' + (s ? esc(s.name) : "未归属系统") + '</div>' +
+            bySys[k].map(d => '<div class="side-item ' + (S.selectedDataset === d.id ? "active" : "") + '" onclick="delayedSelectDataset(\'' + d.id + '\')" ondblclick="drillDatasetNow(\'' + d.id + '\')" title="单击查看详情，双击进入字段视图">' +
+              '<div class="nm"><b>' + esc(d.name) + '</b><span class="count">' + d.fields.length + '</span></div>' +
+              '<div class="sub">' + d.id + '</div></div>').join("") +
+          '</div>';
+        }).join("") +
+      '</div>' +
+      unassignedCard() +
+      '<div class="faint" style="font-size:10.5px;line-height:1.6">当前显示系统闭包内的数据集；<br>勾选「显示全部数据集」可看未归属项。</div>' +
+    '</div>';
+  }
+  const focus = ds(S.selectedDataset);
+  const names = focus ? focus.fields : [];
+  return '<div class="side">' +
+    '<div><h4>字段 · ' + esc(focus ? focus.name : "") + '</h4>' +
+      names.filter(f => !q || f.name.toLowerCase().includes(q)).map(f =>
+        '<div class="side-item ' + (S.selectedField && S.selectedField.ds === focus.id && S.selectedField.f === f.name ? "active" : "") +
+        '" onclick="selectField(\'' + focus.id + '\',\'' + f.name + '\')">' +
+          '<div class="nm"><b>' + esc(f.name) + '</b><span class="count">' + esc(f.type) + '</span></div>' +
+          '<div class="sub">' + esc(f.desc) + '</div>' +
+        '</div>').join("") +
+    '</div>' +
+    '<div class="faint" style="font-size:10.5px;line-height:1.6">字段视图只显示焦点数据集与直接邻居；<br>跨系统证据来自 SQLite edge 表。</div>' +
+  '</div>';
+}
+function unassignedCard() {
+  const n = DATASETS.filter(d => !d.systemId).length;
+  if (!n) return "";
+  return '<div class="card" style="padding:8px 9px;background:var(--subtle);border-style:dashed">' +
+    '<div style="font-size:11.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px"><span class="badge">未归属</span><b>' + n + '</b> 个数据集</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:3px">不进入系统图；不伪造虚拟系统节点。</div>' +
+    '<button class="btn btn-xs" style="margin-top:6px" onclick="showUnassigned()">查看清单</button></div>';
+}
+
+function edgeDrawerHtml() {
+  const edges = S.level === "system" ? closureEdges(systemClosure()) : [];
+  if (S.level !== "system") return "";
+  return '<div class="edge-drawer">' +
+    '<div class="edge-drawer-head"><b>关系实例</b><span class="faint">系统级 ' + edges.length + ' 条（当前闭包/过滤）</span><span style="flex:1"></span>' +
+      '<span class="faint">点击行查看证据</span></div>' +
+    '<div class="edge-drawer-body">' +
+      (edges.length ? edges.map(e => {
+        const key = edgeKey(e);
+        const originCls = e.source === "ai" ? "origin-ai" : "origin-" + e.origin;
+        return '<div class="edge-row ' + (S.selectedEdge === key ? "active" : "") + '" onclick="selectEdge(\'' + key + '\')">' +
+          '<span class="badge ' + originCls + '" style="font-size:10px">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + '</span>' +
+          '<span class="route">' + esc(e.from) + ' → ' + esc(e.to) + '</span>' +
+          '<span class="faint">证据 ' + e.datasetEdgeCount + ' 条</span>' +
+          '<span class="mono faint">' + e.confidence.toFixed(2) + '</span>' +
+        '</div>';
+      }).join("") : '<div class="faint" style="padding:10px;font-size:11.5px">当前过滤条件下没有系统边。</div>') +
+    '</div>' +
+  '</div>';
+}
+
+/* ============================================================
+   画布：系统视图
+   ============================================================ */
+const SYS_W = 220, SYS_H = 96;
+function drawCanvas() {
+  const layer = document.getElementById("nodeLayer");
+  const svg = document.getElementById("edgeSvg");
+  if (!layer || !svg) return;
+  if (S.level === "system") drawSystemGraph(layer, svg);
+  else if (S.level === "dataset") drawDatasetGraph(layer, svg);
+  else drawFieldGraph(layer, svg);
+  applyView();
+}
+
+function edgeStyle(e, selected) {
+  const ai = e.source === "ai";
+  const derived = e.origin === "derived";
+  let color = ai ? "#4F46E5" : derived ? "#94A3B8" : "#0D9488";
+  let dash = ai ? "6 5" : derived ? "5 5" : "";
+  if (selected) { color = "#EA580C"; dash = "7 4"; }
+  return { color, dash, width: selected ? 2.8 : (ai ? 1.9 : 1.7) };
+}
+
+function drawSystemGraph(layer, svg) {
+  const hop = systemClosure();
+  const edges = closureEdges(hop);
+  const cycleIds = systemsInCycle();
+  const cycleEdgeKeys = new Set();
+  if (S.demoCycle) cycleEdgeKeys.add(edgeKey(CYCLE_EDGE));
+
+  layer.innerHTML = SYSTEMS.map(s => {
+    if (!hop.has(s.id)) return "";
+    const t = typeMeta(s.type);
+    const selected = S.selectedSystem === s.id;
+    const isSeed = S.seed === s.id;
+    const count = DATASETS.filter(d => d.systemId === s.id).length;
+    return '<div class="sys-node ' + (selected ? "selected" : "") + (isSeed ? " seed" : "") + '" style="left:' + s.x + 'px;top:' + s.y + 'px" ' +
+      'onclick="delayedSelectSystem(\'' + s.id + '\')" ondblclick="drillSystemNow(\'' + s.id + '\')" title="单击查看详情，双击下钻数据集">' +
+      '<div class="sys-stripe" style="background:' + t.stripe + '"></div>' +
+      (isSeed ? '<span class="hop-badge">种子</span>' : '<span class="hop-badge" style="background:var(--ink-muted)">hop ' + hop.get(s.id) + '</span>') +
+      (cycleIds.has(s.id) ? '<span class="cycle-badge">环</span>' : "") +
+      '<div class="sys-body">' +
+        '<div class="sys-head"><span class="type-mark ' + t.cls + '">' + t.mark + '</span>' +
+          '<div style="min-width:0;flex:1"><div class="sys-name">' + esc(s.name) + '</div><div class="sys-id">' + s.id + '</div></div></div>' +
+        '<div class="sys-meta"><span class="badge" style="font-size:9.5px">' + t.label + '</span>' +
+          '<span class="badge" style="font-size:9.5px">' + count + ' 数据集</span>' +
+          (s.owner ? '<span class="badge" style="font-size:9.5px">' + esc(s.owner) + '</span>' : "") + '</div>' +
+        '<div class="sys-desc">' + esc(s.desc) + '</div>' +
+      '</div></div>';
+  }).join("");
+
+  const markers = ["#4F46E5", "#94A3B8", "#0D9488", "#EA580C", "#475569"].map(c =>
+    '<marker id="ah' + c.slice(1) + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+    '<path d="M 0 0 L 10 5 L 0 10 z" fill="' + c + '"/></marker>').join("");
+  let paths = edges.map(e => {
+    const a = sys(e.from), b = sys(e.to);
+    if (!a || !b) return "";
+    const forward = a.x <= b.x;
+    const x1 = forward ? a.x + SYS_W : a.x;
+    const x2 = forward ? b.x : b.x + SYS_W;
+    const y1 = a.y + SYS_H / 2, y2 = b.y + SYS_H / 2;
+    const selected = S.selectedEdge === edgeKey(e);
+    const st = edgeStyle(e, selected);
+    const d = curvePath(x1, y1, x2, y2);
+    const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2 - 8;
+    const label = e.source === "ai" ? "AI" : e.datasetEdgeCount > 0 ? "×" + e.datasetEdgeCount : "显式";
+    const lw = label.length > 2 ? 42 : 30;
+    const isCycle = cycleEdgeKeys.has(edgeKey(e)) || (cycleIds.has(e.from) && cycleIds.has(e.to));
+    return '<g>' +
+      '<path class="edge-hit" d="' + d + '" fill="none" stroke="transparent" stroke-width="16" onclick="selectEdge(\'' + edgeKey(e) + '\')"><title>' + esc(edgeTitle(e)) + '</title></path>' +
+      '<path class="edge-visible" d="' + d + '" fill="none" stroke="' + st.color + '" stroke-width="' + st.width + '"' +
+        (st.dash ? ' stroke-dasharray="' + st.dash + '"' : "") +
+        ' marker-end="url(#ah' + st.color.slice(1) + ')" opacity="' + (selected ? "1" : "0.9") + '"></path>' +
+      '<rect x="' + (midX - lw / 2) + '" y="' + (midY - 9) + '" width="' + lw + '" height="16" rx="8" fill="#fff" stroke="' + st.color + '" stroke-opacity=".35"></rect>' +
+      '<text x="' + midX + '" y="' + (midY + 2) + '" text-anchor="middle" font-size="9" fill="' + st.color + '">' + esc(label) + '</text>' +
+      (isCycle ? '<text x="' + (midX + lw / 2 + 6) + '" y="' + (midY + 2) + '" font-size="9" fill="#B45309">环</text>' : "") +
+    '</g>';
+  }).join("");
+  const W = 1500, H = 760;
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.innerHTML = "<defs>" + markers + "</defs>" + paths;
+  // 画布容器尺寸
+  const inner = document.getElementById("canvasInner");
+  if (inner) { inner.style.width = W + "px"; inner.style.height = H + "px"; }
+}
+function curvePath(x1, y1, x2, y2) {
+  const dx = Math.max(42, Math.abs(x2 - x1) * 0.45);
+  const sign = x2 >= x1 ? 1 : -1;
+  return "M " + x1 + " " + y1 + " C " + (x1 + dx * sign) + " " + y1 + ", " + (x2 - dx * sign) + " " + y2 + ", " + x2 + " " + y2;
+}
+function edgeTitle(e) {
+  const parts = [e.from + " → " + e.to, "来源: " + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin])];
+  if (e.datasetEdgeCount) parts.push("数据集级证据: " + e.datasetEdgeCount + " 条");
+  if (e.transform) parts.push("接口: " + e.transform);
+  if (e.note) parts.push("备注: " + e.note);
+  parts.push("置信度: " + e.confidence.toFixed(2));
+  return parts.join("\n");
+}
+
+/* ============================================================
+   画布：数据集视图
+   ============================================================ */
+const DS_W = 200;
+function dsHeight(d, expanded) {
+  if (!expanded) return 64;
+  return 42 + d.fields.length * 24 + 6;
+}
+function drawDatasetGraph(layer, svg) {
+  const datasets = visibleDatasets();
+  const edges = visibleDatasetEdges();
+  const ids = new Set(datasets.map(d => d.id));
+  const expanded = S.expandedDatasets;
+  layer.innerHTML = datasets.map(d => {
+    const s = d.systemId ? sys(d.systemId) : null;
+    const t = s ? typeMeta(s.type) : typeMeta("other");
+    const isExpanded = !!expanded[d.id];
+    const selected = S.selectedDataset === d.id;
+    const rows = isExpanded ? d.fields.map(f =>
+      '<div class="field-row ' + (S.selectedField && S.selectedField.ds === d.id && S.selectedField.f === f.name ? "selected" : "") +
+      '" onclick="event.stopPropagation();selectField(\'' + d.id + '\',\'' + f.name + '\')">' +
+      '<span class="f-dot"></span><span class="fname">' + esc(f.name) + '</span><span class="ftype">' + esc(f.type) + '</span></div>'
+    ).join("") : "";
+    return '<div class="ds-node ' + (selected ? "selected" : "") + '" style="left:' + d.x + 'px;top:' + d.y + 'px" ' +
+      'onclick="delayedSelectDataset(\'' + d.id + '\')" ondblclick="drillDatasetNow(\'' + d.id + '\')" title="单击查看详情，双击进入字段视图">' +
+      '<div class="ds-head" style="border-left:3px solid ' + t.color + '">' +
+        '<div style="min-width:0;flex:1"><div class="ds-name">' + esc(d.name) + '</div><div class="ds-id">' + d.id + '</div></div>' +
+        '<span class="ds-sys">' + (s ? esc(s.name) : "未归属") + '</span>' +
+      '</div>' + rows +
+      (isExpanded ? "" : '<div class="faint" style="padding:5px 9px;font-size:10px;border-top:1px solid var(--line-soft)">' + d.fields.length + ' 字段 · 双击看字段视图</div>') +
+    '</div>';
+  }).join("");
+  const markers = ["#475569", "#0D9488", "#4F46E5", "#94A3B8", "#EA580C"].map(c =>
+    '<marker id="dah' + c.slice(1) + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+    '<path d="M 0 0 L 10 5 L 0 10 z" fill="' + c + '"/></marker>').join("");
+  const paths = edges.map(e => {
+    const a = ds(e.from), b = ds(e.to);
+    if (!a || !b || !ids.has(a.id) || !ids.has(b.id)) return "";
+    const ah = dsHeight(a, expanded[a.id]), bh = dsHeight(b, expanded[b.id]);
+    const forward = a.x <= b.x;
+    const x1 = forward ? a.x + DS_W : a.x;
+    const x2 = forward ? b.x : b.x + DS_W;
+    const y1 = a.y + ah / 2, y2 = b.y + bh / 2;
+    const selected = S.selectedEdge === "ds:" + e.id;
+    const color = selected ? "#EA580C" : e.source === "ai" ? "#4F46E5" : e.source === "manual" ? "#0D9488" : "#94A3B8";
+    const dash = selected ? "7 4" : e.source === "ai" ? "6 5" : e.source === "manual" ? "" : "4 5";
+    const d = curvePath(x1, y1, x2, y2);
+    return '<g>' +
+      '<path class="edge-hit" d="' + d + '" fill="none" stroke="transparent" stroke-width="14" onclick="selectDatasetEdge(' + e.id + ')"><title>' + esc(e.from + "." + e.fromField + " → " + e.to + "." + e.toField) + '</title></path>' +
+      '<path class="edge-visible" d="' + d + '" fill="none" stroke="' + color + '" stroke-width="' + (selected ? 2.6 : 1.5) + '"' +
+        (dash ? ' stroke-dasharray="' + dash + '"' : "") + ' marker-end="url(#dah' + color.slice(1) + ')" opacity=".88"></path>' +
+    '</g>';
+  }).join("");
+  const W = 1560, H = 820;
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.innerHTML = "<defs>" + markers + "</defs>" + paths;
+  const inner = document.getElementById("canvasInner");
+  if (inner) { inner.style.width = W + "px"; inner.style.height = H + "px"; }
+}
+
+/* ============================================================
+   画布：字段视图
+   ============================================================ */
+const FW = 240, FROW = 26, FHEAD = 40;
+function drawFieldGraph(layer, svg) {
+  const { focus, nodes, edges } = fieldViewData();
+  const upstream = new Set(), downstream = new Set();
+  edges.forEach(e => {
+    if (e.to === focus) upstream.add(e.from);
+    if (e.from === focus) downstream.add(e.to);
+  });
+  const positions = {};
+  let uy = 40, dy = 40, fy = 40;
+  nodes.forEach(n => {
+    if (n.id === focus) { positions[n.id] = { x: 380, y: fy, fields: n.fields.map(f => f.name) }; return; }
+    if (upstream.has(n.id) && downstream.has(n.id)) { positions[n.id] = { x: 700, y: dy, fields: involvedFields(n.id, edges, focus) }; dy += 180; return; }
+    if (upstream.has(n.id)) { positions[n.id] = { x: 40, y: uy, fields: involvedFields(n.id, edges, focus) }; uy += 180; return; }
+    if (downstream.has(n.id)) { positions[n.id] = { x: 720, y: dy, fields: involvedFields(n.id, edges, focus) }; dy += 180; return; }
+    positions[n.id] = { x: 40, y: uy, fields: involvedFields(n.id, edges, focus) }; uy += 180;
+  });
+  const nodeH = id => FHEAD + positions[id].fields.length * FROW + 8;
+  layer.innerHTML = nodes.map(n => {
+    const p = positions[n.id];
+    const s = n.systemId ? sys(n.systemId) : null;
+    const t = s ? typeMeta(s.type) : typeMeta("other");
+    const rows = p.fields.map(fname => {
+      const f = n.fields.find(x => x.name === fname);
+      if (!f) return "";
+      const selected = S.selectedField && S.selectedField.ds === n.id && S.selectedField.f === fname;
+      return '<div class="field-row ' + (selected ? "selected" : "") + '" onclick="selectField(\'' + n.id + '\',\'' + fname + '\')">' +
+        '<span class="f-dot"></span><span class="fname">' + esc(fname) + '</span><span class="ftype">' + esc(f.type) + '</span></div>';
+    }).join("");
+    return '<div class="ds-node ' + (n.id === focus ? "selected" : "") + '" style="left:' + p.x + 'px;top:' + p.y + 'px;width:' + FW + 'px" ' +
+      'onclick="selectDataset(\'' + n.id + '\')">' +
+      '<div class="ds-head" style="border-left:3px solid ' + t.color + '">' +
+        '<div style="min-width:0;flex:1"><div class="ds-name">' + esc(n.name) + '</div><div class="ds-id">' + n.id + '</div></div>' +
+        '<span class="ds-sys">' + (s ? esc(s.name) : "未归属") + '</span>' +
+      '</div>' + rows + '</div>';
+  }).join("");
+  const markers = ["#475569", "#0D9488", "#4F46E5", "#EA580C"].map(c =>
+    '<marker id="fah' + c.slice(1) + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+    '<path d="M 0 0 L 10 5 L 0 10 z" fill="' + c + '"/></marker>').join("");
+  const rowY = (nid, fname) => {
+    const p = positions[nid];
+    const idx = p.fields.indexOf(fname);
+    return p.y + FHEAD + idx * FROW + FROW / 2;
+  };
+  const paths = edges.filter(e => positions[e.from] && positions[e.to]).map(e => {
+    const a = positions[e.from], b = positions[e.to];
+    const forward = a.x <= b.x;
+    const x1 = forward ? a.x + FW : a.x;
+    const x2 = forward ? b.x : b.x + FW;
+    const y1 = rowY(e.from, e.fromField);
+    const y2 = rowY(e.to, e.toField);
+    const selected = S.selectedEdge === "ds:" + e.id;
+    const color = selected ? "#EA580C" : e.source === "ai" ? "#4F46E5" : e.source === "manual" ? "#0D9488" : "#94A3B8";
+    const dash = selected ? "7 4" : e.source === "ai" ? "6 5" : e.source === "manual" ? "" : "4 5";
+    const d = curvePath(x1, y1, x2, y2);
+    return '<g>' +
+      '<path class="edge-hit" d="' + d + '" fill="none" stroke="transparent" stroke-width="14" onclick="selectDatasetEdge(' + e.id + ')"><title>' + esc(e.from + "." + e.fromField + " → " + e.to + "." + e.toField + "\n" + e.transform) + '</title></path>' +
+      '<path class="edge-visible" d="' + d + '" fill="none" stroke="' + color + '" stroke-width="' + (selected ? 2.6 : 1.5) + '"' +
+        (dash ? ' stroke-dasharray="' + dash + '"' : "") + ' marker-end="url(#fah' + color.slice(1) + ')" opacity=".9"></path>' +
+    '</g>';
+  }).join("");
+  const W = 1120, H = 620;
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  svg.innerHTML = "<defs>" + markers + "</defs>" + paths;
+  const inner = document.getElementById("canvasInner");
+  if (inner) { inner.style.width = W + "px"; inner.style.height = H + "px"; }
+}
+
+/* ============================================================
+   详情面板
+   ============================================================ */
+function detailHtml() {
+  if (S.selectedEdge && S.selectedEdge.indexOf("->") >= 0 && S.level === "system") {
+    const e = S.systemEdges.find(x => edgeKey(x) === S.selectedEdge);
+    if (e) return systemEdgeDetail(e);
+  }
+  if (S.selectedEdge && S.selectedEdge.indexOf("ds:") === 0) {
+    const id = +S.selectedEdge.slice(3);
+    const e = DATASET_EDGES.find(x => x.id === id);
+    if (e) return datasetEdgeDetail(e);
+  }
+  if (S.level === "system") {
+    const s = sys(S.selectedSystem) || sys(S.seed);
+    return systemDetail(s);
+  }
+  if (S.level === "dataset") {
+    const d = ds(S.selectedDataset) || visibleDatasets()[0];
+    return d ? datasetDetail(d) : "<h3>数据集</h3><div class='faint'>当前闭包内没有数据集。</div>";
+  }
+  const d = ds(S.selectedDataset);
+  return d ? fieldDetail(d, S.selectedField) : "<h3>字段</h3><div class='faint'>请选择一个字段。</div>";
+}
+
+function systemDetail(s) {
+  if (!s) return "<h3>系统</h3><div class='faint'>请选择一个系统。</div>";
+  const t = typeMeta(s.type);
+  const datasets = DATASETS.filter(d => d.systemId === s.id);
+  const visibleEdges = visibleSystemEdges();
+  const ups = visibleEdges.filter(e => e.to === s.id);
+  const downs = visibleEdges.filter(e => e.from === s.id);
+  const annos = SYSTEM_ANNOTATIONS[s.id] || [];
+  const hop = systemClosure();
+  return '<h3>' + esc(s.name) + ' <span class="badge ' + t.cls + '" style="vertical-align:2px">' + t.label + '</span></h3>' +
+    '<div class="sub">' + s.id + ' · ' + (s.owner || "未登记负责人") + ' · hop ' + (hop.get(s.id) != null ? hop.get(s.id) : "-") + '</div>' +
+    '<div style="color:var(--ink-soft);font-size:12px;margin-bottom:10px">' + esc(s.desc) + '</div>' +
+    '<div style="display:flex;gap:6px">' +
+      '<button class="btn btn-primary" style="flex:1;justify-content:center" onclick="drillSystem(\'' + s.id + '\')">下钻数据集视图</button>' +
+      (canWrite() ? '<button class="btn" onclick="toast(\'原型演示：编辑系统属性（editor+）\',\'warn\')">编辑</button>' : "") +
+    '</div>' +
+    '<div class="sec-t">概览</div>' +
+    '<div class="kv"><span class="k">数据集</span><span class="v">' + datasets.length + ' 个</span></div>' +
+    '<div class="kv"><span class="k">上游系统</span><span class="v">' + ups.length + ' 个</span></div>' +
+    '<div class="kv"><span class="k">下游系统</span><span class="v">' + downs.length + ' 个</span></div>' +
+    '<div class="kv"><span class="k">相邻系统边</span><span class="v">' + (ups.length + downs.length) + ' 条（含投影）</span></div>' +
+    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="selectEdge(\'' + edgeKey(e) + '\')">' + e.from + ' → ' + s.id + ' <span class="hop">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + ' · 证据 ' + e.datasetEdgeCount + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头系统（无上游）</span>') +
+    '</div>' +
+    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="selectEdge(\'' + edgeKey(e) + '\')">' + s.id + ' → ' + e.to + ' <span class="hop">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + ' · 证据 ' + e.datasetEdgeCount + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子系统（无下游）</span>') +
+    '</div>' +
+    '<div class="sec-t">数据集（' + datasets.length + '）</div>' +
+    datasets.map(d => '<div class="evi" onclick="drillDataset(\'' + d.id + '\')"><div class="f">' + esc(d.name) + '</div><div class="m">' + d.id + ' · ' + d.fields.length + ' 字段</div></div>').join("") +
+    (annos.length ? '<div class="sec-t">系统注释</div>' + annos.map(a => '<div class="anno">' + esc(a.body) + '<div class="meta">' + esc(a.author) + ' · ' + esc(a.at) + '</div></div>').join("") : "") +
+    '<div class="sec-t">系统级查询（Kùzu Cypher）</div>' +
+    '<div class="codelist">' + esc('MATCH p = (s:System {id: "' + s.id + '"})\n  <-[:LINEAGE_SYSTEM*1..' + S.hops + ']-(up:System)\nRETURN DISTINCT up.id, min(length(p)) AS hop\nORDER BY hop;') + '</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:8px;line-height:1.6">系统属性来自 SQLite；N 跳遍历走 Kùzu。图 dirty 时自动重建，失败则降级 v_system_edge 递归 CTE。</div>';
+}
+
+function systemEdgeDetail(e) {
+  const originCls = e.source === "ai" ? "origin-ai" : "origin-" + e.origin;
+  return '<button class="btn btn-ghost btn-xs" onclick="S.selectedEdge=null;render()">← 返回系统</button>' +
+    '<h3 style="margin-top:6px">' + esc(e.from) + ' → ' + esc(e.to) + '</h3>' +
+    '<div class="sub">系统级血缘 · <span class="badge ' + originCls + '">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + '</span></div>' +
+    '<div class="kv"><span class="k">上游</span><span class="v">' + esc((sys(e.from) || {}).name || e.from) + '</span></div>' +
+    '<div class="kv"><span class="k">下游</span><span class="v">' + esc((sys(e.to) || {}).name || e.to) + '</span></div>' +
+    '<div class="kv"><span class="k">来源</span><span class="v">' + SRC_LABEL[e.source] + ' · 置信度 ' + e.confidence.toFixed(2) + '</span></div>' +
+    '<div class="kv"><span class="k">证据</span><span class="v">' + e.datasetEdgeCount + ' 条数据集级边</span></div>' +
+    (e.transform ? '<div class="kv"><span class="k">接口/加工</span><span class="v">' + esc(e.transform) + '</span></div>' : "") +
+    (e.note ? '<div class="anno" style="margin-top:10px">' + esc(e.note) + '</div>' : "") +
+    '<div class="sec-t">关系证据（SQLite edge）</div>' +
+    (e.evidence.length ? e.evidence.map(x =>
+      '<div class="evi" onclick="jumpEvidence(' + x.id + ')">' +
+        '<div class="f">' + esc(x.from) + '.' + esc(x.fromField) + ' → ' + esc(x.to) + '.' + esc(x.toField) + '</div>' +
+        '<div class="m">' + esc(x.transform) + ' · ' + SRC_LABEL[x.source] + ' · conf ' + x.confidence.toFixed(2) + '</div>' +
+      '</div>').join("") :
+      '<div class="card" style="padding:10px;background:var(--subtle);border-style:dashed;font-size:11.5px;color:var(--ink-muted)">' +
+        '纯显式系统边：没有数据集级证据。它表达的是「系统间接口」这一粗粒度关系，允许存在；下钻时不会伪造底层表级血缘。' +
+      '</div>') +
+    '<div class="sec-t">为什么合并成一条边</div>' +
+    '<div class="codelist">' + esc(
+      '-- SQLite：显式边 ∪ 数据集边投影\n' +
+      'SELECT from_system, to_system, origin,\n' +
+      '       dataset_edge_count, system_edge_id\n' +
+      'FROM v_system_edge\n' +
+      'WHERE from_system = \'' + e.from + '\'\n' +
+      '  AND to_system   = \'' + e.to + '\';'
+    ) + '</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:8px;line-height:1.6">origin=both 时显式边属性优先；dataset_edge_count 来自投影，不落库。</div>';
+}
+
+function datasetDetail(d) {
+  const s = d.systemId ? sys(d.systemId) : null;
+  const ups = DATASET_EDGES.filter(e => e.to === d.id);
+  const downs = DATASET_EDGES.filter(e => e.from === d.id);
+  return '<h3>' + esc(d.name) + ' <span class="badge" style="vertical-align:2px">' + d.fields.length + ' 字段</span></h3>' +
+    '<div class="sub">' + d.id + ' · ' + (s ? esc(s.name) : "未归属系统") + '</div>' +
+    '<div style="display:flex;gap:6px;margin-bottom:8px">' +
+      '<button class="btn btn-primary" style="flex:1;justify-content:center" onclick="drillDataset(\'' + d.id + '\')">进入字段视图</button>' +
+      (canWrite() ? '<button class="btn" onclick="toast(\'原型演示：修改数据集归属（editor+）\',\'warn\')">改归属</button>' : "") +
+    '</div>' +
+    '<div class="sec-t">字段</div>' +
+    d.fields.map(f => '<div class="evi" onclick="selectField(\'' + d.id + '\',\'' + f.name + '\')"><div class="f">' + esc(f.name) + ' <span class="faint" style="font-size:10px">' + esc(f.type) + '</span></div><div class="m">' + esc(f.desc) + '</div></div>').join("") +
+    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.from + '.' + e.fromField + ' <span class="hop">→ ' + e.toField + ' · ' + SRC_LABEL[e.source] + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头数据集（无上游）</span>') +
+    '</div>' +
+    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.to + '.' + e.toField + ' <span class="hop">← ' + e.fromField + ' · ' + SRC_LABEL[e.source] + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子数据集（无下游）</span>') +
+    '</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:12px;line-height:1.6">双击画布节点可直接进入字段视图；字段级证据始终来自 SQLite edge 表。</div>';
+}
+
+function datasetEdgeDetail(e) {
+  return '<button class="btn btn-ghost btn-xs" onclick="S.selectedEdge=null;render()">← 返回</button>' +
+    '<h3 style="margin-top:6px">字段级血缘 #' + e.id + '</h3>' +
+    '<div class="sub">' + esc(e.from) + ' → ' + esc(e.to) + '</div>' +
+    '<div class="kv"><span class="k">上游字段</span><span class="v mono">' + esc(e.from + "." + e.fromField) + '</span></div>' +
+    '<div class="kv"><span class="k">下游字段</span><span class="v mono">' + esc(e.to + "." + e.toField) + '</span></div>' +
+    '<div class="kv"><span class="k">转换</span><span class="v">' + esc(e.transform) + '</span></div>' +
+    '<div class="kv"><span class="k">来源</span><span class="v">' + SRC_LABEL[e.source] + ' · 置信度 ' + e.confidence.toFixed(2) + '</span></div>' +
+    '<div style="margin-top:10px;display:flex;gap:6px">' +
+      '<button class="btn btn-primary" onclick="jumpEvidence(' + e.id + ')">在字段视图定位</button>' +
+    '</div>' +
+    '<div class="sec-t">它贡献了哪条系统边</div>' +
+    '<div class="codelist">' + esc(
+      '-- 投影：dataset.system_id 把字段边折叠为系统边\n' +
+      'SELECT d_from.system_id, d_to.system_id,\n' +
+      '       COUNT(DISTINCT e.from_dataset || \'->\' || e.to_dataset)\n' +
+      'FROM edge e JOIN dataset d_from ... JOIN dataset d_to ...\n' +
+      'GROUP BY 1, 2;'
+    ) + '</div>';
+}
+
+function fieldDetail(d, sel) {
+  const f = sel ? d.fields.find(x => x.name === sel.f) : d.fields[0];
+  if (!f) return "<h3>字段</h3><div class='faint'>请选择一个字段。</div>";
+  const ups = DATASET_EDGES.filter(e => e.to === d.id && e.toField === f.name);
+  const downs = DATASET_EDGES.filter(e => e.from === d.id && e.fromField === f.name);
+  return '<h3>' + esc(f.name) + ' <span class="badge" style="vertical-align:2px">' + esc(f.type) + '</span></h3>' +
+    '<div class="sub">' + d.id + ' · ' + esc(d.name) + '</div>' +
+    '<div style="color:var(--ink-soft);font-size:12px;margin-bottom:10px">' + esc(f.desc) + '</div>' +
+    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.from + '.' + e.fromField + ' <span class="hop">→ ' + SRC_LABEL[e.source] + ' ' + e.confidence.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头字段（无上游）</span>') +
+    '</div>' +
+    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.to + '.' + e.toField + ' <span class="hop">← ' + SRC_LABEL[e.source] + ' ' + e.confidence.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子字段（无下游）</span>') +
+    '</div>' +
+    '<div class="sec-t">字段级查询（Kùzu Cypher）</div>' +
+    '<div class="codelist">' + esc('MATCH (src:Field)-[r:LINEAGE_FIELD]->\n      (f:Field {id: "' + d.id + '.' + f.name + '"})\nRETURN src.id, r.edge_id, r.confidence;') + '</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:10px;line-height:1.6">字段视图只用于核对系统边的底层证据；系统级关系不替代字段级血缘。</div>';
+}
+
+function renderDetail() {
+  const el = document.getElementById("detailPanel");
+  if (el) el.innerHTML = detailHtml();
+}
+
+/* ============================================================
+   交互
+   ============================================================ */
+function goLevel(level) {
+  if (level === "field" && !S.selectedDataset) { toast("先在数据集视图选择一个数据集", "warn"); return; }
+  S.level = level;
+  S.selectedEdge = null;
+  S.needsFit = true;
+  render();
+}
+function onSearch(v) {
+  S.search = v;
+  const side = document.querySelector(".side");
+  if (side) side.outerHTML = sideHtml();
+}
+function switchRole(role) {
+  S.role = role;
+  toast("已切换视角：" + (role === "admin" ? "陈明（管理员）" : role === "editor" ? "李雪（维护者）" : "王珂（只读）"));
+  render();
+}
+function setSeed(id) {
+  S.seed = id;
+  S.selectedSystem = id;
+  S.selectedEdge = null;
+  S.needsFit = true;
+  render();
+  toast("系统闭包已重算：Kùzu LINEAGE_SYSTEM *1.." + S.hops);
+}
+function setHops(v) { S.hops = +v; render(); toast("重新取系统子图：*1.." + S.hops); }
+function setDirection(v) { S.direction = v; render(); }
+function toggleFilter(k, v) { S.filters[k] = v; render(); }
+function toggleAllDatasets(v) { S.showAllDatasets = v; S.needsFit = true; render(); }
+function toggleEdgeDrawer() { S.showEdgeDrawer = !S.showEdgeDrawer; render(); }
+function selectSystem(id) {
+  S.selectedSystem = id;
+  S.selectedEdge = null;
+  render();
+}
+function drillSystem(id) {
+  S.selectedSystem = id;
+  S.seed = id;
+  S.selectedEdge = null;
+  S.selectedDataset = (DATASETS.find(d => d.systemId === id) || {}).id || S.selectedDataset;
+  S.level = "dataset";
+  S.needsFit = true;
+  render();
+  toast("下钻：数据集视图 · " + id);
+}
+function selectDataset(id) {
+  S.selectedDataset = id;
+  S.selectedEdge = null;
+  if (!S.selectedField || S.selectedField.ds !== id) {
+    const d = ds(id);
+    S.selectedField = d && d.fields.length ? { ds: id, f: d.fields[0].name } : null;
+  }
+  if (S.level === "dataset") S.needsFit = true;
+  render();
+}
+function drillDataset(id) {
+  S.selectedDataset = id;
+  S.level = "field";
+  S.selectedEdge = null;
+  const d = ds(id);
+  if (d && d.fields.length) S.selectedField = { ds: id, f: d.fields[0].name };
+  S.needsFit = true;
+  render();
+  toast("下钻：字段视图 · " + id);
+}
+function selectField(dsid, fname) {
+  S.selectedDataset = dsid;
+  S.selectedField = { ds: dsid, f: fname };
+  S.selectedEdge = null;
+  if (S.level === "system") S.level = "dataset";
+  render();
+}
+function selectEdge(key) {
+  S.selectedEdge = key;
+  const e = S.systemEdges.find(x => edgeKey(x) === key);
+  if (e) S.selectedSystem = e.from;
+  render();
+}
+function selectDatasetEdge(id) {
+  S.selectedEdge = "ds:" + id;
+  const e = DATASET_EDGES.find(x => x.id === id);
+  if (e) S.selectedDataset = e.from;
+  render();
+}
+function jumpEvidence(id) {
+  const e = DATASET_EDGES.find(x => x.id === id);
+  if (!e) return;
+  S.selectedDataset = e.from;
+  S.selectedField = { ds: e.from, f: e.fromField };
+  S.selectedEdge = "ds:" + id;
+  S.level = "field";
+  render();
+  toast("已定位到底层字段证据 #" + id);
+}
+function showUnassigned() {
+  const list = DATASETS.filter(d => !d.systemId);
+  S.level = "dataset";
+  S.showAllDatasets = true;
+  S.selectedDataset = list.length ? list[0].id : S.selectedDataset;
+  S.needsFit = true;
+  render();
+  toast("已显示全部数据集；未归属项不进入系统图", "warn");
+}
+function cycleGraphState() {
+  S.graphState = S.graphState === "clean" ? "dirty" : S.graphState === "dirty" ? "cte" : "clean";
+  render();
+  const msg = S.graphState === "clean" ? "Kùzu 图已重建（COPY FROM，幂等）" : S.graphState === "dirty" ? "图已标脏；下次读请求自动重建" : "Kùzu 不可用：已降级 SQLite v_system_edge 递归 CTE";
+  toast(msg, S.graphState === "clean" ? "ok" : "warn");
+}
+function toggleCycleDemo() {
+  S.demoCycle = !S.demoCycle;
+  S.systemEdges = buildSystemEdges(S.demoCycle);
+  render();
+  toast(S.demoCycle ? "已注入系统级聚合环（BI → 数仓）；注意：数据集级没有反向血缘" : "已移除演示环", S.demoCycle ? "warn" : "ok");
+}
+function zoomBy(k) { S.zoom = Math.min(2, Math.max(0.4, S.zoom * k)); applyView(); }
+function focusCanvas(level) {
+  const area = document.getElementById("canvasArea");
+  if (!area) return;
+  const aw = area.clientWidth || 900;
+  const ah = area.clientHeight || 700;
+  if (level === "system") {
+    const xs = SYSTEMS.map(s => s.x), ys = SYSTEMS.map(s => s.y);
+    const minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs) + SYS_W;
+    const minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys) + SYS_H;
+    const pad = 22;
+    const z = Math.max(0.52, Math.min(0.95, (aw - pad * 2) / (maxX - minX), (ah - pad * 2) / (maxY - minY)));
+    S.zoom = z;
+    S.panX = Math.round(pad - minX * z);
+    S.panY = Math.round(pad - minY * z);
+  } else if (level === "dataset") {
+    const d = ds(S.selectedDataset) || visibleDatasets()[0] || DATASETS[0];
+    S.zoom = 0.72;
+    S.panX = Math.round(aw / 2 - (d.x + DS_W / 2) * S.zoom);
+    S.panY = Math.round(ah / 2 - (d.y + 60) * S.zoom);
+  } else {
+    S.zoom = 0.9;
+    S.panX = Math.round(aw / 2 - (380 + FW / 2) * S.zoom);
+    S.panY = Math.round(ah / 2 - 150 * S.zoom);
+  }
+  applyView();
+}
+function resetView() { S.needsFit = false; focusCanvas(S.level); }
+function applyView() {
+  const el = document.getElementById("canvasInner");
+  if (el) el.style.transform = "translate(" + S.panX + "px," + S.panY + "px) scale(" + S.zoom + ")";
+}
+let panning = null;
+function panStart(ev) {
+  if (ev.target.closest(".sys-node") || ev.target.closest(".ds-node") || ev.target.closest(".zoomctl") || ev.target.closest(".edge-drawer")) return;
+  panning = { x: ev.clientX, y: ev.clientY, px: S.panX, py: S.panY };
+  const move = e2 => {
+    if (!panning) return;
+    S.panX = panning.px + (e2.clientX - panning.x);
+    S.panY = panning.py + (e2.clientY - panning.y);
+    applyView();
+  };
+  const up = () => { panning = null; window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+  window.addEventListener("mousemove", move); window.addEventListener("mouseup", up);
+}
+document.addEventListener("wheel", ev => {
+  const area = ev.target.closest && ev.target.closest(".canvas-area");
+  if (!area) return;
+  ev.preventDefault();
+  zoomBy(ev.deltaY < 0 ? 1.08 : 0.92);
+}, { passive: false });
+
+/* ============================================================
+   架构说明弹层
+   ============================================================ */
+function openArch() {
+  const html =
+    '<div class="arch-grid">' +
+      '<div class="arch-box">' +
+        '<h4><span class="arch-tag badge-info">SQLite · 唯一事实源</span>实体属性 + 入口检索</h4>' +
+        '<ul>' +
+          '<li><code>system</code>：系统目录（名称/类型/负责人/说明）</li>' +
+          '<li><code>dataset.system_id</code>：数据集归属</li>' +
+          '<li><code>system_edge</code>：显式系统边（接口/置信度/来源）</li>' +
+          '<li><code>v_system_edge</code>：显式边 ∪ 数据集边投影</li>' +
+          '<li><code>change_log</code>：系统/归属/系统边的版本与回滚</li>' +
+        '</ul>' +
+      '</div>' +
+      '<div class="arch-box">' +
+        '<h4><span class="arch-tag badge-brand">Kùzu · 派生层</span>关系实例 + 链路遍历</h4>' +
+        '<ul>' +
+          '<li><code>System</code> 节点：只存 id/name/type</li>' +
+          '<li><code>LINEAGE_SYSTEM</code>：系统级关系实例</li>' +
+          '<li><code>Dataset.system_id</code>：归属属性，供下钻过滤</li>' +
+          '<li>N 跳：<code>*1..n</code> 变长路径 + <code>min(length(p))</code></li>' +
+          '<li>随时可从 SQLite 全量重建，可整体移除</li>' +
+        '</ul>' +
+      '</div>' +
+      '<div class="arch-box">' +
+        '<h4><span class="arch-tag badge-ok">同一渲染协议</span>不另起炉灶</h4>' +
+        '<ul>' +
+          '<li><code>SystemGraphPayload</code> 与 <code>GraphPayload</code> 同构</li>' +
+          '<li>同一画布：系统 / 数据集 / 字段三级切换</li>' +
+          '<li>同一套过滤、缩放、详情、边列表</li>' +
+          '<li>AI 出图与手工浏览共用 <code>applyGraph</code></li>' +
+          '<li>无新增服务、消息队列或搜索集群</li>' +
+        '</ul>' +
+      '</div>' +
+    '</div>' +
+    '<div class="flowrow"><b>GET /lineage/systems</b><span>→</span><b>图路由</b><span>（clean 走 Kùzu；dirty 自动重建；失败降级 CTE）</span><span>→</span><b>SystemGraphPayload</b><span>→</span><b>同一画布</b></div>' +
+    '<div style="display:flex;gap:12px;align-items:stretch">' +
+      '<div class="principle" style="background:var(--brand-50);border:1px solid var(--brand-200)">' +
+        '<div class="pt"><span class="pn" style="background:var(--brand-700)">1</span>系统边可解释</div>' +
+        '每条系统边必须带 <code>origin</code>（explicit/derived/both）与 <code>dataset_edge_count</code>；投影边能列出底层数据集边，显式边允许没有数据集证据，但不允许「无法解释来源的线」。' +
+      '</div>' +
+      '<div class="principle" style="background:var(--info-soft);border:1px solid #BFDBFE">' +
+        '<div class="pt"><span class="pn" style="background:var(--info-deep)">2</span>投影不落库</div>' +
+        '数据集边 + <code>dataset.system_id</code> 实时投影为系统边，避免「数据集边改了、系统边忘了改」的双写漂移；只有显式边落 <code>system_edge</code> 并参与版本。' +
+      '</div>' +
+      '<div class="principle" style="background:var(--warning-soft);border:1px solid #FDE68A">' +
+        '<div class="pt"><span class="pn" style="background:var(--warning-deep)">3</span>环要检测，不阻断</div>' +
+        '数据集级无环不代表系统级无环：聚合可能产生环。查询用 <code>DISTINCT</code> + <code>min(hop)</code> + 跳数上限；UI 标记「系统级聚合环」，不据此判定数据集级有环。' +
+      '</div>' +
+    '</div>' +
+    '<div class="sec-t" style="margin-top:14px">关键 SQL / Cypher</div>' +
+    '<div class="codelist">' + esc(
+      '-- SQLite：系统级关系视图（显式 ∪ 投影）\n' +
+      'CREATE VIEW v_system_edge AS\n' +
+      'WITH derived AS (\n' +
+      '  SELECT d_from.system_id AS from_system, d_to.system_id AS to_system,\n' +
+      '         COUNT(DISTINCT e.from_dataset || \'->\' || e.to_dataset) AS dataset_edge_count\n' +
+      '  FROM edge e JOIN dataset d_from ON d_from.id = e.from_dataset\n' +
+      '              JOIN dataset d_to   ON d_to.id   = e.to_dataset\n' +
+      '  WHERE d_from.system_id IS NOT NULL AND d_to.system_id IS NOT NULL\n' +
+      '    AND d_from.system_id <> d_to.system_id\n' +
+      '  GROUP BY 1, 2\n' +
+      ')\n' +
+      'SELECT ... FROM system_edge e LEFT JOIN derived d ...\n' +
+      'UNION ALL SELECT ... FROM derived d LEFT JOIN system_edge e ...;\n\n' +
+      '-- Kùzu：系统级 N 跳上游\n' +
+      'MATCH p = (s:System {id: $sid})<-[:LINEAGE_SYSTEM*1..3]-(up:System)\n' +
+      'RETURN DISTINCT up.id, min(length(p)) AS hop ORDER BY hop;'
+    ) + '</div>' +
+    '<div class="faint" style="font-size:11px;margin-top:10px;line-height:1.6">本原型只验证交互与信息架构，不代表后端已实现。设计定稿见 <code>docs/01_design/Clew-设计方案.md</code> §4.7 / §5.3 与 <code>docs/01_design/Clew-数据模型.md</code> §3.3 / §十。</div>';
+  modal("系统级血缘 · 同一分层架构上的第三层视图", html,
+    '<button class="btn" onclick="toggleCycleDemo();closeModal();openArch()">' + (S.demoCycle ? "移除演示环" : "注入系统级环（演示）") + '</button>' +
+    '<button class="btn btn-primary" onclick="closeModal()">关闭</button>');
+}
+function modal(title, body, foot) {
+  closeModal();
+  const ov = document.createElement("div");
+  ov.className = "overlay"; ov.id = "modal-ov";
+  ov.innerHTML = '<div class="modal"><div class="modal-head"><h3>' + title + '</h3>' +
+    '<button class="btn btn-ghost btn-xs" onclick="closeModal()">✕</button></div>' +
+    '<div class="modal-body">' + body + '</div>' +
+    '<div class="modal-foot">' + (foot || '<button class="btn" onclick="closeModal()">关闭</button>') + '</div></div>';
+  ov.addEventListener("mousedown", e => { if (e.target === ov) closeModal(); });
+  document.body.appendChild(ov);
+}
+function closeModal() { const ov = document.getElementById("modal-ov"); if (ov) ov.remove(); }
+
+/* ============================================================
+   启动
+   ============================================================ */
+render();
+</script>
+</body>
+</html>

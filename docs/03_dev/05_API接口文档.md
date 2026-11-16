@@ -1053,6 +1053,41 @@ SSE 流式对话（M5）：请求体与权限同 13.2，响应 `text/event-strea
   - 写类 2 个：`suggest_lineage`（候选边以 `source='ai'` 落库）、`draft_descriptions`（描述草稿落 `description_draft`）——工具层按调用方角色校验，viewer 触发以工具错误回传模型、不执行写库（08 号 R8）。
 - 对话编排细节（最多 5 轮工具、第 6 次请求不带工具强制收口、`graph` 取最后一次成功图查询、工具结果 >4000 字符拼回前截断、上下文 token 预算整块修剪、客户端断开即停）见 `ai/chat.py` 与 [08_评审修复批次](./08_评审修复批次2026-10-26.md)。
 
+### A9 SystemGraphPayload（系统级血缘子图，设计新增）
+
+`GET /lineage/systems` 与系统级 AI 工具 `trace_system_lineage` 共用；与 A6 `GraphPayload` 同构，前端按 `level` 选择渲染器：
+
+```json
+{
+  "level": "system",
+  "seed": { "id": "dw_platform", "name": "数据仓库" },
+  "hops": 3,
+  "direction": "both",
+  "systems": [
+    { "id": "crm", "name": "CRM 客户系统", "system_type": "source",
+      "owner": "客户平台组", "dataset_count": 2, "is_seed": false, "hop": 2 }
+  ],
+  "edges": [
+    { "from_system": "crm", "to_system": "order_center",
+      "origin": "derived", "dataset_edge_count": 1,
+      "system_edge_id": null, "source": "derived",
+      "confidence": 1.0, "transform": null, "note": null }
+  ],
+  "graph_state": "clean",
+  "engine": "kuzu"
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `systems[].hop` | 距种子系统的最短跳数（`min(length(p))`）；种子为 0 |
+| `edges[].origin` | `explicit`（仅显式边）/ `derived`（仅数据集边投影）/ `both`（两者都有，显式属性优先） |
+| `edges[].dataset_edge_count` | 贡献该边的数据集级边数（按 `from_dataset→to_dataset` 去重）；纯显式边为 0 |
+| `edges[].system_edge_id` | 显式边主键；纯投影边为 `null`（Kùzu 内部用 `-1` 哨兵，API 层统一转 `null`） |
+| `engine` | `kuzu`（主路径）或 `cte`（降级）；与 `graph_state` 一起供前端徽标展示 |
+
+> 证据下钻不在本响应内联：前端选中系统边后调用 `GET /systems/{id}` 或按两端系统过滤 `GET /datasets`，再取 `GET /lineage/subgraph` 获取底层数据集边，避免系统图响应随证据规模膨胀。
+
 ---
 
 ## 十五、设计有、未实现
@@ -1066,6 +1101,30 @@ SSE 流式对话（M5）：请求体与权限同 13.2，响应 `text/event-strea
 | `GET /lineage/trace`（trace_upstream / trace_downstream 映射） | 未实现 `[TBD-BE]` | `GET /lineage/subgraph?direction=up|down`；AI 工具 `trace_lineage` |
 
 另：设计方案 §3.6 提及源文件「经 `GET /files/{id}/download` / `/preview` 权限受控访问」——文件级 `/preview` 未实现，回源预览落地为**字段级** `GET /fields/{dataset_id}/{field_name}/preview`（按定位器预览高亮区域，而非按文件 ID）。
+
+### 15.1 系统级血缘端点（2026-11 设计新增，未实现 `[TBD-BE]`）
+
+以下端点对应设计方案 §4.7 / 数据模型 §9.6，**当前代码未实现**；契约先定稿，供 M6 实施与前端联调。角色与错误语义沿用 §一 通用约定。
+
+| 方法 | 路径 | 最低角色 | 语义 |
+|---|---|---|---|
+| GET | `/systems?q=&system_type=` | viewer | 系统列表；`q` 对 id/name/description 做 LIKE；返回 `id/name/system_type/owner/dataset_count` |
+| GET | `/systems/{system_id}` | viewer | 系统详情：属性 + 数据集清单 + 上下游摘要 + 显式边；不存在 404 |
+| POST | `/systems` | editor | 创建系统；`id` 重复 409；`system_type` 非法 422 |
+| PATCH | `/systems/{system_id}` | editor | 改 `name/description/system_type/owner`；不存在 404 |
+| DELETE | `/systems/{system_id}` | admin | 删除系统；先删显式边、`dataset.system_id` 置 NULL；写 deleted 日志；不存在 404 |
+| PATCH | `/datasets/{dataset_id}` | editor | 设置/清空 `system_id`；系统不存在 404；写 dataset updated 日志 |
+| GET | `/lineage/systems?system=&hops=&direction=` | viewer | 系统级 N 跳子图；`hops` 1~5 默认 3；`direction` both/up/down；返回 `SystemGraphPayload`（A9）；种子不存在 404 |
+| POST | `/ai/suggest/systems` | editor | 系统级 AI 候选边，`source='ai'` 落 `system_edge` |
+| POST | `/ai/suggest/systems/confirm` | editor | 按 `(from_system,to_system)` 转 `manual` |
+| POST | `/ai/suggest/systems/reject` | editor | 删除 AI 系统候选边，204 |
+
+**关键约定**：
+
+- `GET /datasets` 与 `GET /datasets/{dataset_id}` 响应增加可空 `system_id` / `system_name`；`GET /datasets?system_id=` 可选过滤（向后兼容）；
+- `GET /lineage/systems` 的系统边必须返回 `origin`（explicit/derived/both）与 `dataset_edge_count`；纯投影边 `system_edge_id=null`；
+- 系统图查询失败按既有图路由降级 `v_system_edge` 递归 CTE，`engine` 字段返回 `"cte"`，不返回 5xx（主库失败除外）；
+- 系统级写操作（系统/归属/显式边）主库提交后置 `graph_state.state='dirty'`，读路径自动重建 Kùzu。
 
 ---
 
@@ -1084,7 +1143,7 @@ SSE 流式对话（M5）：请求体与权限同 13.2，响应 `text/event-strea
 
 ## 十七、端点总表
 
-共 **32** 个端点（不含 FastAPI 自带的 `/docs`、`/openapi.json`）。角色为代码依赖声明的最低角色；「登录」指任意有效 JWT（不校验角色档位）。
+共 **36** 个端点（不含 FastAPI 自带的 `/docs`、`/openapi.json`）。角色为代码依赖声明的最低角色；「登录」指任意有效 JWT（不校验角色档位）。§15.1 的系统级血缘端点（`/systems`、`/lineage/systems`、`PATCH /datasets/{id}`、`/ai/suggest/systems*`）为 2026-11 设计新增、**尚未实现**，不计入本表；实施后应同步本表与计数。
 
 | # | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|---|

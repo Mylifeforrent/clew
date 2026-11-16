@@ -18,13 +18,14 @@ docs/
 │   └── Clew-数据模型.md      # 数据层：ER 图、表定义、索引、版本重建规则
 ├── 02_prototype/
 │   ├── clew-lofi-prototype.html # 低保真原型（浏览器直接打开，标签页切换 6 个界面，2026-10-23 确认的 UI 基线）
-│   └── clew-hifi-prototype.html # 高保真可点击原型（2026-11 SQLite+Kùzu 双库方案配套：mock 数据、7 个可交互界面含架构总览）
+│   ├── clew-hifi-prototype.html # 高保真可点击原型（2026-11 SQLite+Kùzu 双库方案配套：mock 数据、7 个可交互界面含架构总览）
+│   └── clew-system-lineage-prototype.html # 系统级血缘原型（2026-11：系统视图/数据集视图/字段视图三级切换、系统边证据下钻）
 └── 03_dev/                            # 开发文档（基于 01_design 设计与 prototype 实现整理）
     ├── 01_架构设计.md                   # 系统上下文、模块划分、关键数据流、部署形态、架构决策摘要
     ├── 02_前端开发文档.md               # 前端技术栈、组件清单、血缘画布实现、认证与状态管理
     ├── 03_后端开发文档.md               # 后端技术栈、模块职责、.env 配置、导入/版本/AI 实现说明
     ├── 04_前后端职责边界.md             # 14 个功能域的前后端职责矩阵与安全边界
-    ├── 05_API接口文档.md                # 全部 32 个端点的契约（参数、响应、错误、权限）
+    ├── 05_API接口文档.md                # 全部 36 个端点的契约（参数、响应、错误、权限）
     ├── 06_AI画布联动高亮修复.md          # AI 回答经 mark_highlight 驱动画布追踪高亮：问题/根因/契约/验证记录
     ├── 07_AI模块演进规划.md              # LangChain 化 / 流式 / 对话内建议 / 描述草稿 / MCP：决策记录与技术设计
     └── 08_评审修复批次2026-10-26.md      # 全站评审修复：AI 权限护栏与上下文预算、浮层基座、TopBar 响应式、边键盘可达
@@ -44,10 +45,11 @@ docs/
 | 顺序 | 文档 | 回答的问题 |
 |---|---|---|
 | 1 | [设计方案](./01_design/Clew-设计方案.md) | 为什么这么做：两大开源方案的调研结论、总体架构（2026-11 起为 SQLite 事实源 + Kùzu 血缘图双库）、技术选型、里程碑与已确认决策记录（§十） |
-| 2 | [业务模型](./01_design/Clew-业务模型.md) | 业务上是什么：价值主张、角色权限、12 个领域概念、7 条业务流程、9 条业务不变量 |
-| 3 | [数据模型](./01_design/Clew-数据模型.md) | 数据怎么存：SQLite 11+1 张表逐列定义、定位器 JSON 信封、Kùzu 图 schema 与双写一致性（§十）、回滚重建规则、M2–M5 API 契约增量 |
+| 2 | [业务模型](./01_design/Clew-业务模型.md) | 业务上是什么：价值主张、角色权限、14 个领域概念（含系统/系统级血缘）、8 条业务流程、11 条业务不变量 |
+| 3 | [数据模型](./01_design/Clew-数据模型.md) | 数据怎么存：SQLite 13 张业务表 + graph_state 逐列定义、定位器 JSON 信封、Kùzu 图 schema（含 System/LINEAGE_SYSTEM）与双写一致性（§十）、回滚重建规则、M2–M6 API 契约增量 |
 | 4 | [低保真原型](./02_prototype/clew-lofi-prototype.html) | 长什么样（线框基线）：血缘画布、源文件预览、导入向导、AI 对话、版本与用户、登录 6 个界面 |
 | 5 | [高保真可点击原型](./02_prototype/clew-hifi-prototype.html) | 交互起来什么样（2026-11 双库方案配套演示）：mock 电商订单数仓数据，血缘画布（追踪链/折叠/过滤/缩放）、回源预览、导入向导、AI 工具对话与建议确认、版本标签 diff/回滚（联动图重建）、RBAC 视角切换、存储架构总览 |
+| 6 | [系统级血缘原型](./02_prototype/clew-system-lineage-prototype.html) | 系统间上下游长什么样（2026-11 设计新增）：系统/数据集/字段三级视图切换、显式边与投影边区分、系统边证据下钻、未归属数据集提示、环提示 |
 
 ## 开发文档（03_dev/）
 
@@ -59,7 +61,7 @@ docs/
 | [前端开发文档](./03_dev/02_前端开发文档.md) | 前端技术栈与版本、目录结构、开发工作流、认证与全局状态、API 访问层、组件清单、血缘画布实现、角色权限的 UI 表现 |
 | [后端开发文档](./03_dev/03_后端开发文档.md) | 后端技术栈与版本、模块职责表、.env 配置、数据库与 RBAC、导入流水线、版本与回滚、AI 模块、错误处理约定、测试与运维命令 |
 | [前后端职责边界](./03_dev/04_前后端职责边界.md) | 边界总原则、14 个功能域职责矩阵、认证授权边界、数据契约边界、AI 边界、禁止事项清单 |
-| [API 接口文档](./03_dev/05_API接口文档.md) | 通用约定（认证/错误结构/状态码语义）、按功能域分组的全部端点契约、数据结构附录、端点总表 |
+| [API 接口文档](./03_dev/05_API接口文档.md) | 通用约定（认证/错误结构/状态码语义）、按功能域分组的全部 36 个端点契约、数据结构附录、端点总表（§15.1 另列系统级血缘设计新增端点） |
 | [AI 画布联动高亮修复](./03_dev/06_AI画布联动高亮修复.md) | 一次缺陷修复的完整记录：AI 回答高亮不生效的问题与根因、`mark_highlight` 工具与 `highlights` 契约、前端联动链路、验证记录与已知边界 |
 | [AI 模块演进规划](./03_dev/07_AI模块演进规划.md) | AI 从查询器到治理 copilot 的蓝图：LangChain 接入（OpenAI/DashScope 双供应商）、SSE 流式、对话内建议、描述草稿流、MCP server，以及不引入 LangGraph 等决策记录 |
 | [评审修复批次 2026-10-26](./03_dev/08_评审修复批次2026-10-26.md) | 全站评审（布局/交互/AI）的修复批次：AI 工具角色护栏、SSE 心跳/断开即停、上下文预算、速率限制、浮层基座（ModalShell + useOverlayBehavior）、TopBar 响应式、画布性能与空态、边键盘可达、AI 抽屉停止/清空/内联确认卡 |
@@ -77,6 +79,7 @@ docs/
 | 数据模型 §九 M3 编辑与标注 | `prototype/backend/src/lineagelite/routes/annotations.py`、`routes/fields.py`、`routes/edges.py`、`routes/changes.py`、`routes/version_tags.py`、`changes.py` |
 | 数据模型 §九 M4 AI 接口 | `prototype/backend/src/lineagelite/routes/ai.py`、`ai/suggest.py`、`ai/tools.py`、`ai/chat.py`、`ai/llm.py`；前端 `components/AiAssistantDrawer.tsx`、`components/EdgeDetailPanel.tsx` |
 | 数据模型 §十 Kùzu 图存储 | 设计已定稿、代码待迁移（现有 `backend/src/clew`/`prototype` 仍为单 SQLite 递归 CTE；落地时新增 `graph.py` 双写与重建，读路径路由见该节） |
+| 设计方案 §4.7 系统级血缘 | 设计已定稿、代码待实现；原型见 `docs/02_prototype/clew-system-lineage-prototype.html`，目标模块 `routes/systems.py`、`lineage.system_subgraph()`、`graph.py` |
 | 业务模型 §六 不变量 | 部分由数据库约束保证（边唯一部分索引），部分由服务层校验保证，均有对应测试（`prototype/backend/tests/test_m3_api.py` 等） |
 
 ## 维护约定

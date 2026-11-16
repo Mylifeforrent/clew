@@ -4,6 +4,8 @@
 > 文中未确认的业务事实以 `[ASSUMPTION]` / `[TBD-*]` 标注。
 >
 > **2026-11 存储重设计**：存储层由单 SQLite 演进为 **SQLite（唯一事实源）+ Kùzu 0.11.3（血缘图遍历层）** 双嵌入式库；全部 REST 契约不变，前端无感。方案动机、Kùzu 图模型、双写一致性、归档风险对策见 §4.3–4.5 与 §十（决策 #7/#8）。
+>
+> **2026-11 系统级血缘扩展（设计已定稿，代码待实现）**：在数据集/字段之上增加可选的「系统」层，用于展示**系统间上下游关系**。系统归属与系统边属性存 SQLite，系统级链路遍历走 Kùzu；系统边既可由数据集级血缘自动投影（derived），也可显式登记（explicit），两者合并为同一张关系视图，不引入新的存储栈或渲染协议。详见 §4.7、§5.3、§6.2 与 §十（决策 #9/#10）。
 
 ---
 
@@ -59,6 +61,7 @@
 - 每个字段携带原文件精确定位（文件路径 + 工作表/行/列 / JSONPath），供他人回源核查；
 - 关系型数据库存储，带版本管理；
 - 可视化血缘图（节点/字段折叠、字段级连线）；
+- **系统级上下游视图**：把数据集归属到业务系统后，可在同一画布上查看系统间上下游；系统边可来自数据集级血缘的自动投影，也可显式登记，并可下钻到数据集/字段证据；
 - AI 对话查血缘、动态出图；
 - 基于第一手资料人工纠错、补充说明。
 
@@ -94,6 +97,7 @@
 | `src_type` | **是** | `csv` / `xlsx` / `json`，决定定位器结构 |
 | `src_locator` | **是** | 源文件内定位（结构见 3.2） |
 | `description` | 否 | 字段说明 |
+| `system_id` | 否 | 所属系统标识（见 3.7）；缺省表示未归属系统。引用必须存在于本批 `systems` 清单或已有 `system` 表 |
 
 ### 3.2 源文件定位器 `src_locator`（按 `src_type` 校验）
 
@@ -160,6 +164,45 @@
 - **存储后端**：默认本地 `data/files/`（目录经 `.env` 配置），存储路径不直接暴露，经 `GET /files/{id}/download` / `/preview` 权限受控访问；后端抽象成接口，预留 S3/MinIO 兼容实现 `[TBD-INFRA]`（由部署环境决定，M1 先做本地）；
 - **导入流程**变为三步：① 上传源文件（得到文件集）→ ② 上传清单（datasets/lineage，`src_file` 引用文件集中文件）→ ③ 校验 + 入库（绑定到同一 `import_batch`）；
 - **回源核查闭环**：定位卡点击后可直接在系统内**预览源文件对应区域**（高亮 sheet / 表头路径 / 列与行范围 / JSONPath 命中值），无需再去找原始文件。
+
+### 3.7 系统清单与系统级血缘（可选扩展）
+
+系统层是**可选**的：不提供系统清单时，系统级视图为空，数据集/字段级功能完全不受影响。提供时，系统清单与系统级血缘随同一 `import_batch` 入库，参与版本与回滚。
+
+**系统清单（systems）**：
+
+| 列 | 必填 | 说明 |
+|---|---|---|
+| `system_id` | 是 | 系统唯一标识（用户自定义，如 `crm` / `dw_platform`） |
+| `system_name` | 否 | 显示名 |
+| `system_type` | 否 | `source`（业务源系统）/ `application`（业务应用）/ `warehouse`（数仓/湖）/ `bi`（分析报表）/ `external`（外部/第三方）/ `other`；缺省 `other` |
+| `owner` | 否 | 业务负责人（自由文本，不参与权限判定） |
+| `description` | 否 | 系统说明 |
+
+**系统级血缘（system_lineage）**：
+
+| 列 | 必填 | 说明 |
+|---|---|---|
+| `from_system` / `to_system` | 是 | 上游/下游系统标识；必须存在于本批 `systems` 或已有 `system` 表；禁止自环 |
+| `transform` | 否 | 系统间接口/加工方式说明（如「T+1 批量文件」「Kafka 实时同步」） |
+| `confidence` | 否 | 0~1，默认 1.0；AI 建议边 < 1.0 |
+| `note` | 否 | 备注 |
+
+**三种物理格式**：
+
+- CSV：在 `datasets.csv` / `lineage.csv` 之外，可选 `systems.csv` + `system_lineage.csv`；
+- XLSX：可选 `systems` / `system_lineage` 两个 sheet；
+- JSON：`{ "systems": [...], "datasets": [...], "lineage": [...], "system_lineage": [...] }`。
+
+**与自动投影的关系**：`system_lineage` 只登记**无法从数据集级血缘推导**的粗粒度关系（例如「财务系统 → 数据仓库：月度对账 Excel」）。能从数据集边推导的系统关系不需要手写；查询时由 `v_system_edge` 把「显式边 ∪ 投影边」合并为同一张关系视图（见 4.7）。同一对系统既有显式边又有投影边时，显式边的 `transform/confidence/source/note` 优先，投影边的数据集边数量作为证据一并返回。
+
+**校验规则**：
+
+1. 系统标识唯一；`system_type` 枚举合法；
+2. 数据集行的 `system_id` 引用必须存在（本批或已有版本），否则该行拒绝并给出原因；
+3. 系统级血缘的上下游必须存在、禁止 `from_system = to_system`；同一对系统重复时后到覆盖 `transform/confidence/note` 并计入报告 `merged`；
+4. 系统级血缘不要求存在数据集级证据——它本身就是「粗粒度关系实例」；
+5. 导入报告新增 `kind=system|system_edge` 条目，沿用 3.5 的逐条 ok/merged/rejected 结构。
 
 ---
 
@@ -240,8 +283,9 @@ change_log(id INTEGER PK, batch_id INTEGER NULL,  -- 关联导入批次；人工
            actor TEXT, created_at)
 ```
 
-### 4.2 版本管理设计
+> 2026-11 系统级血缘新增 `system` / `system_edge` 两张表，并给 `dataset` 增加可空 `system_id`；完整 DDL 见 4.7.1，逐列定义见《数据模型》§2.13/§2.14。它们与现有表同属 SQLite 事实源，不改变「单进程 + 双嵌入式库」的部署形态。
 
+### 4.2 版本管理设计
 采用 **「当前态 + 导入批次 + 版本标签 + 变更日志」** 四层，而非全量快照（数据量小到中等时最省、可回滚）：
 
 1. **导入即新版本**：每次导入创建 `import_batch`，`version_no` 递增（v1, v2...）；
@@ -334,6 +378,137 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 
 实现为 FastAPI 依赖注入的角色守卫（每个路由声明最低角色），不做行级/对象级 ACL；`annotation` 与 `change_log` 中的 author/actor 均取自 JWT，不可伪造。
 
+### 4.7 系统级血缘：同一分层架构上的「第三层视图」（2026-11 新增设计）
+
+**现状判定（2026-11-16）**：当前数据模型只有 `dataset` / `field` / `edge`，没有系统实体、数据集归属与系统边；API 与画布也只提供数据集/字段级视图。因此**当前系统不支持开箱即用的系统间上下游展示**。若用「把系统建成数据集、用表级边模拟」的方式绕过，会丢失系统目录（类型/负责人）、数据集归属、系统边来源与证据计数、系统级 N 跳遍历等语义，不建议作为正式方案。
+
+**定位**：系统级上下游不是另起炉灶，而是把已有的「实体属性与入口检索 → 关系库；关系实例与链路遍历 → 图数据库」分层原样上移一层：
+
+| 层 | 实体属性 / 入口检索（SQLite） | 关系实例 / 链路遍历（Kùzu） | 渲染协议 |
+|---|---|---|---|
+| 系统级 | `system` 目录、`dataset.system_id` 归属、系统搜索 | `System` 节点 + `LINEAGE_SYSTEM` 关系，N 跳系统链路 | `SystemGraphPayload` |
+| 数据集级 | `dataset` 元数据、`v_dataset_edge` 投影 | `Dataset` 节点 + `LINEAGE_TABLE` 关系 | `GraphPayload` |
+| 字段级 | `field` 元数据、定位器、标注、历史 | `Field` 节点 + `LINEAGE_FIELD` 关系 | `GraphPayload` |
+
+三层共用同一个 FastAPI 进程、同一个 SQLite 事实源、同一个 Kùzu 派生图与同一套画布交互；**没有新增服务、消息队列或搜索集群**。系统视图只是把 `GraphPayload` 的节点类型从 dataset/field 换成 system，前端按 `level` 选择渲染器。
+
+**4.7.1 表结构**
+
+```sql
+-- 系统目录（实体属性 + 入口检索在 SQLite）
+system(id TEXT PRIMARY KEY,        -- 用户自定义标识，如 crm / dw_platform
+       name TEXT, description TEXT,
+       system_type TEXT NOT NULL DEFAULT 'other'
+         CHECK(system_type IN ('source','application','warehouse','bi','external','other')),
+       owner TEXT,                 -- 业务负责人，自由文本
+       created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+
+-- 数据集归属（可选；NULL = 未归属系统）
+ALTER TABLE dataset ADD COLUMN system_id TEXT REFERENCES system(id) ON DELETE SET NULL;
+
+-- 显式系统级血缘（只登记无法从数据集边推导的粗粒度关系）
+system_edge(id INTEGER PK AUTOINCREMENT,
+            from_system TEXT NOT NULL REFERENCES system(id),
+            to_system   TEXT NOT NULL REFERENCES system(id),
+            transform TEXT, confidence REAL DEFAULT 1.0 CHECK(0 <= confidence <= 1),
+            source TEXT NOT NULL CHECK(source IN ('imported','manual','ai')),
+            note TEXT,
+            created_by TEXT, updated_by TEXT,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            CHECK(from_system <> to_system));
+CREATE UNIQUE INDEX uq_system_edge ON system_edge(from_system, to_system);
+```
+
+**4.7.2 关系视图：显式边 ∪ 投影边**
+
+系统级关系有两个来源，查询时合并，**不双写**：
+
+1. **explicit（显式）**：`system_edge` 中登记的系统间关系，可携带接口说明/置信度/来源；不要求存在数据集级证据；
+2. **derived（投影）**：把 `edge` 两端的 dataset 通过 `dataset.system_id` 映射到系统，`COUNT(DISTINCT 数据集对)` 聚合成一条系统边；同一系统内部的数据集边不产生系统边（排除自环）；
+3. **both（两者都有）**：同一对系统既有显式边又有投影边；显式边的业务属性优先，投影边只提供 `dataset_edge_count` 证据计数。
+
+```sql
+CREATE VIEW v_system_edge AS
+WITH derived AS (
+  SELECT d_from.system_id AS from_system,
+         d_to.system_id   AS to_system,
+         COUNT(DISTINCT e.from_dataset || '->' || e.to_dataset) AS dataset_edge_count,
+         MIN(e.confidence) AS confidence
+  FROM edge e
+  JOIN dataset d_from ON d_from.id = e.from_dataset
+  JOIN dataset d_to   ON d_to.id   = e.to_dataset
+  WHERE d_from.system_id IS NOT NULL
+    AND d_to.system_id IS NOT NULL
+    AND d_from.system_id <> d_to.system_id
+  GROUP BY d_from.system_id, d_to.system_id
+),
+explicit AS (
+  SELECT id, from_system, to_system, transform, confidence, source, note
+  FROM system_edge
+)
+SELECT e.from_system, e.to_system,
+       CASE WHEN d.from_system IS NOT NULL THEN 'both' ELSE 'explicit' END AS origin,
+       COALESCE(d.dataset_edge_count, 0) AS dataset_edge_count,
+       e.id AS system_edge_id,
+       e.transform, e.confidence, e.source, e.note
+FROM explicit e
+LEFT JOIN derived d ON d.from_system = e.from_system AND d.to_system = e.to_system
+UNION ALL
+SELECT d.from_system, d.to_system, 'derived', d.dataset_edge_count,
+       NULL, NULL, d.confidence, 'derived', NULL
+FROM derived d
+LEFT JOIN explicit e ON e.from_system = d.from_system AND e.to_system = d.to_system
+WHERE e.id IS NULL;
+```
+
+> 设计取舍：投影边**不落库**，避免「数据集边改了、系统边忘了改」的双写漂移；系统级边数在万级以下，视图 + 图重建的成本可忽略。显式边落库是因为它承载了投影无法表达的业务信息（接口方式、责任人、无数据集明细的粗粒度关系），并且必须参与版本与回滚。
+
+**4.7.3 Kùzu 图模型**
+
+```cypher
+CREATE NODE TABLE System (id STRING, name STRING, system_type STRING, PRIMARY KEY (id));
+-- Dataset 节点新增 system_id 属性（空串表示未归属），用于系统下钻与归属过滤
+CREATE NODE TABLE Dataset (id STRING, name STRING, system_id STRING, PRIMARY KEY (id));
+
+CREATE REL TABLE LINEAGE_SYSTEM (FROM System TO System,
+    system_edge_id INT64,        -- 显式边 = system_edge.id；纯投影边 = -1
+    origin STRING,               -- explicit / derived / both
+    source STRING,               -- imported / manual / ai / derived
+    confidence DOUBLE,
+    dataset_edge_count INT64);   -- 投影证据计数（显式边为 0）
+```
+
+- `LINEAGE_SYSTEM` 的每条关系对应 `v_system_edge` 的一行；重建时从视图全量 `COPY FROM`，与数据集/字段图同一套「SQLite 唯一事实源 + Kùzu 可重建派生层」流程（4.5）；
+- 纯投影边 `system_edge_id = -1`（Kùzu 属性用哨兵值而非 NULL，便于审计与过滤）；显式边回链 `system_edge.id`，编辑/删除/转正按它定位；
+- `Dataset.system_id` 是归属属性而非血缘关系：系统下钻时按它过滤数据集，不参与 `LINEAGE_*` 遍历。
+
+**4.7.4 查询路由与环处理**
+
+| 查询 | 引擎 | 说明 |
+|---|---|---|
+| 系统列表/详情/搜索 | SQLite | `system` + `dataset.system_id` 聚合；`search_systems` 用 LIKE |
+| 系统 N 跳上下游 | Kùzu（主） | `MATCH p=(s:System {id:$sid})<-[:LINEAGE_SYSTEM*1..n]-(up:System)`，下游同向；`RETURN DISTINCT up.id, min(length(p)) AS hop` |
+| 系统边证据 | SQLite | 按 `v_system_edge` 取 `dataset_edge_count`，再按两端系统反查 `edge` 明细（下钻面板） |
+| 降级 | SQLite 递归 CTE | Kùzu 不可用/图 dirty 且重建失败时，对 `v_system_edge` 做递归闭包；同一 REST 契约 |
+
+**环处理（必须实现）**：数据集级血缘按业务规则应无环，但**投影到系统级后可能产生环**（例如 A 系统两个数据集互相引用，或 X→Y 与 Y→X 同时存在）。因此系统级遍历必须：① 用 `DISTINCT` + `min(hop)` 去重；② 跳数上限沿用 1~5 白名单；③ `clew graph audit` 报告系统级环，UI 在环上显示提示；④ 不以系统级环反推数据集级有环。
+
+**4.7.5 版本、回滚与一致性**
+
+- `system` 与 `system_edge` 是**一等版本化实体**：创建/修改/删除写 `change_log`（`entity_kind='system'|'system_edge'`），参与按批次/按标签回滚；
+- `dataset.system_id` 变更写 `change_log(entity_kind='dataset', op='updated')`；数据集快照新增 `system_id` 键。导入新建数据集写 `added` 快照，回滚时按「先删边、再删字段、最后删数据集」的反做顺序执行；
+- 回滚完成后 `graph_state.state='dirty'`，下次系统级读请求自动全量重建 Kùzu（系统节点/关系与数据集/字段图一起重建），无需逐条反向操作；
+- `graph_state` 增加 `system_rel_count`，导入完成后与 `SELECT COUNT(*) FROM v_system_edge` 做廉价对账；`clew graph audit` 再做 `system_edge_id` 集合级精确比对；
+- 删除系统：`ON DELETE SET NULL` 解除数据集归属；显式 `system_edge` 随系统删除级联清理（应用层先删边再删系统，并写 `deleted` 日志）；投影边因归属清空而自然消失。
+
+**4.7.6 不变量**
+
+1. 系统标识唯一；`system_edge` 同一上下游对唯一；禁止自环；
+2. 系统级边**不要求**有数据集级证据（显式边可以只有接口说明）；但一旦展示 `origin=derived/both`，`dataset_edge_count` 必须与底层 `edge` 投影一致；
+3. 系统级环允许存在，但必须可检测、可提示、不阻断查询；
+4. 未归属系统的数据集不进入系统图；UI 以「未归属 N 个数据集」计数提示，不伪造虚拟系统节点；
+5. 系统级视图与数据集/字段级视图使用同一权限模型（viewer 只读、editor 可编辑、admin 可删除系统/回滚）。
+
 ---
 
 ## 五、可视化界面（需求 3）
@@ -355,6 +530,28 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 
 后端所有「取子图」能力统一返回一种 `GraphPayload`（nodes + edges + 字段），前端只有一个渲染入口；搜索出图、点击展开、AI 对话出图都走它，避免 OpenMetadata 那样新旧两套图架构并存。
 
+### 5.3 系统级视图与下钻（2026-11 新增）
+
+画布顶部增加**层级切换**：`系统 / 数据集 / 字段`，三者共用同一画布骨架（缩放、平移、筛选、详情面板、边列表），只切换数据源与节点渲染器：
+
+| 层级 | 节点 | 边 | 下钻 |
+|---|---|---|---|
+| 系统 | 系统卡片：名称、类型徽标（源系统/应用/数仓/BI/外部）、数据集数、负责人 | 系统间上下游；显式边实线、投影边虚线；边上标注 `数据集边数` | 双击系统 → 数据集视图（按该系统过滤）；点「证据」→ 展开底层数据集边 |
+| 数据集 | 数据集卡片（可折叠字段） | 表级/字段级投影；沿用现有样式 | 双击数据集 → 字段视图；字段详情/回源预览不变 |
+| 字段 | 现有字段级画布 | 字段级边 | — |
+
+**系统视图的关键交互**：
+
+1. **方向**：左右布局，上游在左、下游在右；工具栏提供 `both / up / down` 方向与 1~5 跳；
+2. **边来源可解释**：边详情必须显示 `origin`（explicit / derived / both）、`dataset_edge_count`、底层数据集边清单（来自 SQLite），以及显式边的 `transform/note/confidence/source`；不允许只画一条无法解释来源的线；
+3. **证据下钻**：选中系统边 → 右侧「关系证据」面板列出贡献该边的数据集级边（`from_dataset.field → to_dataset.field`），点击任一条跳到数据集/字段视图并高亮；
+4. **未归属数据集**：侧栏显示「未归属系统 N 个数据集」，点击列出清单；系统图不生成虚拟节点；
+5. **环提示**：系统级环（投影产生）在画布与边列表上标记「环」徽标，提示「系统级聚合环，不等于数据集级环」；
+6. **AI 候选**：`source='ai'` 的系统边以虚线 + 低置信样式呈现，确认前不参与「已确认链路」统计；
+7. **同一渲染协议**：系统图响应 `SystemGraphPayload`（§5.2 的 GraphPayload 同构：`systems[]` + `edges[]` + `seed` + `level`），AI 出图与手工浏览共用前端 `applyGraph` 入口。
+
+> 交互原型：[clew-system-lineage-prototype.html](../02_prototype/clew-system-lineage-prototype.html)（系统/数据集/字段三级切换、显式边与投影边区分、证据下钻、未归属提示、系统级环演示）。原型只验证信息架构，不代表后端已实现。
+
 ---
 
 ## 六、AI 对话（需求 4）
@@ -372,7 +569,13 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 | `trace_upstream` / `trace_downstream` | `GET /lineage/trace` | Kùzu Cypher 变长路径取上下游（降级递归 CTE），参数：起点字段、方向、最大跳数、是否含表级边 |
 | `get_subgraph` | `GET /lineage/subgraph` | 取子图 `GraphPayload`，前端渲染 |
 | `get_field_history` | `GET /changes?entity=` | 字段的版本变更历史 |
+| `search_systems` | `GET /systems?q=` | 按系统名/标识/说明检索系统 |
+| `trace_system_lineage` | `GET /lineage/systems` | 系统级 N 跳上下游（Kùzu `LINEAGE_SYSTEM`，降级 `v_system_edge` 递归 CTE）；返回系统图 |
+| `get_system_details` | `GET /systems/{id}` | 系统属性 + 数据集清单 + 上下游系统 + 显式边证据 |
 | `suggest_lineage` | `POST /ai/suggest` | **AI 反向优化**：AI 根据字段名/描述/相似度提议可能缺失的血缘边（confidence 低、source='ai'），用户在图上确认/拒绝 |
+| `suggest_system_lineage` | `POST /ai/suggest/systems` | 系统级候选边（如「CRM → 营销平台」），source='ai'，必须人工确认才转 manual |
+
+> 系统级工具与字段级工具遵循同一权限与安全规则：`search_systems` / `trace_system_lineage` / `get_system_details` 只读；`suggest_system_lineage` 属写类工具，工具层按调用方角色校验，viewer 触发只回传错误、不落库；AI 建议的系统边必须人工确认（editor+）后才转 `manual`（不变量#4）。
 
 ### 6.3 示例对话流
 
@@ -419,7 +622,11 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 │  ├─ files：源文件托管/去重/预览 │
 │  ├─ lineage：图查询路由         │
 │  │   Kùzu Cypher（主）          │
+│  │   ├─ Field/Dataset 血缘      │
+│  │   └─ System 系统级血缘       │
 │  │   ↘ 递归 CTE（降级）         │
+│  ├─ systems：系统目录/归属      │
+│  │   显式边 + 投影视图合并       │
 │  ├─ graph：双写 / 标脏 / 重建   │
 │  ├─ versioning：批次/标签/日志  │
 │  └─ ai：function calling 编排   │
@@ -428,15 +635,16 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
    ▼                      ▼
 SQLite（唯一事实源）      Kùzu 0.11.3（血缘图派生层）
  user/dataset/field/     Dataset/Field 节点表
- edge/import_batch/      LINEAGE_FIELD/TABLE 关系表
- version_tag/annotation/ （edge_id 回链主库）
+ system/system_edge/     System 节点表
+ edge/import_batch/      LINEAGE_FIELD/TABLE/SYSTEM
+ version_tag/annotation/ （edge_id/system_edge_id 回链主库）
  change_log/...+FTS5     │ 不可用→标脏→自动重建
  data/files/ 源文件托管   │ 重建失败→读路径降级 CTE
    （sha256 去重）
 [预留 Postgres（主库升级路径）/ S3；Kùzu 可整体移除回退 CTE]
 ```
 
-与两大方案最大的架构差异：**单进程、双嵌入式存储、无消息队列、无搜索集群**。DataHub 的事件驱动（Kafka+MCP+MCL）用「同步写 + change_log 表」替代；OpenMetadata/DataHub 的 ES 图索引缩小为进程内 Kùzu 图层——**查询主入口永远在 SQLite**，Kùzu 只服务血缘拓扑遍历且可随时从 SQLite 重建（4.5）。
+与两大方案最大的架构差异：**单进程、双嵌入式存储、无消息队列、无搜索集群**。DataHub 的事件驱动（Kafka+MCP+MCL）用「同步写 + change_log 表」替代；OpenMetadata/DataHub 的 ES 图索引缩小为进程内 Kùzu 图层——**查询主入口永远在 SQLite**，Kùzu 只服务血缘拓扑遍历且可随时从 SQLite 重建（4.5）。系统级血缘沿用同一分层：系统属性/归属/搜索在 SQLite，系统关系实例与 N 跳遍历在 Kùzu；系统边不是第三套存储，而是 `v_system_edge`（显式 ∪ 投影）在图层的一个投影（4.7）。
 
 ---
 
@@ -448,6 +656,7 @@ SQLite（唯一事实源）      Kùzu 0.11.3（血缘图派生层）
 | M2 图查询 + 画布 | Kùzu Cypher 图查询 API（trace/subgraph/impact，降级 CTE）+ `clew graph audit/rebuild` + reactflow 画布：子图渲染、字段级连线、折叠、定位卡 + 源文件区域内预览、图状态徽标 | 手工构造 5 数据集样例，上下游 3 跳展开正确（Cypher 与 CTE 两条路径结果一致）、折叠正常、点击定位卡能高亮预览源文件区域；删除 Kùzu 文件后自动重建成功 |
 | M3 编辑与标注 | 画布编辑边/字段（editor 以上）、标注、历史查看、版本业务标签与标签 diff/回滚 | 编辑留痕（记录操作者）、按标签回滚正确、人工标注不丢 |
 | M4 AI 对话 | 工具集 + 聊天抽屉 + 联动出图 + suggest_lineage（确认权限 editor 以上） | 「order_no 从哪来」类问题正确出图；AI 建议边需人工确认才生效 |
+| M6 系统级血缘（2026-11 新增设计，代码待实现） | `system` / `system_edge` 表与迁移、`dataset.system_id` 归属、`v_system_edge`（显式 ∪ 投影）、Kùzu `System` 节点与 `LINEAGE_SYSTEM`、系统图 API + 降级 CTE、画布层级切换与证据下钻、导入清单扩展、系统级 AI 只读工具 | 同一系统内数据集边不产生自环；数据集边投影出的系统边与 `dataset_edge_count` 一致；显式边与投影边合并为 `both` 且显式属性优先；系统级 N 跳（含环）不重复节点、跳数正确；删除 Kùzu 文件后系统图自动重建；系统/系统边/归属变更可按批次与标签回滚 |
 
 ---
 
@@ -468,6 +677,8 @@ SQLite（唯一事实源）      Kùzu 0.11.3（血缘图派生层）
 |---|---|---|---|
 | 7 | 存储方案 | **SQLite + Kùzu 双嵌入式库配合**：SQLite 作为查询主入口的底层数据存储层（元数据/搜索/版本/审计的唯一事实源）；Kùzu 作为血缘关系查询的专用存储层（拓扑遍历 + 少量过滤列）。REST 契约不变，前端无感 | 4.3 图模型 / 4.4 查询路由 / 4.5 双写一致性 |
 | 8 | Kùzu 归档风险 | 接受使用归档终版 0.11.3（2025-10 仓库只读，MIT，cp38–cp314 wheel 全平台可用）。对策：① Kùzu 定义为可随时重建的派生层，SQLite 永远是唯一事实源；② 标脏自动重建 + `clew graph audit/rebuild`；③ 递归 CTE 路径永久保留，可整体退回单库方案，无数据丢失风险 | 4.5 / §二 技术栈 |
+| 9 | 系统级上下游 | **需要**。新增可选 `system` 层：`system` 目录 + `dataset.system_id` 归属 + `system_edge` 显式边；系统图 = 显式边 ∪ 数据集边投影（`v_system_edge`），不双写。系统属性/搜索走 SQLite，系统级 N 跳走 Kùzu `LINEAGE_SYSTEM`，降级 `v_system_edge` 递归 CTE；沿用现有 GraphPayload 渲染协议 | 3.7 / 4.7 / 5.3 / 6.2 |
+| 10 | 系统边来源与证据 | 系统边必须可解释：`origin=explicit/derived/both`、`dataset_edge_count`、底层数据集边清单；显式边属性优先，投影边只提供证据计数；允许系统级聚合环，但必须检测、提示、不阻断查询；未归属数据集不生成虚拟系统节点 | 4.7.2 / 4.7.4 / 5.3 |
 
 剩余待定项（不阻塞 M1 开发）：
 - `[TBD-INFRA]` 源文件存储后端 M1 用本地 `data/files/`，S3/MinIO 抽象接口何时实做，由部署环境决定；
