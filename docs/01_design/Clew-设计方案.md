@@ -2,6 +2,8 @@
 
 > 基于 OpenMetadata 与 DataHub 两个开源方案的调研结论，面向「文件导入 + 字段级源文件定位 + AI 辅助」的轻量级数据血缘工具。
 > 文中未确认的业务事实以 `[ASSUMPTION]` / `[TBD-*]` 标注。
+>
+> **2026-11 存储重设计**：存储层由单 SQLite 演进为 **SQLite（唯一事实源）+ Kùzu 0.11.3（血缘图遍历层）** 双嵌入式库；全部 REST 契约不变，前端无感。方案动机、Kùzu 图模型、双写一致性、归档风险对策见 §4.3–4.5 与 §十（决策 #7/#8）。
 
 ---
 
@@ -43,9 +45,9 @@
 5. MCP/工具化接口（verbose lineage 输出 + 列级 scope 裁剪）—— AI 对话消费血缘的正确接口形态。
 
 **避免**：
-1. Kafka + ES/OpenSearch 双写与反规范化 —— 中小规模用单关系库 + 递归 CTE 即可，消除一整类一致性/重索引问题；
+1. Kafka + ES/OpenSearch 双写与反规范化 —— 仍坚持无消息队列、无搜索集群、无服务化中间件；但把 DataHub「MySQL + ES 图索引」的形态缩小为「SQLite + 嵌入式图库 Kùzu」：SQLite 做唯一事实源，血缘拓扑以**可随时重建的派生索引**形态放 Kùzu（见 4.3–4.5），既拿到原生变长路径查询能力，又不引入任何运维组件；
 2. PDL/AVRO/JSON Schema 的编译期 codegen 链与多模块工程 —— 用 pydantic 模型即可；
-3. 硬编码 depth≤3 递归 + 逐节点 N+1 查询 —— 一步到位用 CTE 批量遍历 + 单次 hydrate；
+3. 硬编码 depth≤3 递归 + 逐节点 N+1 查询 —— 一步到位「图引擎批量变长遍历（Kùzu Cypher 主 + CTE 降级）+ 单次 hydrate」，前端一次拿全子图；
 4. CSV 不能导入血缘的缺口 —— 本方案把「文件一等公民导入」作为核心功能。
 
 ---
@@ -62,11 +64,12 @@
 
 **非目标**（从两大方案的重量级能力中明确裁剪）：
 - 不做 SQL 解析自动采集、不做调度器/连接器生态；
-- 不接 Elasticsearch/OpenSearch，搜索用 SQLite FTS5 / Postgres 全文检索；
-- 不做细粒度对象级 ACL，多用户采用「工作区级 RBAC（admin / editor / viewer）+ 全操作留痕」模型（见 4.4）。若未来需要数据集级私有/授权，再引入 `dataset_acl` 表扩展。
+- 不接 Elasticsearch/OpenSearch 等服务化组件；搜索用 SQLite FTS5 / LIKE，图遍历用嵌入式 Kùzu（见 4.3–4.5）；
+- 不做细粒度对象级 ACL，多用户采用「工作区级 RBAC（admin / editor / viewer）+ 全操作留痕」模型（见 4.6）。若未来需要数据集级私有/授权，再引入 `dataset_acl` 表扩展。
 
 **技术栈**（遵循个人默认偏好）：
-- 后端：Python + FastAPI + uv，SQLite 起步（预留 Postgres 升级路径，SQL 全部写兼容子集 + 递归 CTE）；
+- 后端：Python + FastAPI + uv；存储为**双嵌入式库**——SQLite（元数据/字段/版本/搜索的唯一事实源，预留 Postgres 升级路径，SQL 写兼容子集）+ Kùzu 0.11.3（血缘图专用遍历层，进程内 Cypher，无服务进程）；
+- 图库采用 Kùzu **归档终版 0.11.3**（2025-10 仓库归档只读，MIT，PyPI wheel 覆盖 cp38–cp314 含 macOS arm64）：功能冻结但可用性不受影响；其角色是「可整体移除的派生层」——随时可从 SQLite 全量重建、也可退回纯 SQLite 递归 CTE 路径（风险对策见 4.5）；
 - 前端：React + TypeScript + Vite + Tailwind + shadcn/ui，图渲染 **@xyflow/react（reactflow 11+）**；
 - AI：OpenAI 兼容 Chat API + function calling（工具即本系统 REST API 的薄封装）；供应商与模型经仓库根 `.env` 配置（`LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`），`.env.example` 入库、`.env` 加入 .gitignore，密钥永不入库；
 - 认证：JWT（账号密码登录），密码只存加盐哈希。
@@ -160,7 +163,7 @@
 
 ---
 
-## 四、存储与版本管理（需求 2）
+## 四、存储与版本管理（需求 2）：SQLite 事实源 + Kùzu 血缘图
 
 ### 4.1 表结构（SQLite/Postgres 通用）
 
@@ -246,24 +249,80 @@ change_log(id INTEGER PK, batch_id INTEGER NULL,  -- 关联导入批次；人工
 3. **版本业务标签**：任意时刻可打标签（如 `v2.1-r1 / Q3 口径修正发布`），标签锚定一个 `change_seq` 位置。**回滚到标签 = 反做该 seq 之后的全部 change_log**，**标签间 diff = change_log 区间比对**；标签由 editor 以上角色创建，永久保留；
 4. **编辑来源可追溯**：边上的 `source` 字段区分 `imported`（用户文件来的）/ `manual`（人工纠正）/ `ai`（AI 推断，confidence < 1），配合 `created_by` 落到具体用户。
 
-### 4.3 图遍历：递归 CTE
+### 4.3 Kùzu 血缘图（拓扑派生层，2026-11 新增）
 
-两大方案的教训：OpenMetadata 初版 depth≤3 硬编码 + N+1 查询，后来用 hydrate/scene 补救；DataHub 用 ES 图索引 + 分片预算。本方案规模小，直接用递归 CTE 一次查询取出 N 跳子图：
+**职责边界（一条铁律）**：SQLite 是唯一事实源（元数据、字段、边、版本、审计全部在 SQLite）；Kùzu 只存**血缘拓扑 + 少量过滤列**，是「随时可以从 SQLite 全量重建的图索引」。它对应 DataHub 架构里 ES `graph_service_v1` 图索引的位置，只是从服务化搜索引擎缩小成了进程内嵌入式图库。
 
-```sql
-WITH RECURSIVE up(n_ds, n_field, hop) AS (
-  SELECT to_dataset, to_field, 0 FROM edge WHERE (…)   -- 起点
-  UNION
-  SELECT e.from_dataset, e.from_field, up.hop + 1
-  FROM edge e JOIN up ON e.to_dataset = up.n_ds
-              AND (e.to_field IS NULL OR e.to_field = up.n_field OR up.n_field IS NULL)
-  WHERE up.hop < :max_hop)
-SELECT * FROM up;
+**选型要点**：
+
+- Kùzu 是嵌入式属性图数据库（「图数据库界的 SQLite/ DuckDB」形态）：无服务进程、无端口、随 Python 进程启动，`pip install kuzu` 即用；
+- 原生 Cypher 支持**变长路径**（`*1..n`）与路径函数，这正是血缘遍历的核心算子——SQLite 递归 CTE 也能做，但变长跳数控制、路径去重、按跳过滤都要手写展开；
+- 0.11.3 归档终版内置 `algo` 扩展（环路检测、PageRank 等），为「影响面排序」类 AI 工具预留了原生算法入口；
+- 归档风险接受（见 §十 决策 #8）：MIT + 源码完整 + wheel 全平台可用，功能冻结对血缘图这类稳定负载无影响；且 Kùzu 数据**永远可以从 SQLite 推导**，最坏情况整体移除即回到 CTE 单库方案，无数据丢失风险。
+
+**图模型 DDL**（节点只存身份键与展示名，完整元数据一律回 SQLite 取）：
+
+```cypher
+CREATE NODE TABLE Dataset (id STRING, name STRING, PRIMARY KEY (id));
+CREATE NODE TABLE Field   (id STRING, name STRING, PRIMARY KEY (id));  -- id = "<dataset_id>.<field_name>"，与 §5.2 自然键一致
+
+CREATE REL TABLE LINEAGE_FIELD (FROM Field TO Field,
+    edge_id INT64,          -- SQLite edge.id：回链主库的稳定键（编辑/删除/转正都按它定位）
+    source STRING,          -- imported / manual / ai（画布过滤需要）
+    confidence DOUBLE);     -- 置信度（低置信过滤需要）
+CREATE REL TABLE LINEAGE_TABLE (FROM Dataset TO Dataset,
+    edge_id INT64, source STRING, confidence DOUBLE);
 ```
 
-上下游两个方向各一条 CTE；前端一次拿全子图数据，`hydrate` 语义天然满足（不存在 N+1）。
+> Kùzu 关系表端点固定，故字段级/表级血缘拆成两张 REL 表（与 SQLite `edge` 单表 NULL 字段语义等价，映射规则见《数据模型》§十）。transform/note/annotation 等业务属性**不进图**——查询先走图取拓扑与 edge_id，再回 SQLite hydrate，双写漂移面被压到最小。
 
-### 4.4 用户与权限（多用户）
+### 4.4 图遍历：Kùzu Cypher 主路径 + 递归 CTE 降级
+
+两大方案的教训：OpenMetadata 初版 depth≤3 硬编码 + N+1 查询；DataHub 用 ES 图索引 + 分片预算。本方案的查询路由：
+
+| 查询 | 引擎 | 说明 |
+|---|---|---|
+| 元数据/搜索/详情/历史 | **SQLite** | 字段详情、annotation、change_log、FTS5/LIKE 搜索，永远走主库 |
+| 血缘拓扑（trace/subgraph/impact） | **Kùzu（主）** | Cypher 变长路径一次取出 N 跳子图；命中 edge_id 后回 SQLite hydrate |
+| 血缘拓扑（降级） | SQLite 递归 CTE | Kùzu 不可用/图状态为 dirty 且重建失败时自动切换（同一 REST 契约） |
+
+核心查询形态（`trace_lineage` / `get_subgraph` / `analyze_impact` 共用）：
+
+```cypher
+-- 1-hop 上游（字段详情面板）
+MATCH (src:Field)-[r:LINEAGE_FIELD]->(f:Field {id: $fid})
+RETURN src.id, r.edge_id, r.confidence ORDER BY r.confidence DESC;
+
+-- N-hop 上游全链（变长路径，跳数上限由服务端白名单注入）
+MATCH p = (src:Field)<-[:LINEAGE_FIELD*1..3]-(f:Field {id: $fid})
+RETURN src.id, r.edge_id, length(p) AS hop ORDER BY hop;
+
+-- 下游影响面（analyze_impact 工具）
+MATCH p = (f:Field {id: $fid})-[:LINEAGE_FIELD*1..5]->(down:Field)
+RETURN down.id, length(p) AS hop;
+```
+
+查询结果仍组装为同一 `GraphPayload`（nodes + edges + 字段）返回，**REST 契约与前端渲染协议完全不变**——换引擎对前端透明。递归 CTE 实现保留在 `lineage.py` 作为降级路径，不删除。
+
+### 4.5 双写与一致性：SQLite 唯一事实源
+
+所有写路径（导入、画布编辑、AI 建议确认/拒绝、回滚）按「**先主库、后图库、失败标脏**」顺序双写：
+
+```
+写请求 → ① SQLite 事务（edge + change_log 等）
+       → 成功后 → ② Kùzu 事务（CREATE/DELETE 对应 Rel）
+                    ├─ 成功 → 响应 200（正常）
+                    └─ 失败 → graph_state.state = 'dirty' → 仍响应 200（派生层失败不阻断业务写）
+血缘读请求 → graph_state 为 clean → 走 Kùzu
+            → 为 dirty → 自动触发全量重建（秒级）→ 成功则继续；失败则降级 CTE
+```
+
+- **为什么先主库**：写操作的真实性由 SQLite + change_log 承诺；Kùzu 挂了只损失图查询性能，不损失任何业务数据——这是把 Kùzu 定义为「派生层」而非「联合事实源」的直接收益；
+- **全量重建替代增量同步**：本方案数据规模小（万级边以内），重建 = 从 SQLite `edge` 全量导出 → 清空 REL 表 → Kùzu `COPY FROM` 批量导入，秒级完成且**幂等、无漂移累积**；刻意不做逐条增量同步（同步逻辑本身是漂移源头）。未来数据量增长再引入 change_log 水位增量优化 `[TBD-BE]`；
+- **状态与审计**：`graph_state` 单行表（SQLite）记录 `last_edge_id` 水位、`state('clean'|'dirty')`、`rebuilt_at`；`/health` 与画布顶栏展示图状态徽标（正常 / 重建中 / 降级 CTE），重建动作写 `change_log`（`entity_kind='graph'`）留痕；
+- **漂移审计**：提供 `clew graph audit` 命令：比对 Kùzu 边集与 SQLite 边集（按 edge_id 集合差），不一致即标脏重建；后台任务每次导入完成后跑一次。
+
+### 4.6 用户与权限（多用户）
 
 JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、标注、打标签）在 change_log / 各表 `created_by` 中记录操作者：
 
@@ -285,7 +344,7 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 
 | 需求 | 实现 |
 |---|---|
-| 展示感兴趣的数据集 | 顶部搜索/选择起点数据集 → `GET /lineage/subgraph`（CTE）取上下游 N 跳子图 |
+| 展示感兴趣的数据集 | 顶部搜索/选择起点数据集 → `GET /lineage/subgraph`（Kùzu Cypher，降级 CTE）取上下游 N 跳子图 |
 | 上下游关系 | 左右流向布局（dagre 自动布局），上游在左、下游在右 |
 | 字段级连线 | 节点卡片内每个字段渲染为可连接的 handle 行，字段级边画 handle→handle 连线；表级边画节点→节点 |
 | 折叠字段/节点 | reactflow 节点内 `collapsed` 状态：折叠节点收起字段列表（仅显示表级边）；折叠一组节点收起为一个分组占位节点（OpenMetadata `LoadMoreNode` 的思路） |
@@ -310,7 +369,7 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 |---|---|---|
 | `search_fields` | `GET /search?q=` | 按名字/描述/说明模糊找字段 |
 | `get_field_details` | `GET /fields/{ds}.{f}` | 字段详情 + 源文件定位器 + 标注历史 |
-| `trace_upstream` / `trace_downstream` | `GET /lineage/trace` | 递归 CTE 取上下游，参数：起点字段、方向、最大跳数、是否含表级边 |
+| `trace_upstream` / `trace_downstream` | `GET /lineage/trace` | Kùzu Cypher 变长路径取上下游（降级递归 CTE），参数：起点字段、方向、最大跳数、是否含表级边 |
 | `get_subgraph` | `GET /lineage/subgraph` | 取子图 `GraphPayload`，前端渲染 |
 | `get_field_history` | `GET /changes?entity=` | 字段的版本变更历史 |
 | `suggest_lineage` | `POST /ai/suggest` | **AI 反向优化**：AI 根据字段名/描述/相似度提议可能缺失的血缘边（confidence 低、source='ai'），用户在图上确认/拒绝 |
@@ -350,7 +409,7 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 │  ├─ 导入向导（传源文件→传清单→报告）│
 │  └─ AI 聊天抽屉（工具调用联动画布）│
 └──────────────┬────────────────┘
-        REST / JSON (JWT 鉴权 + RBAC 守卫)
+        REST / JSON (JWT 鉴权 + RBAC 守卫，契约不变)
 ┌──────────────┴────────────────┐
 │  FastAPI 后端（单进程）         │
 │  ├─ auth：JWT + 角色守卫       │
@@ -358,16 +417,26 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 │  │   归一化 + pydantic 校验     │
 │  │   + 实文件定位核查(openpyxl) │
 │  ├─ files：源文件托管/去重/预览 │
-│  ├─ lineage：递归 CTE 图查询    │
+│  ├─ lineage：图查询路由         │
+│  │   Kùzu Cypher（主）          │
+│  │   ↘ 递归 CTE（降级）         │
+│  ├─ graph：双写 / 标脏 / 重建   │
 │  ├─ versioning：批次/标签/日志  │
 │  └─ ai：function calling 编排   │
 └──────────────┬────────────────┘
-     SQLite (FTS5 搜索)
-     data/files/ (源文件托管，sha256 去重)
-     [预留 Postgres / S3 升级路径]
+   ┌──────────┴───────────┐
+   ▼                      ▼
+SQLite（唯一事实源）      Kùzu 0.11.3（血缘图派生层）
+ user/dataset/field/     Dataset/Field 节点表
+ edge/import_batch/      LINEAGE_FIELD/TABLE 关系表
+ version_tag/annotation/ （edge_id 回链主库）
+ change_log/...+FTS5     │ 不可用→标脏→自动重建
+ data/files/ 源文件托管   │ 重建失败→读路径降级 CTE
+   （sha256 去重）
+[预留 Postgres（主库升级路径）/ S3；Kùzu 可整体移除回退 CTE]
 ```
 
-与两大方案最大的架构差异：**单进程、单存储、无消息队列、无搜索集群**。DataHub 的事件驱动（Kafka+MCP+MCL）用「同步写 + change_log 表」替代；OpenMetadata 的 DB+ES 双查询路径用「递归 CTE 单路径」替代。
+与两大方案最大的架构差异：**单进程、双嵌入式存储、无消息队列、无搜索集群**。DataHub 的事件驱动（Kafka+MCP+MCL）用「同步写 + change_log 表」替代；OpenMetadata/DataHub 的 ES 图索引缩小为进程内 Kùzu 图层——**查询主入口永远在 SQLite**，Kùzu 只服务血缘拓扑遍历且可随时从 SQLite 重建（4.5）。
 
 ---
 
@@ -375,8 +444,8 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 
 | 阶段 | 内容 | 验证标准 |
 |---|---|---|
-| M1 数据底座 | 表结构（含 user/source_file/version_tag）、JWT 认证 + RBAC、源文件上传与 sha256 去重、CSV/JSON/XLSX 导入器（含合并单元格/多级表头定位解析与实文件核查）、版本批次/change_log | 三种格式各一份样例（含复杂表头 xlsx）导入通过；错误定位器被实文件核查拒绝；回滚 v2 → 恢复 v1 状态；viewer 角色无法写入 |
-| M2 图查询 + 画布 | 递归 CTE API + reactflow 画布：子图渲染、字段级连线、折叠、定位卡 + 源文件区域内预览 | 手工构造 5 数据集样例，上下游 3 跳展开正确、折叠正常、点击定位卡能高亮预览源文件区域 |
+| M1 数据底座 | 表结构（含 user/source_file/version_tag/graph_state）、JWT 认证 + RBAC、源文件上传与 sha256 去重、CSV/JSON/XLSX 导入器（含合并单元格/多级表头定位解析与实文件核查）、版本批次/change_log、Kùzu 图初始化与双写（导入即写图，失败标脏） | 三种格式各一份样例（含复杂表头 xlsx）导入通过；错误定位器被实文件核查拒绝；回滚 v2 → 恢复 v1 状态且 Kùzu 图同步重建；viewer 角色无法写入 |
+| M2 图查询 + 画布 | Kùzu Cypher 图查询 API（trace/subgraph/impact，降级 CTE）+ `clew graph audit/rebuild` + reactflow 画布：子图渲染、字段级连线、折叠、定位卡 + 源文件区域内预览、图状态徽标 | 手工构造 5 数据集样例，上下游 3 跳展开正确（Cypher 与 CTE 两条路径结果一致）、折叠正常、点击定位卡能高亮预览源文件区域；删除 Kùzu 文件后自动重建成功 |
 | M3 编辑与标注 | 画布编辑边/字段（editor 以上）、标注、历史查看、版本业务标签与标签 diff/回滚 | 编辑留痕（记录操作者）、按标签回滚正确、人工标注不丢 |
 | M4 AI 对话 | 工具集 + 聊天抽屉 + 联动出图 + suggest_lineage（确认权限 editor 以上） | 「order_no 从哪来」类问题正确出图；AI 建议边需人工确认才生效 |
 
@@ -392,6 +461,13 @@ JWT 认证 + 工作区级 RBAC 三角色，所有写操作（导入、编辑、�
 | 4 | XLSX 复杂表头 | **需要支持**。合并单元格锚点归一化 + 多级表头 `header_path` 展开 + 解析结果物化存储 | 3.2 归一化规则 |
 | 5 | LLM 供应商 | OpenAI 兼容 API，配置在仓库根 `.env`（`LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`），`.env` 不入库 | 二 技术栈 |
 | 6 | 界面布局 | **低保真原型已确认（2026-10-23）**，作为 UI 基线。共 6 界面：血缘画布（核心）、源文件预览（回源核查弹窗）、导入向导（三步+校验报告）、AI 对话（工具追溯+建议确认）、版本与用户（批次/标签/回滚+RBAC 矩阵）、登录 | 五 可视化界面 |
+
+**2026-11-16 新增决策（存储重设计）**：
+
+| # | 事项 | 决策 | 设计落点 |
+|---|---|---|---|
+| 7 | 存储方案 | **SQLite + Kùzu 双嵌入式库配合**：SQLite 作为查询主入口的底层数据存储层（元数据/搜索/版本/审计的唯一事实源）；Kùzu 作为血缘关系查询的专用存储层（拓扑遍历 + 少量过滤列）。REST 契约不变，前端无感 | 4.3 图模型 / 4.4 查询路由 / 4.5 双写一致性 |
+| 8 | Kùzu 归档风险 | 接受使用归档终版 0.11.3（2025-10 仓库只读，MIT，cp38–cp314 wheel 全平台可用）。对策：① Kùzu 定义为可随时重建的派生层，SQLite 永远是唯一事实源；② 标脏自动重建 + `clew graph audit/rebuild`；③ 递归 CTE 路径永久保留，可整体退回单库方案，无数据丢失风险 | 4.5 / §二 技术栈 |
 
 剩余待定项（不阻塞 M1 开发）：
 - `[TBD-INFRA]` 源文件存储后端 M1 用本地 `data/files/`，S3/MinIO 抽象接口何时实做，由部署环境决定；

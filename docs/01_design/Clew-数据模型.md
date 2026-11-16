@@ -1,12 +1,12 @@
 # Clew 数据模型（Data Model）
 
-> 对应《Clew-业务模型.md》的数据层实现模型，细化自《Clew-设计方案.md》第四章。方言以 SQLite 为基准（SQLite 起步、预留 Postgres 升级路径，差异处标注）。
+> 对应《Clew-业务模型.md》的数据层实现模型，细化自《Clew-设计方案.md》第四章。**2026-11 起为双库模型**：SQLite（§一–九）是唯一事实源（方言以 SQLite 为基准、预留 Postgres 升级路径，差异处标注）；Kùzu 0.11.3 承担血缘拓扑遍历（§十，派生层，可随时从 SQLite 全量重建）。
 
 ---
 
 ## 一、模型总览
 
-核心思路：**「当前态」存 10 张基础表 + 「派生视图」 + 「JSON 结构」三类附属定义**。当前态即最新业务状态（读写主路径）；历史与版本靠 `change_log` 追加日志重建（回滚/diff 的依据），不做全量快照。第 10 张表 `rollback_record` 是 M3 新增的**按标签回滚审计**（回滚本身不写 change_log，见 §七）。
+核心思路：**「当前态」存 11 张基础表 + 「派生视图」 + 「JSON 结构」三类附属定义，外加 1 张单行同步状态表 `graph_state`（§2.12，2026-11 双库方案新增）**。当前态即最新业务状态（读写主路径）；历史与版本靠 `change_log` 追加日志重建（回滚/diff 的依据），不做全量快照。第 10 张表 `rollback_record` 是 M3 新增的**按标签回滚审计**（回滚本身不写 change_log，见 §七）；第 11 张表 `description_draft` 是 M5 新增的 AI 描述草稿工作区；`graph_state` 记录 Kùzu 派生图与主库的同步状态（§十）。
 
 ```mermaid
 erDiagram
@@ -222,6 +222,22 @@ AI 自动补描述的工作区：草稿**不触碰** `field.description`（原�
 
 唯一约束 `(dataset_id, field_name, status)`：同一字段同时只有一条 pending 草稿，accepted/rejected 历史可并存留痕。表为 AI 工作区，**不写 change_log**（采纳时业务痕迹落在 annotation）。设计与流程见 [03_dev/07_AI模块演进规划](../03_dev/07_AI模块演进规划.md) §4.5。
 
+### 2.12 graph_state（Kùzu 派生图同步状态，2026-11 双库方案新增）
+
+单行表（恒为 `id=1`），记录 Kùzu 血缘图（§十）与主库的同步水位与状态。它是「SQLite 唯一事实源」原则下的**双库协调器**：图写失败标脏、读前检查、自动重建的判据都来自这一行。
+
+| 列 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| id | INTEGER | PK，CHECK(id=1) | 恒为 1 |
+| last_edge_id | INTEGER | NOT NULL DEFAULT 0 | 已同步到 Kùzu 的 `edge.id` 水位（重建时用增量/全量判断，M2 先全量） |
+| state | TEXT | NOT NULL CHECK(IN('clean','dirty','rebuilding'))，DEFAULT 'clean' | clean=图可信；dirty=图待重建（读路径走自动重建→失败降级 CTE）；rebuilding=重建进行中 |
+| node_count | INTEGER | | 最近一次重建后的图节点数（展示/审计用） |
+| rel_count | INTEGER | | 最近一次重建后的图边数（与 `SELECT COUNT(*) FROM edge` 对账） |
+| rebuilt_at | TEXT | | 最近一次重建完成时间 |
+| rebuilt_by | TEXT | REFERENCES user(username) | 重建触发者（auto=自动，或管理员用户名） |
+
+> 单行约束由应用层保证（INSERT OR IGNORE + 固定 id=1）。`rel_count/node_count` 是**廉价对账**：导入完成后自动比对 `rel_count` 与主库边数，不一致标脏；全量 `clew graph audit` 再做 edge_id 集合级精确比对（§十）。
+
 ---
 
 ## 三、派生视图
@@ -387,8 +403,9 @@ LIMIT 20;
 | 人工编辑 | batch_id 为 NULL，独立成条，与批次回滚互不干扰 |
 | 标签创建 | 只在 `version_tag` 写 `created_by/created_at/change_seq`，不写 change_log，标签永久保留 |
 | 标注 | **不参与回滚**（annotation 无 change_log 条目），永久保留（生命周期规则） |
+| Kùzu 派生图 | **不参与 change_log 反做**（图是派生层，见 §十）：回滚完成后把 `graph_state.state` 置 `dirty`，下次血缘读请求自动从 SQLite 全量重建——重建结果天然等于回滚后的主库状态，无需在图上逐条反向操作 |
 
-> SQLite → Postgres 迁移注意：`AUTOINCREMENT` → `GENERATED ALWAYS AS IDENTITY`；时间列 TEXT → `timestamptz`（或统一改 `BIGINT` epoch ms）；字段检索当前为 `LIKE`，迁 Postgres 后可换 `tsvector` + GIN 索引；递归 CTE 与复合 FK 两者语义一致，无需改动。
+> SQLite → Postgres 迁移注意：`AUTOINCREMENT` → `GENERATED ALWAYS AS IDENTITY`；时间列 TEXT → `timestamptz`（或统一改 `BIGINT` epoch ms）；字段检索当前为 `LIKE`，迁 Postgres 后可换 `tsvector` + GIN 索引；递归 CTE 与复合 FK 两者语义一致，无需改动。**Kùzu 层与主库方言无关，迁移 Postgres 不影响图存储与 Cypher 查询**。
 
 ---
 
@@ -477,3 +494,89 @@ LIMIT 20;
 - **边自然键**：`(from_dataset, from_field, to_dataset, to_field)`，NULL 字段表示表级；静态校验字段级/表级二选一，数据库部分唯一索引兜底并发重复。
 - **标签 diff**：区间内按实体归并；区间内先增后删的实体不计入净变更；`from` 标签晚于 `to` 标签返回 400。
 - **回滚幂等**：反做函数对 `added`（目标可能已不存在）、`updated`（重复恢复同值）、`deleted`（目标可能已存在）均安全；`rollback_record` 每次调用追加一条审计，不改变数据状态。
+
+---
+
+## 十、Kùzu 血缘图存储（派生层，2026-11 双库方案新增）
+
+> 定位：Kùzu 0.11.3（嵌入式属性图库，进程内 Cypher）承担**血缘拓扑遍历**；SQLite（§一–九）仍是唯一事实源。本节定义图的 schema、与主库的映射、双写流程、一致性保证与重建流程。选型理由与归档风险见《设计方案》§4.3 / §十决策 #7/#8。
+
+### 10.1 图 schema（DDL）
+
+```cypher
+-- 节点表：只存身份键与展示名；完整元数据（定位器/描述/标注/审计）一律回 SQLite 取
+CREATE NODE TABLE Dataset (id STRING, name STRING, PRIMARY KEY (id));
+CREATE NODE TABLE Field   (id STRING, name STRING, PRIMARY KEY (id));
+--   Field.id = "<dataset_id>.<field_name>"，与 §5.2 多态键同构（dataset 名含点不影响：图的键由主库复合自然键拼接生成，解析回主库时按 §5.2 最右点切分规则处理）
+
+-- 关系表：字段级/表级拆两张（Kùzu REL 表端点固定）；只存遍历与过滤所需的最小列
+CREATE REL TABLE LINEAGE_FIELD (FROM Field TO Field,
+    edge_id INT64,        -- SQLite edge.id：回链主库的稳定键（编辑/删除/转正按它定位）
+    source STRING,        -- imported / manual / ai（画布过滤）
+    confidence DOUBLE);   -- 低置信过滤（0~1）
+CREATE REL TABLE LINEAGE_TABLE (FROM Dataset TO Dataset,
+    edge_id INT64, source STRING, confidence DOUBLE);
+```
+
+**刻意不进图的列**：`transform` / `note` / `created_by` / 时间戳 / `batch` 信息等业务属性全部留在 SQLite。理由：① 双写漂移面最小（拓扑键 + 3 个过滤列才需要同步）；② 前端 hydrate 反正要回主库取字段详情与定位器，图查询只负责「找出谁、隔几跳」；③ transform 是供理解的长文本，放入图属性只增重建成本。
+
+### 10.2 主库 → 图映射
+
+| SQLite | Kùzu | 规则 |
+|---|---|---|
+| `dataset(id, name)` | `(:Dataset {id, name})` | id 原样 |
+| `field(dataset_id, name)` | `(:Field {id, name})` | `id = dataset_id + '.' + name`（展示名用 name；含点的名字不歧义——键由主库生成） |
+| `edge(from_field/to_field 均非 NULL)` | `(:Field)-[:LINEAGE_FIELD {edge_id, source, confidence}]->(:Field)` | 四元自然键 → 两侧 Field.id |
+| `edge(from_field=NULL 且 to_field=NULL)` | `(:Dataset)-[:LINEAGE_TABLE {…}]->(:Dataset)` | 表级边 |
+| 混合边（一侧为 NULL） | 不存在于图 | M1 规则即禁止一空一非空（§2.5），此处为兜底断言，audit 命令报告 anomaly |
+| `edge.id` | `edge_id` 属性 | 图中无自增 id，**edge_id 是唯一回链键**；同一自然键在主库唯一 ⇒ edge_id 在图中唯一 |
+
+不变量：**Kùzu ⊆ SQLite**。图中的每条 Rel 都必须能在主库 `edge` 表按 `edge_id` 找到；反向不要求（主库边可能尚未同步，dirty 状态）。数据集/字段节点同理（孤儿节点无害，重建时清理）。
+
+### 10.3 双写流程（写路径）
+
+统一入口为 `clew/db.py`（主库事务）+ `clew/graph.py`（图事务）两个模块，写序列：
+
+```
+BEGIN(SQLite)：写 edge / change_log / batch … COMMIT          ← ① 业务承诺在此完成
+BEGIN(Kùzu)：CREATE/DELETE 对应 Rel（必要时建节点）COMMIT      ← ② 尽力而为
+   ├─ 成功 → 更新 graph_state.last_edge_id（clean）
+   └─ 异常 → graph_state.state = 'dirty'（幂等，可重复标）→ 响应仍为 2xx
+```
+
+- **导入**：批次事务提交后，按本批新增 edge 集合写图（同一请求内完成，失败标脏）；
+- **画布编辑**（边 POST/PATCH/DELETE）：`PATCH confidence/transform` 时 transform 不进图 ⇒ 仅 confidence/source 变化才需要同步；删除/新增边按 edge_id 同步；AI 建议**确认转正**只改 `source` 列 ⇒ 同步更新图上该 edge_id 的 source 属性（`MATCH ()-[r]->() WHERE r.edge_id = $id SET r.source = 'manual'`）；**拒绝**=删边，同步删 Rel；
+- **回滚**（按批次/标签）：只反做主库，完成后置 `dirty`（重建天然收敛，见 §七）；
+- **删除数据集/字段**（admin）：主库级联后置 `dirty` 重建清理孤儿节点。
+
+> Kùzu 连接策略：进程内单例 `kuzu.Database(path)` + 单 `Connection`；FastAPI 同步路由跑在线程池，图操作与 SQLite 一样用模块级锁串行化写（单写多读，规模下无并发瓶颈）`[TBD-BE：压测后再评估读写锁]`。
+
+### 10.4 一致性保证与重建
+
+| 机制 | 规则 |
+|---|---|
+| 读前检查 | 血缘读请求先查 `graph_state.state`：clean → 走图；dirty/rebuilding → 先尝试自动全量重建，成功则继续走图，失败则降级递归 CTE（同一 REST 契约） |
+| 自动重建 | ① 主库 `edge` 全量读出 → 导出节点/边 CSV（临时文件）→ ② Kùzu `DROP` REL 表数据 + 节点表数据（或整库重建）→ `COPY FROM` 批量导入 → ③ 更新 `graph_state`（rel_count/node_count/last_edge_id/rebuilt_at，state='clean'）→ ④ 写 `change_log(entity_kind='graph', op='updated')` 留痕。万级边秒级完成，**幂等** |
+| 廉价对账 | 每次导入完成：`SELECT COUNT(*) FROM edge` vs 图 rel 计数，不一致标脏 |
+| 精确审计 | `clew graph audit`：主库 edge_id 全集 vs 图 `MATCH ()-[r]->() RETURN r.edge_id` 全集做差（多/少/异常混合边），输出报告；不一致即标脏。CI/定时任务可跑 |
+| 手动重建 | `clew graph rebuild`（admin CLI，等价自动重建的手动入口）；用于怀疑漂移、升级版本、恢复备份后 |
+| 观测 | `/health` 返回 `{db:"ok", graph:"clean|dirty|rebuilding|unavailable", fallback_cte: bool}`；画布顶栏徽标同步展示（正常/重建中/已降级） |
+
+重建实现细节：Kùzu 批量导入用 `COPY LINEAGE_FIELD FROM 'tmp/lineage_field.csv' (HEADER=true)`（0.11.3 内置能力，无外部依赖）；CSV 由主库导出，**列序固定**并与 §10.1 DDL 对齐。
+
+### 10.5 查询路由总表（读路径）
+
+| 能力 | 引擎 | 查询 | 备注 |
+|---|---|---|---|
+| 字段/数据集详情、定位器、标注、历史 | SQLite | 既有 SQL | 不变 |
+| 搜索（search_fields 工具） | SQLite | §3.2 LIKE（FTS5 预留） | 不变 |
+| 1-hop 上下游 | Kùzu | `MATCH (src)-[r:LINEAGE_FIELD]->(f:Field {id:$fid})` | 字段详情面板 |
+| N-hop 全链 / 子图（画布） | Kùzu | `MATCH p=(src)<-[:LINEAGE_FIELD*1..3]-(f)` 变长路径 | 两侧方向各一条；结果回主库 hydrate 成 GraphPayload |
+| 下游影响面（analyze_impact） | Kùzu | `MATCH p=(f)-[:LINEAGE_FIELD*1..5]->(down)` | 后续可用 algo 扩展（PageRank）排序 |
+| 环路检测 | Kùzu | `algo` 扩展 | 血缘图按业务规则应无环，audit 报告环 |
+| 全部血缘查询（降级） | SQLite | §4.4 递归 CTE（`prototype/backend/src/lineagelite/lineage.py` 既有实现） | REST 契约不变 |
+
+### 10.6 退出与演进路径
+
+- **整体退出**：删除 `graph.py` + Kùzu 依赖，读路径常驻 CTE 即回到单库形态——因为图永远可从主库推导，退出**零数据迁移、零丢失**；
+- **演进（非本期）**：数据量进入十万级边后，把「全量重建」升级为 change_log 水位增量同步（`last_edge_id` 已预留）；跨进程/多实例部署时 Kùzu 单写者模型不再满足，届时再评估服务化图库 `[TBD-INFRA]`。
