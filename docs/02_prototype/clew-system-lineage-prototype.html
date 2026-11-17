@@ -248,9 +248,78 @@
   .origin-both { color: var(--info-deep); background: var(--info-soft); }
   .origin-ai { color: var(--ai-deep); background: var(--ai-soft); }
 
+  /* ===== AI 助手抽屉（specs: docs/04_hifi/07_系统级AI助手.md）===== */
+  .ai-mask { position: fixed; inset: 0; background: rgba(15,23,42,.25); z-index: 69; animation: fadein .2s ease; }
+  .ai-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw;
+    background: var(--card); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop);
+    z-index: 70; display: flex; flex-direction: column; animation: drawerin .2s ease; }
+  @keyframes fadein { from { opacity: 0; } }
+  @keyframes drawerin { from { transform: translateX(16px); opacity: 0; } }
+  .ai-head { display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+    border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .ai-head h3 { margin: 0; font-size: 14px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+  .ai-ic { width: 30px; height: 30px; border-radius: 9px; background: var(--ai-soft); color: var(--ai);
+    border: 1px solid rgba(79,70,229,.25); display: inline-flex; align-items: center;
+    justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .ai-iconbtn { appearance: none; border: none; background: transparent; color: var(--ink-faint); font: inherit;
+    font-size: 13px; width: 28px; height: 28px; border-radius: 7px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background .15s ease, color .15s ease; }
+  .ai-iconbtn:hover { background: var(--subtle); color: var(--ink-soft); }
+  .ai-focus { display: flex; align-items: center; gap: 8px; padding: 0 14px; height: 34px; flex-shrink: 0;
+    background: var(--page); border-bottom: 1px solid var(--line-soft); font-size: 11px; color: var(--ink-faint); }
+  .ai-focus .fv { font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; color: var(--info-deep);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ai-banner { margin: 10px 14px 0; padding: 8px 11px; flex-shrink: 0; border-radius: 9px;
+    border: 1px solid rgba(180,83,9,.3); background: var(--warning-soft); color: var(--warning-deep);
+    font-size: 12px; line-height: 1.55; animation: fadein .2s ease; }
+  .ai-msgs { flex: 1; min-height: 0; overflow-y: auto; background: var(--page); padding: 14px;
+    display: flex; flex-direction: column; gap: 11px; }
+  .msg-row { display: flex; flex-direction: column; max-width: 100%; }
+  .msg-row.me { align-items: flex-end; }
+  .msg-who { font-size: 10.5px; color: var(--ink-faint); margin-bottom: 3px;
+    font-family: ui-monospace, Menlo, monospace; letter-spacing: .08em; }
+  .msg-bubble { max-width: 88%; border-radius: 12px; padding: 8px 11px; font-size: 12.5px;
+    line-height: 1.62; white-space: pre-wrap; word-break: break-word; }
+  .msg-row.me .msg-bubble { background: #EFF6FF; border: 1px solid #BFDBFE; color: var(--ink); border-top-right-radius: 5px; }
+  .msg-row.ai .msg-bubble { background: var(--card); border: 1px solid var(--line); color: var(--ink-soft);
+    border-top-left-radius: 5px; max-width: 100%; }
+  .msg-row.ai .msg-bubble.err { background: var(--danger-soft); border-color: rgba(220,38,38,.25); color: var(--danger-deep); }
+  .msg-note { font-size: 11px; color: var(--ink-faint); font-style: italic; text-align: center; }
+  .aispin { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid rgba(79,70,229,.25);
+    border-top-color: var(--ai); display: inline-block; animation: aispin .8s linear infinite; flex-shrink: 0; }
+  @keyframes aispin { to { transform: rotate(360deg); } }
+  .tool-card { width: 100%; background: var(--page); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .tool-head { display: flex; align-items: center; gap: 7px; padding: 6px 9px; cursor: pointer;
+    transition: background .15s ease; }
+  .tool-head:hover { background: var(--subtle); }
+  .tool-chip { flex-shrink: 0; font-size: 10px; padding: 0 6px; border-radius: 999px;
+    border: 1px solid rgba(79,70,229,.25); background: var(--ai-soft); color: var(--ai-deep);
+    font-family: ui-monospace, Menlo, monospace; }
+  .tool-body { border-top: 1px solid var(--line-soft); padding: 7px 9px; }
+  .mini-list { display: flex; flex-direction: column; gap: 4px; }
+  .mini-hit { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+  .mini-hit .mono { font-size: 10.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini-hit .score { margin-left: auto; flex-shrink: 0; color: var(--ink-faint); font-size: 10.5px; text-align: right; }
+  .suggest-card { width: 100%; border: 1px dashed rgba(79,70,229,.5); background: rgba(238,242,255,.5);
+    border-radius: 12px; padding: 9px 11px; }
+  .graph-strip { width: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    border: 1px solid rgba(21,128,61,.28); background: var(--success-soft); color: var(--success-deep);
+    border-radius: 9px; padding: 7px 10px; font-size: 11.5px; }
+  .ai-qs { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; }
+  .qbtn { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--ink-muted);
+    font: inherit; font-size: 12px; line-height: 1.5; text-align: left; padding: 7px 10px;
+    border-radius: 9px; cursor: pointer; transition: border-color .15s ease, background .15s ease, color .15s ease; }
+  .qbtn:hover { border-color: var(--info); background: var(--info-soft); color: var(--info-deep); }
+  .qbtn:disabled { opacity: .45; cursor: not-allowed; }
+  .ai-input { border-top: 1px solid var(--line); padding: 10px 14px; flex-shrink: 0; background: var(--card); }
+  .ai-input textarea { resize: none; min-height: 54px; }
+  .ai-counter { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px;
+    color: var(--ink-faint); margin-top: 5px; }
+
   /* ===== 弹层 ===== */
   .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.42); display: flex;
-    align-items: center; justify-content: center; z-index: 60; padding: 24px; }
+    align-items: center; justify-content: center; z-index: 80; padding: 24px; }
   .modal { background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop);
     width: min(960px, 94vw); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
   .modal-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
@@ -284,6 +353,7 @@
 </head>
 <body>
 <div id="app"></div>
+<div id="aiLayer"></div>
 <div class="toast-wrap" id="toasts"></div>
 
 <script>
@@ -542,6 +612,13 @@ const S = {
 };
 S.systemEdges = buildSystemEdges(S.demoCycle);
 
+/* ---- AI 助手抽屉状态（mock；specs: docs/04_hifi/07_系统级AI助手.md）---- */
+S.ai = { open: false, status: "ok" };   // status: ok | none | loading（GET /ai/status 三态）
+let aiLog = null;                        // 对话流；首次打开播种欢迎语
+let aiBusy = false;                      // 本轮回答进行中（发送键切换为停止）
+let aiChain = [];                        // 本轮剩余步骤
+let aiTimer = null;
+
 function canWrite() { return S.role !== "viewer"; }
 function isAdmin() { return S.role === "admin"; }
 let selectTimer = null;
@@ -671,6 +748,7 @@ function render() {
   app.innerHTML = shellHtml();
   drawCanvas();
   renderDetail();
+  renderAi();
   if (S.needsFit) {
     S.needsFit = false;
     focusCanvas(S.level);
@@ -692,13 +770,16 @@ function shellHtml() {
   const cycleBadge = cycleIds.size
     ? '<span class="badge badge-warn" title="系统级聚合环（不代表数据集级有环）">环 · ' + cycleIds.size + ' 个系统</span>'
     : "";
+  const pend = aiPendingCount();
+  const aiEntry = (pend ? '<span class="badge badge-ai" style="cursor:pointer" onclick="openAi()" title="查看待确认的系统级候选边（打开 AI 助手）">✦ ' + pend + ' 条系统建议待确认</span>' : "") +
+    '<button class="btn" style="border-color:rgba(79,70,229,.35);background:var(--ai-soft);color:var(--ai-deep)" onclick="openAi()" title="打开 AI 助手：系统级工具调用 + 出图联动 + 建议确认">✦ AI 助手</button>';
   return '<div class="topbar">' +
     '<div class="logo" onclick="goLevel(\'system\')"><span class="logo-mark">' + yarnSvg() + '</span>Clew</div>' +
     '<div class="navpill">' +
       levelBtn("system", "系统") + levelBtn("dataset", "数据集") + levelBtn("field", "字段") +
     '</div>' +
     '<div class="searchbox"><span class="faint">⌕</span><input placeholder="搜索系统 / 数据集 / 字段（SQLite LIKE）" value="' + esc(S.search) + '" oninput="onSearch(this.value)"></div>' +
-    '<span style="flex:1"></span>' + cycleBadge + gBadge +
+    '<span style="flex:1"></span>' + cycleBadge + gBadge + aiEntry +
     '<div class="userchip">' +
       '<select class="select" style="width:auto" onchange="switchRole(this.value)" title="切换角色视角（演示 RBAC）">' +
         [["admin", "陈明（管理员）"], ["editor", "李雪（维护者）"], ["viewer", "王珂（只读）"]].map(x =>
@@ -1262,6 +1343,7 @@ function renderDetail() {
    ============================================================ */
 function goLevel(level) {
   if (level === "field" && !S.selectedDataset) { toast("先在数据集视图选择一个数据集", "warn"); return; }
+  readRebuild();
   S.level = level;
   S.selectedEdge = null;
   S.needsFit = true;
@@ -1278,6 +1360,7 @@ function switchRole(role) {
   render();
 }
 function setSeed(id) {
+  readRebuild();
   S.seed = id;
   S.selectedSystem = id;
   S.selectedEdge = null;
@@ -1285,10 +1368,10 @@ function setSeed(id) {
   render();
   toast("系统闭包已重算：Kùzu LINEAGE_SYSTEM *1.." + S.hops);
 }
-function setHops(v) { S.hops = +v; render(); toast("重新取系统子图：*1.." + S.hops); }
-function setDirection(v) { S.direction = v; render(); }
+function setHops(v) { readRebuild(); S.hops = +v; render(); toast("重新取系统子图：*1.." + S.hops); }
+function setDirection(v) { readRebuild(); S.direction = v; render(); }
 function toggleFilter(k, v) { S.filters[k] = v; render(); }
-function toggleAllDatasets(v) { S.showAllDatasets = v; S.needsFit = true; render(); }
+function toggleAllDatasets(v) { readRebuild(); S.showAllDatasets = v; S.needsFit = true; render(); }
 function toggleEdgeDrawer() { S.showEdgeDrawer = !S.showEdgeDrawer; render(); }
 function selectSystem(id) {
   S.selectedSystem = id;
@@ -1296,6 +1379,7 @@ function selectSystem(id) {
   render();
 }
 function drillSystem(id) {
+  readRebuild();
   S.selectedSystem = id;
   S.seed = id;
   S.selectedEdge = null;
@@ -1316,6 +1400,7 @@ function selectDataset(id) {
   render();
 }
 function drillDataset(id) {
+  readRebuild();
   S.selectedDataset = id;
   S.level = "field";
   S.selectedEdge = null;
@@ -1347,6 +1432,7 @@ function selectDatasetEdge(id) {
 function jumpEvidence(id) {
   const e = DATASET_EDGES.find(x => x.id === id);
   if (!e) return;
+  readRebuild();
   S.selectedDataset = e.from;
   S.selectedField = { ds: e.from, f: e.fromField };
   S.selectedEdge = "ds:" + id;
@@ -1355,6 +1441,7 @@ function jumpEvidence(id) {
   toast("已定位到底层字段证据 #" + id);
 }
 function showUnassigned() {
+  readRebuild();
   const list = DATASETS.filter(d => !d.systemId);
   S.level = "dataset";
   S.showAllDatasets = true;
@@ -1517,8 +1604,387 @@ function modal(title, body, foot) {
 function closeModal() { const ov = document.getElementById("modal-ov"); if (ov) ov.remove(); }
 
 /* ============================================================
+   AI 助手抽屉（mock）
+   工具集对齐设计方案 §6.2（系统级：search_systems / trace_system_lineage /
+   get_system_details 只读；suggest_system_lineage 写类，editor+）
+   出图联动：SystemGraphPayload → 与手工浏览同一渲染入口（S.level/seed/…）
+   ============================================================ */
+const AI_MODEL = "demo-chat-model";
+function aiConfigured() { return S.ai.status === "ok"; }
+function aiPendingCount() {
+  return EXPLICIT_SYSTEM_EDGES.filter(e => e.source === "ai").length + (S.demoCycle ? 1 : 0);
+}
+function aiWelcome() {
+  return { who: "ai", text:
+    "你好，我是 Clew 血缘助手。系统级视图下我通过 function calling 调用本系统查询工具：" +
+    "search_systems / trace_system_lineage / get_system_details（只读；系统链路走 Kùzu LINEAGE_SYSTEM 变长路径，证据来自 SQLite）。\n" +
+    "我也能生成系统级候选边（suggest_system_lineage，source='ai'），必须 editor 及以上确认才转 manual。\n\n试试下面的示例问题，或直接输入。" };
+}
+function openAi() {
+  if (!aiLog) aiLog = [aiWelcome()];
+  S.ai.open = true;
+  renderAi();
+}
+function closeAi() { S.ai.open = false; renderAi(); }
+function refreshAiStatus() {
+  if (S.ai.status === "loading") return;
+  const next = S.ai.status === "ok" ? "none" : "ok";
+  S.ai.status = "loading";
+  renderAi();
+  setTimeout(() => {
+    S.ai.status = next;
+    renderAi();
+    toast(next === "ok" ? "GET /ai/status：已检测到 LLM 配置（" + AI_MODEL + "）" : "GET /ai/status：未配置 LLM（503 语义）", next === "ok" ? "ok" : "warn");
+  }, 700);
+}
+function clearAi() {
+  modal("清空对话？",
+    '<div style="font-size:12.5px;color:var(--ink-soft)">将清空当前会话（含工具轨迹与候选卡操作状态）。已落库的候选边与画布不受影响。</div>',
+    '<button class="btn" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doClearAi()">清空</button>');
+}
+function doClearAi() {
+  clearTimeout(aiTimer); aiChain = []; aiBusy = false;
+  aiLog = [aiWelcome()];
+  closeModal();
+  renderAi();
+  toast("已清空 AI 会话");
+}
+function aiFocusLabel() {
+  if (S.level === "field") {
+    const d = ds(S.selectedField && S.selectedField.ds);
+    return d && S.selectedField ? "字段 · " + d.id + "." + S.selectedField.f : null;
+  }
+  if (S.level === "dataset") {
+    const d = ds(S.selectedDataset);
+    return d ? "数据集 · " + d.id + " " + d.name : null;
+  }
+  const s = sys(S.selectedSystem) || sys(S.seed);
+  return s ? "系统 · " + s.id + " " + s.name : null;
+}
+function markDirty(msg) {
+  S.graphState = "dirty";
+  toast(msg + "；Kùzu 图标脏，下次读请求自动重建", "warn");
+}
+function readRebuild() {
+  if (S.graphState === "dirty") {
+    S.graphState = "clean";
+    toast("读请求触发 Kùzu 图自动重建（COPY FROM，幂等）", "ok");
+  }
+}
+
+/* ---- mock 对话流（内容与 mock 数据逐条对齐） ---- */
+const AI_FLOWS = [
+  {
+    q: "数仓的上游系统有哪些？数据是怎么汇进来的？",
+    steps: [
+      { t: "tool", n: "search_systems", a: '"dw_platform"', h:
+        '<div class="mini-list">' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">精确</span><span class="mono">dw_platform</span><span class="score">数据仓库 · 数仓/湖 · 5 数据集</span></div>' +
+        '</div>' },
+      { t: "tool", n: "trace_system_lineage", a: 'system="dw_platform", direction="up", hops=3', h:
+        '<div class="mini-list">' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">finance → dw_platform</span><span class="score">显式+投影 · 证据 1 · conf 0.80</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">crm → dw_platform</span><span class="score">投影 · 证据 1 · conf 0.95</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">order_center → dw_platform</span><span class="score">投影 · 证据 1 · conf 0.98</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">payment_gateway → dw_platform</span><span class="score">投影 · 证据 1 · conf 1.00</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">product_center → dw_platform</span><span class="score">投影 · 证据 1 · conf 1.00</span></div>' +
+        '</div>' },
+      { t: "graph", g: { level: "system", seed: "dw_platform", direction: "up", hops: 3 }, strip: "系统子图 · 上游 3 跳 · 6 系统 · 5 连线" },
+      { t: "ai", x: "数仓（dw_platform）上游共 5 个系统，全部 1 跳直达（Kùzu LINEAGE_SYSTEM *1..3 变长路径一次查出）：\n\n1. 订单中心 / 支付网关 / CRM / 商品中心 —— 数据集级血缘自动投影，各贡献 1 条数据集边；\n2. 财务系统 —— 显式+投影双来源：显式边是「月度对账文件」，另有 1 条结算流水投影，合并视图显式属性优先。\n\n注意：源系统之间的链路（CRM→订单中心→支付网关）属于上游系统间关系，不算数仓的直接上游，切回双向视图可见。\n\n已把画布切到系统视图（上游 3 跳），可点击边查看证据。" },
+    ],
+  },
+  {
+    q: "财务系统到数仓那条边是怎么来的？证据充分吗？",
+    steps: [
+      { t: "tool", n: "get_system_details", a: '"finance"', h:
+        '<div class="mini-list">' +
+        '<div class="mini-hit"><span class="badge" style="font-size:10px">属性</span><span class="mono">finance</span><span class="score">外部系统 · 财务部 · 1 数据集</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">显式边</span><span class="mono">finance → dw_platform</span><span class="score">manual · conf 0.80 · 月度对账文件</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">投影边</span><span class="mono">ods_finance_settlement → dws_order_daily</span><span class="score">pay_id → pay_user_cnt · conf 0.80</span></div>' +
+        '</div>' },
+      { t: "graph", g: { level: "system", seed: "dw_platform", selectedEdge: "finance->dw_platform" }, strip: "已在画布选中该边 · 详情面板列出数据集级证据" },
+      { t: "ai", x: "这条边 origin=both，两个来源互相印证：\n\n1. 显式边：财务部每月 3 日上传对账文件（Excel），接口无完整表级明细，按「显式登记」写入 SQLite system_edge（manual，conf 0.80）；\n2. 投影边：ods_finance_settlement.pay_id → dws_order_daily.pay_user_cnt（对账口径：按支付单去重，manual，conf 0.80），由 dataset.system_id 自动投影，不落库。\n\n合并视图显式属性优先，证据计数 1。结论：证据充分——显式接口与表级投影一致。\n\n点击画布上的边或「关系实例」行，可在右侧详情面板逐条核查底层字段证据。" },
+    ],
+  },
+  {
+    q: "帮我找可能漏掉的系统级血缘",
+    steps: [
+      { t: "tool", n: "suggest_system_lineage", a: 'scope="system", min_conf=0.5', h:
+        '<div class="mini-list">' +
+        '<div class="mini-hit"><span class="badge badge-ai" style="font-size:10px">新候选</span><span class="mono">payment_gateway → finance</span><span class="score">对账接口同名启发式 · conf 0.58</span></div>' +
+        '</div>' },
+      { t: "suggest", from: "payment_gateway", to: "finance", conf: 0.58,
+        reason: "支付网关与财务系统都持有对账口径字段（pay_id / settle_amount），当前两系统间无任何已登记关系" },
+      { t: "graph", g: { level: "system", seed: "dw_platform", direction: "both", hops: 3 },
+        strip: "已切回双向视图 · 候选虚线边 payment_gateway → finance 可见" },
+      { t: "ai", x: "建议 1 条系统级候选边：payment_gateway → finance（渠道对账，conf 0.58）。\n\n依据：支付网关的支付流水与财务的结算流水都以 pay_id 为对账键，但两系统间当前没有任何已登记关系（无投影、无显式边）。候选已落 system_edge（source='ai'），画布上为 indigo 虚线。\n\n治理约定：必须 editor 及以上角色确认才转 manual；确认或拒绝都会写 change_log，并把 Kùzu 图标脏、下次读请求自动重建。可在上方候选卡操作，或在「关系实例」列表找到「AI 候选」行。\n\n另：画布已有 1 条待确认候选 crm → marketing（conf 0.62，标签圈选推断）。" },
+    ],
+  },
+  {
+    q: "gmv 这个指标是怎么算出来的？",
+    steps: [
+      { t: "tool", n: "trace_lineage", a: 'field="dws_order_daily.gmv", direction="up", hops=3', h:
+        '<div class="mini-list">' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">dwd_order.order_amount</span><span class="score">导入 · conf 1.00 · SUM(order_amount)</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">ods_raw_order.quantity / unit_price</span><span class="score">导入 · conf 1.00 · quantity × unit_price</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 3</span><span class="mono">ods_order.amount</span><span class="score">导入 · conf 0.98 · 金额口径对齐</span></div>' +
+        '</div>' },
+      { t: "graph", g: { level: "field", ds: "dws_order_daily", f: "gmv", edge: 15 }, strip: "字段视图 · gmv 上游 3 跳链路已点亮" },
+      { t: "ai", x: "gmv 的 3 跳上游链路（SQLite edge + Kùzu LINEAGE_FIELD）：\n\n1. dws_order_daily.gmv ← dwd_order.order_amount：SUM(order_amount) 日汇总（导入，conf 1.00）\n2. dwd_order.order_amount ← ods_raw_order.quantity × unit_price（导入，conf 1.00）\n3. ods_raw_order.amount ← ods_order.amount：金额口径对齐（导入，conf 0.98）\n\n画布已切到字段视图并点亮整条链，点击链上任意字段可回源核查。提示：hop 3 的 0.98 是「订单金额 ↔ 明细金额」口径对齐边，改动金额口径时沿这条链评估影响面。" },
+    ],
+  },
+];
+
+/* ---- 步骤执行 ---- */
+function startChain(steps) {
+  aiBusy = true;
+  aiChain = steps.slice();
+  aiTimer = setTimeout(aiNextStep, 500);
+  renderAi();
+}
+function aiNextStep() {
+  if (!aiChain.length) { aiBusy = false; renderAi(); return; }
+  const st = aiChain.shift();
+  applyStep(st);
+  renderAi();
+  if (aiChain.length) aiTimer = setTimeout(aiNextStep, 600);
+  else { aiBusy = false; renderAi(); }
+}
+function applyStep(st) {
+  if (st.t === "tool") { aiLog.push({ who: "tool", n: st.n, a: st.a, h: st.h, open: false, ok: st.ok !== false }); return; }
+  if (st.t === "ai") { aiLog.push({ who: "ai", text: st.x, err: !!st.err }); return; }
+  if (st.t === "note") { aiLog.push({ who: "note", text: st.x }); return; }
+  if (st.t === "strip") { aiLog.push({ who: "strip", text: st.strip }); return; }
+  if (st.t === "suggest") {
+    const key = st.from + "->" + st.to;
+    if (!EXPLICIT_SYSTEM_EDGES.some(x => edgeKey(x) === key)) {
+      EXPLICIT_SYSTEM_EDGES.push({
+        from: st.from, to: st.to, source: "ai", confidence: st.conf,
+        transform: "渠道对账（推断）",
+        note: "AI 建议：支付网关对账单疑似与财务结算共用对账接口，待 editor 确认后转 manual。",
+      });
+      S.systemEdges = buildSystemEdges(S.demoCycle);
+    }
+    aiLog.push({ who: "suggest", key: key, from: st.from, to: st.to, conf: st.conf, reason: st.reason });
+    render();   // 画布立即出现候选虚线边
+    return;
+  }
+  if (st.t === "graph") {
+    const g = st.g;
+    if (g.level) S.level = g.level;
+    if (g.seed) S.seed = g.seed;
+    if (g.direction) S.direction = g.direction;
+    if (g.hops) S.hops = g.hops;
+    if (g.ds) {
+      S.selectedDataset = g.ds;
+      const d = ds(g.ds);
+      if (g.f && d && d.fields.some(x => x.name === g.f)) S.selectedField = { ds: g.ds, f: g.f };
+    }
+    if (g.edge) { const e = DATASET_EDGES.find(x => x.id === g.edge); if (e) S.selectedDataset = e.from; }
+    S.selectedEdge = g.edge ? "ds:" + g.edge : (g.selectedEdge || null);
+    if (g.level === "system") S.selectedSystem = g.selectedEdge ? g.selectedEdge.split("->")[0] : S.seed;
+    S.needsFit = true;
+    render();
+    if (st.strip) aiLog.push({ who: "strip", text: st.strip });
+    return;
+  }
+}
+function runFlow(i) {
+  if (aiBusy || !aiConfigured()) return;
+  const f = AI_FLOWS[i];
+  aiLog.push({ who: "me", text: f.q });
+  startChain(f.steps.slice());
+}
+function stopAi() {
+  clearTimeout(aiTimer);
+  aiChain = [];
+  aiBusy = false;
+  aiLog.push({ who: "note", text: "本轮回答已停止（未完成的工具调用与作答已丢弃）" });
+  renderAi();
+}
+function sendAi() {
+  if (aiBusy) return;
+  const inp = document.getElementById("aiInput");
+  const q = (inp.value || "").trim();
+  if (!q) return;
+  inp.value = "";
+  if (!aiConfigured()) {
+    aiLog.push({ who: "me", text: q });
+    aiLog.push({ who: "ai", err: true, text: "503 服务未配置：.env 缺少 LLM_BASE_URL / LLM_MODEL，AI 助手暂不可用。配置后点右上角 ⟳ 重新检测。" });
+    renderAi();
+    return;
+  }
+  const qk = q.toLowerCase();
+  const hits = SYSTEMS.filter(s =>
+    s.id.toLowerCase().includes(qk) || s.name.toLowerCase().includes(qk) || (s.owner || "").toLowerCase().includes(qk));
+  aiLog.push({ who: "me", text: q });
+  startChain([
+    { t: "tool", n: "search_systems", a: JSON.stringify(q), h:
+      (hits.length
+        ? '<div class="mini-list">' + hits.slice(0, 4).map(s =>
+            '<div class="mini-hit"><span class="badge" style="font-size:10px">命中</span><span class="mono">' + esc(s.id) + '</span><span class="score">' + esc(s.name) + ' · ' + typeMeta(s.type).label + '</span></div>').join("") + '</div>'
+        : '<div class="faint" style="font-size:11px">SQLite LIKE 无匹配系统。</div>') },
+    { t: "ai", x: "本原型为脚本化演示：点击示例问题可看完整的「工具调用 → 回答 → 画布联动」动线（链路问答 / 边证据解释 / 建议生成 / 字段级追溯）。自由输入时我只演示 search_systems 的实时检索（上为 SQLite LIKE 结果）。生产实现中回答由 LLM 经 function calling 组织，见 Clew-设计方案 §6。" },
+  ]);
+}
+function aiKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    if (!aiBusy) sendAi();
+  }
+}
+function aiCount(el) {
+  const n = (el.value || "").length;
+  const c = document.getElementById("aiCount");
+  if (c) { c.textContent = n + "/8000"; c.style.color = n >= 8000 ? "var(--danger-deep)" : ""; }
+}
+function toggleAiTool(i) {
+  const m = aiLog[i];
+  if (m && m.who === "tool") m.open = !m.open;
+  renderAi();
+}
+
+/* ---- 系统级建议边生命周期：确认转 manual / 拒绝删除 ---- */
+function aiConfirmSuggest(key, idx) {
+  if (!canWrite()) return;
+  const e = EXPLICIT_SYSTEM_EDGES.find(x => edgeKey(x) === key && x.source === "ai");
+  if (!e) return;
+  e.source = "manual";
+  S.systemEdges = buildSystemEdges(S.demoCycle);
+  const m = aiLog[idx];
+  if (m && m.who === "suggest") m.state = "confirmed";
+  markDirty("已确认转 manual：" + key + "（写 change_log）");
+  render(); renderAi();
+}
+function aiRejectSuggest(key, idx) {
+  if (!canWrite()) return;
+  const i = EXPLICIT_SYSTEM_EDGES.findIndex(x => edgeKey(x) === key && x.source === "ai");
+  if (i >= 0) EXPLICIT_SYSTEM_EDGES.splice(i, 1);
+  S.systemEdges = buildSystemEdges(S.demoCycle);
+  const m = aiLog[idx];
+  if (m && m.who === "suggest") m.state = "rejected";
+  markDirty("已拒绝候选边：" + key + "（写 deleted 日志）");
+  render(); renderAi();
+}
+
+/* ---- 抽屉渲染（独立层，画布重渲染不丢失输入） ---- */
+function aiMsgHtml(m, i) {
+  if (m.who === "me") {
+    return '<div class="msg-row me"><div class="msg-who">你</div><div class="msg-bubble">' + esc(m.text) + '</div></div>';
+  }
+  if (m.who === "ai") {
+    return '<div class="msg-row ai"><div class="msg-who">✦ AI 助手</div><div class="msg-bubble' + (m.err ? " err" : "") + '">' + esc(m.text) + '</div></div>';
+  }
+  if (m.who === "note") return '<div class="msg-note">' + esc(m.text) + '</div>';
+  if (m.who === "strip") {
+    return '<div class="msg-row ai"><div class="graph-strip"><span class="badge badge-ok" style="font-size:10px">画布已更新</span><span>' + esc(m.text) + '</span>' +
+      '<button class="btn btn-xs" style="margin-left:auto" onclick="closeAi()">关闭并查看</button></div></div>';
+  }
+  if (m.who === "tool") {
+    return '<div class="msg-row ai"><div class="tool-card">' +
+      '<div class="tool-head" onclick="toggleAiTool(' + i + ')" aria-expanded="' + (m.open ? "true" : "false") + '">' +
+        '<span class="tool-chip">tool <span style="color:' + (m.ok === false ? "var(--danger)" : "var(--success)") + '">' + (m.ok === false ? "✗" : "✓") + '</span></span>' +
+        '<span class="mono" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(m.n + "(" + m.a + ")") + '</span>' +
+        '<span class="faint" style="font-size:10px;flex-shrink:0">' + (m.open ? "收起 ▲" : "展开 ▼") + '</span>' +
+      '</div>' +
+      (m.open ? '<div class="tool-body">' + m.h + '</div>' : "") +
+    '</div></div>';
+  }
+  if (m.who === "suggest") {
+    const resolved = m.state === "confirmed" ? '<span class="badge badge-ok">已确认转 manual</span>'
+      : m.state === "rejected" ? '<span class="badge">已拒绝 · 未写入事实源</span>' : "";
+    const editable = canWrite() && !m.state;
+    const actions = m.state ? resolved :
+      '<div style="display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap">' +
+        '<button class="btn btn-primary btn-xs" ' + (editable ? "" : "disabled") + ' onclick="aiConfirmSuggest(\'' + m.key + '\',' + i + ')">✓ 确认转正</button>' +
+        '<button class="btn btn-xs" style="color:var(--danger-deep)" ' + (editable ? "" : "disabled") + ' onclick="aiRejectSuggest(\'' + m.key + '\',' + i + ')">拒绝</button>' +
+        (canWrite() ? "" : '<span class="faint" style="font-size:10.5px">需要 editor 角色（当前只读视角）</span>') +
+      '</div>';
+    return '<div class="msg-row ai"><div class="suggest-card">' +
+      '<div style="font-size:10.5px;color:var(--ai-deep);letter-spacing:.06em">✦ AI 助手 · suggest_system_lineage</div>' +
+      '<div class="mono" style="font-size:11.5px;color:var(--ink-soft);margin-top:4px">' + esc(m.from) + ' → ' + esc(m.to) + '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">' +
+        '<span class="badge badge-ai" style="font-size:10px">置信 ' + m.conf.toFixed(2) + '</span>' +
+        '<span class="faint" style="font-size:11px">' + esc(m.reason) + '</span>' +
+      '</div>' +
+      actions +
+      '<div class="faint" style="font-size:10px;margin-top:6px">确认后 source 由 ai 改写为 manual · 写 change_log · 触发 Kùzu 图重建</div>' +
+    '</div></div>';
+  }
+  return "";
+}
+function aiDrawerHtml() {
+  const st = S.ai.status;
+  const statusBadge = st === "ok"
+    ? '<span class="badge badge-ai" title="GET /ai/status · .env LLM_MODEL">已配置 · ' + AI_MODEL + '</span>'
+    : st === "loading" ? '<span class="badge"><span class="aispin"></span>检测中</span>'
+    : '<span class="badge" title="GET /ai/status · 503">未配置</span>';
+  const focus = aiFocusLabel();
+  const banner = st === "none"
+    ? '<div class="ai-banner">AI 助手暂不可用：.env 未配置 LLM_BASE_URL / LLM_MODEL。配置后点右上角 ⟳ 重新检测。</div>' : "";
+  const prompts = aiLog.length === 1 && !aiBusy
+    ? '<div class="ai-qs">' + AI_FLOWS.map((f, i) =>
+        '<button class="qbtn" ' + (aiConfigured() ? "" : "disabled") + ' onclick="runFlow(' + i + ')" title="点击直接演示该问题">' + esc(f.q) + '</button>').join("") + '</div>'
+    : "";
+  const msgs = aiLog.map(aiMsgHtml).join("") + prompts +
+    (aiBusy
+      ? '<div class="msg-row ai"><div class="msg-bubble" style="border-style:dashed;background:rgba(255,255,255,.7);color:var(--ink-muted);display:inline-flex;align-items:center;gap:7px"><span class="aispin"></span>正在调用工具并组织回答…</div></div>'
+      : "");
+  const sendBtn = aiBusy
+    ? '<button class="btn" style="flex-shrink:0;border-color:rgba(220,38,38,.35);color:var(--danger-deep)" onclick="stopAi()" title="中断本轮回答">■ 停止</button>'
+    : '<button class="btn btn-primary" style="flex-shrink:0" ' + (aiConfigured() ? "" : "disabled") + ' onclick="sendAi()">发送</button>';
+  const placeholder = st === "ok" ? "问血缘：系统上下游 / 边证据解释 / 找漏掉的血缘…"
+    : st === "loading" ? "正在读取 AI 状态…"
+    : "AI 未配置：在 .env 配置 LLM_BASE_URL / LLM_MODEL 后可用";
+  return '<div class="ai-mask" onclick="closeAi()"></div>' +
+    '<aside class="ai-drawer" role="dialog" aria-label="AI 助手">' +
+      '<div class="ai-head">' +
+        '<span class="ai-ic">✦</span>' +
+        '<h3>AI 助手 ' + statusBadge + '</h3>' +
+        '<button class="ai-iconbtn" onclick="refreshAiStatus()" aria-label="重新检测 AI 状态" title="模拟 .env 变更后重新检测">⟳</button>' +
+        '<button class="ai-iconbtn" onclick="clearAi()" aria-label="清空对话" title="清空对话（二次确认）">🗑</button>' +
+        '<button class="ai-iconbtn" onclick="closeAi()" aria-label="关闭抽屉" title="关闭（Esc）">✕</button>' +
+      '</div>' +
+      '<div class="ai-focus"><span>当前聚焦</span><span class="fv" title="' + esc(focus || "") + '">' + esc(focus || "未聚焦") + '</span><span style="flex:1"></span>' +
+        '<span class="badge" title="查询实时可用；建议 / 草稿等写操作需 editor">🔒 只读工具</span></div>' +
+      banner +
+      '<div class="ai-msgs" id="aiMsgs" role="log" aria-live="polite">' + msgs + '</div>' +
+      '<div class="ai-input">' +
+        '<div style="display:flex;gap:7px;align-items:flex-end">' +
+          '<label for="aiInput" style="position:absolute;left:-9999px">向 AI 助手提问</label>' +
+          '<textarea id="aiInput" class="input" rows="2" maxlength="8000" placeholder="' + placeholder + '" ' +
+            (aiConfigured() && !aiBusy ? "" : "disabled") + ' onkeydown="aiKey(event)" oninput="aiCount(this)"></textarea>' +
+          sendBtn +
+        '</div>' +
+        '<div class="ai-counter"><span>Enter 发送 · Shift+Enter 换行 · 仅回传最近 50 条</span><span id="aiCount" class="mono">0/8000</span></div>' +
+      '</div>' +
+    '</aside>';
+}
+function renderAi() {
+  const layer = document.getElementById("aiLayer");
+  if (!layer) return;
+  if (!S.ai.open) { layer.innerHTML = ""; return; }
+  const prevInput = document.getElementById("aiInput");
+  const prevMsgs = document.getElementById("aiMsgs");
+  const inputVal = prevInput ? prevInput.value : "";
+  const atBottom = prevMsgs ? (prevMsgs.scrollHeight - prevMsgs.scrollTop - prevMsgs.clientHeight < 60) : true;
+  const prevScroll = prevMsgs ? prevMsgs.scrollTop : 0;
+  layer.innerHTML = aiDrawerHtml();
+  const inp = document.getElementById("aiInput");
+  if (inp) { inp.value = inputVal; aiCount(inp); }
+  const sc = document.getElementById("aiMsgs");
+  if (sc) sc.scrollTop = atBottom ? sc.scrollHeight : prevScroll;
+  if (!prevInput && S.ai.status !== "loading" && inp) inp.focus();
+}
+
+/* ============================================================
    启动
    ============================================================ */
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (document.getElementById("modal-ov")) return;   // 弹层优先自行关闭
+  if (S.ai.open) closeAi();
+});
 render();
 </script>
 </body>

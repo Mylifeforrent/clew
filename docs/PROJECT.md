@@ -21,7 +21,7 @@
 | [数据模型](./01_design/Clew-数据模型.md) | 数据层模型：ER 图、SQLite 13 张业务表 + graph_state 定义、派生视图（含 v_system_edge）、JSON 结构、标识命名规则、索引与版本重建规则、§十 Kùzu 图 schema（含 System/LINEAGE_SYSTEM）与双写一致性 |
 | [低保真原型](./02_prototype/clew-lofi-prototype.html) | 6 个界面的线框原型（浏览器直接打开，已确认的 UI 基线） |
 | [高保真可点击原型](./02_prototype/clew-hifi-prototype.html) | 2026-11 双库方案配套演示：mock 数据、7 个可交互界面（血缘画布/回源预览/导入/AI 对话/版本/RBAC/架构总览） |
-| [系统级血缘原型](./02_prototype/clew-system-lineage-prototype.html) | 2026-11 系统级血缘设计配套：系统/数据集/字段三级视图、显式边与投影边、证据下钻 |
+| [系统级血缘原型](./02_prototype/clew-system-lineage-prototype.html) | 2026-11 系统级血缘设计配套：系统/数据集/字段三级视图、显式边与投影边、证据下钻；AI 助手抽屉（系统级工具调用、出图联动、建议边确认，交互设计见 [04_hifi/07](./04_hifi/07_系统级AI助手.md)） |
 
 ## 目录结构
 
