@@ -1,4 +1,4 @@
-/** format.* 字典：humanizeLocator（源文件定位器人类可读文案）分段模板。 */
+/** format.* dictionary: segment templates for humanizeLocator (human-readable source file locator copy). */
 export const zhFormat = {
   'format.locatorUnavailable': '定位器信息不可用',
   'format.csvSource': 'CSV 源文件',

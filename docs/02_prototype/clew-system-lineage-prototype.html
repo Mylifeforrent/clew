@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clew · 系统级血缘原型（系统 / 数据集 / 字段三级视图）</title>
+<title>Clew · System-Level Lineage Prototype (System / Dataset / Field Three-Level View)</title>
 <style>
-  /* ===== Clew Design Tokens（与 docs/02_prototype/clew-hifi-prototype.html 同一套）===== */
+  /* ===== Clew Design Tokens (same set as docs/02_prototype/clew-hifi-prototype.html) ===== */
   :root {
     --page: #F8FAFC; --card: #FFFFFF; --subtle: #F1F5F9;
     --ink: #0F172A; --ink-soft: #334155; --ink-muted: #475569; --ink-faint: #64748B;
@@ -41,7 +41,7 @@
   }
   [hidden] { display: none !important; }
 
-  /* ===== 通用组件 ===== */
+  /* ===== Common components ===== */
   .btn {
     appearance: none; display: inline-flex; align-items: center; gap: 5px;
     padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line);
@@ -80,7 +80,7 @@
   .muted { color: var(--ink-muted); } .faint { color: var(--ink-faint); }
   .sep { height: 1px; background: var(--line-soft); margin: 10px 0; }
 
-  /* ===== 应用框架 ===== */
+  /* ===== App shell ===== */
   #app { height: 100%; display: flex; flex-direction: column; }
   .topbar {
     display: flex; align-items: center; gap: 12px; padding: 8px 14px;
@@ -106,7 +106,7 @@
   .userchip { display: flex; align-items: center; gap: 8px; }
   .main { flex: 1; min-height: 0; display: flex; }
 
-  /* ===== 画布 ===== */
+  /* ===== Canvas ===== */
   .canvas-screen { display: flex; flex-direction: column; height: 100%; flex: 1; min-width: 0; }
   .canvas-toolbar {
     display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 8px 14px;
@@ -167,7 +167,7 @@
   .evi .f { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: var(--ink); word-break: break-all; }
   .evi .m { color: var(--ink-faint); font-size: 10.5px; margin-top: 2px; }
 
-  /* ===== 系统节点 ===== */
+  /* ===== System node ===== */
   .sys-node {
     position: absolute; width: 220px; background: var(--card);
     border: 1px solid var(--line-strong); border-radius: 12px;
@@ -192,7 +192,7 @@
   .cycle-badge { position: absolute; top: -9px; left: 8px; font-size: 9.5px; padding: 1px 6px; border-radius: 999px;
     background: var(--warning-soft); color: var(--warning-deep); border: 1px solid var(--warning); }
 
-  /* ===== 数据集/字段节点 ===== */
+  /* ===== Dataset / field node ===== */
   .ds-node {
     position: absolute; width: 200px; background: var(--card);
     border: 1px solid var(--line-strong); border-radius: 10px;
@@ -219,7 +219,7 @@
   .f-dot { width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--line-strong); flex-shrink: 0; }
   .field-row.selected .f-dot, .field-row.in-chain .f-dot { border-color: var(--brand-600); background: var(--brand-100); }
 
-  /* ===== 图例 / 缩放 / 边抽屉 ===== */
+  /* ===== Legend / zoom / edge drawer ===== */
   .legend { position: absolute; left: 12px; bottom: 12px; background: rgba(255,255,255,.94);
     border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 11px;
     color: var(--ink-muted); display: flex; flex-direction: column; gap: 4px; pointer-events: none; z-index: 3; }
@@ -248,7 +248,7 @@
   .origin-both { color: var(--info-deep); background: var(--info-soft); }
   .origin-ai { color: var(--ai-deep); background: var(--ai-soft); }
 
-  /* ===== AI 助手抽屉（specs: docs/04_hifi/07_系统级AI助手.md）===== */
+  /* ===== AI assistant drawer (specs: docs/04_hifi/07_system-level-ai-assistant.md) ===== */
   .ai-mask { position: fixed; inset: 0; background: rgba(15,23,42,.25); z-index: 69; animation: fadein .2s ease; }
   .ai-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw;
     background: var(--card); border-left: 1px solid var(--line); box-shadow: var(--shadow-pop);
@@ -317,7 +317,7 @@
   .ai-counter { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px;
     color: var(--ink-faint); margin-top: 5px; }
 
-  /* ===== 弹层 ===== */
+  /* ===== Overlays ===== */
   .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.42); display: flex;
     align-items: center; justify-content: center; z-index: 80; padding: 24px; }
   .modal { background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop);
@@ -359,199 +359,199 @@
 <script>
 "use strict";
 /* ============================================================
-   Clew 系统级血缘原型 · mock 数据（电商订单主题）
-   目标：验证「系统 / 数据集 / 字段」三级视图与系统边证据下钻
-   存储分层：SQLite 管实体属性与入口检索；Kùzu 管关系实例与链路遍历
+   Clew system-level lineage prototype · mock data (e-commerce order theme)
+   Goal: validate the system / dataset / field three-level view and system-edge evidence drill-down
+   Storage split: SQLite holds entity attributes and entry search; Kùzu holds relationship instances and path traversal
    ============================================================ */
 
 const TYPE_META = {
-  source:      { label: "源系统", mark: "源", cls: "tm-source",      color: "#2563EB", stripe: "#BFDBFE" },
-  application: { label: "业务应用", mark: "应", cls: "tm-application", color: "#15803D", stripe: "#BBF7D0" },
-  warehouse:   { label: "数仓/湖", mark: "仓", cls: "tm-warehouse",   color: "#EA580C", stripe: "#FED7AA" },
-  bi:          { label: "分析/BI", mark: "BI", cls: "tm-bi",          color: "#4F46E5", stripe: "#C7D2FE" },
-  external:    { label: "外部系统", mark: "外", cls: "tm-external",    color: "#DC2626", stripe: "#FECACA" },
-  other:       { label: "其他", mark: "他", cls: "tm-other",          color: "#64748B", stripe: "#E2E8F0" },
+  source:      { label: "Source system", mark: "SRC", cls: "tm-source",      color: "#2563EB", stripe: "#BFDBFE" },
+  application: { label: "Business app", mark: "APP", cls: "tm-application", color: "#15803D", stripe: "#BBF7D0" },
+  warehouse:   { label: "Warehouse / lake", mark: "WH", cls: "tm-warehouse",   color: "#EA580C", stripe: "#FED7AA" },
+  bi:          { label: "Analytics / BI", mark: "BI", cls: "tm-bi",          color: "#4F46E5", stripe: "#C7D2FE" },
+  external:    { label: "External system", mark: "EXT", cls: "tm-external",    color: "#DC2626", stripe: "#FECACA" },
+  other:       { label: "Other", mark: "OTH", cls: "tm-other",          color: "#64748B", stripe: "#E2E8F0" },
 };
-const SRC_LABEL = { imported: "导入", manual: "人工", ai: "AI 建议", derived: "投影" };
-const ORIGIN_LABEL = { explicit: "显式", derived: "投影", both: "显式+投影" };
+const SRC_LABEL = { imported: "Imported", manual: "Manual", ai: "AI suggestion", derived: "Projected" };
+const ORIGIN_LABEL = { explicit: "Explicit", derived: "Projected", both: "Explicit + projected" };
 
-/* ---- 系统目录（SQLite system 表） ---- */
+/* ---- System catalog (SQLite system table) ---- */
 const SYSTEMS = [
-  { id: "crm",             name: "CRM 客户系统", type: "source",      owner: "客户平台组", desc: "客户主数据、联系人与标签", x: 20,  y: 100 },
-  { id: "product_center",  name: "商品中心",     type: "source",      owner: "商品平台组", desc: "SKU、类目与商品主数据", x: 20,  y: 360 },
-  { id: "order_center",    name: "订单中心",     type: "application", owner: "交易平台组", desc: "订单创建、状态与金额", x: 270, y: 60 },
-  { id: "finance",         name: "财务系统",     type: "external",    owner: "财务部",     desc: "结算、对账与财务口径", x: 270, y: 400 },
-  { id: "payment_gateway", name: "支付网关",     type: "application", owner: "支付平台组", desc: "支付单、渠道回调与对账", x: 520, y: 60 },
-  { id: "dw_platform",     name: "数据仓库",     type: "warehouse",   owner: "数据平台组", desc: "ODS / DWD / DWS 分层与指标", x: 520, y: 320 },
-  { id: "bi_portal",       name: "BI 看板",      type: "bi",          owner: "经营分析组", desc: "GMV、用户增长与经营看板", x: 770, y: 120 },
-  { id: "risk_engine",     name: "风控引擎",     type: "application", owner: "风控组",     desc: "交易异常与反欺诈", x: 770, y: 320 },
-  { id: "marketing",       name: "营销平台",     type: "application", owner: "增长组",     desc: "人群圈选与活动效果", x: 770, y: 500 },
+  { id: "crm",             name: "CRM Customer System", type: "source",      owner: "Customer Platform Team", desc: "Customer master data, contacts and tags", x: 20,  y: 100 },
+  { id: "product_center",  name: "Product Center",     type: "source",      owner: "Product Platform Team", desc: "SKUs, categories and product master data", x: 20,  y: 360 },
+  { id: "order_center",    name: "Order Center",       type: "application", owner: "Trading Platform Team", desc: "Order creation, status and amounts", x: 270, y: 60 },
+  { id: "finance",         name: "Finance System",     type: "external",    owner: "Finance Dept",     desc: "Settlement, reconciliation and finance definitions", x: 270, y: 400 },
+  { id: "payment_gateway", name: "Payment Gateway",    type: "application", owner: "Payment Platform Team", desc: "Payment orders, channel callbacks and reconciliation", x: 520, y: 60 },
+  { id: "dw_platform",     name: "Data Warehouse",     type: "warehouse",   owner: "Data Platform Team", desc: "ODS / DWD / DWS layers and metrics", x: 520, y: 320 },
+  { id: "bi_portal",       name: "BI Dashboard",       type: "bi",          owner: "Business Analytics Team", desc: "GMV, user growth and business dashboards", x: 770, y: 120 },
+  { id: "risk_engine",     name: "Risk Engine",        type: "application", owner: "Risk Control Team",     desc: "Transaction anomalies and anti-fraud", x: 770, y: 320 },
+  { id: "marketing",       name: "Marketing Platform", type: "application", owner: "Growth Team",     desc: "Audience targeting and campaign performance", x: 770, y: 500 },
 ];
 const SYSTEM_MAP = Object.fromEntries(SYSTEMS.map(s => [s.id, s]));
 
-/* ---- 数据集（SQLite dataset 表；systemId = dataset.system_id） ---- */
+/* ---- Datasets (SQLite dataset table; systemId = dataset.system_id) ---- */
 const DATASETS = [
-  { id: "ods_crm_customer",      name: "CRM 客户主数据", systemId: "crm",             x: 40,   y: 40,  fields: [
-    { name: "customer_id", type: "STRING", desc: "客户唯一标识" },
-    { name: "name", type: "STRING", desc: "客户名称" },
-    { name: "city", type: "STRING", desc: "常驻城市" },
-    { name: "register_date", type: "DATE", desc: "注册日期" },
+  { id: "ods_crm_customer",      name: "CRM Customer Master Data", systemId: "crm",             x: 40,   y: 40,  fields: [
+    { name: "customer_id", type: "STRING", desc: "Customer unique ID" },
+    { name: "name", type: "STRING", desc: "Customer name" },
+    { name: "city", type: "STRING", desc: "City of residence" },
+    { name: "register_date", type: "DATE", desc: "Registration date" },
   ]},
-  { id: "ods_crm_contact",       name: "CRM 联系人", systemId: "crm",             x: 40,   y: 250, fields: [
-    { name: "contact_id", type: "STRING", desc: "联系人标识" },
-    { name: "customer_id", type: "STRING", desc: "所属客户" },
-    { name: "phone", type: "STRING", desc: "联系电话" },
+  { id: "ods_crm_contact",       name: "CRM Contacts", systemId: "crm",             x: 40,   y: 250, fields: [
+    { name: "contact_id", type: "STRING", desc: "Contact ID" },
+    { name: "customer_id", type: "STRING", desc: "Owning customer" },
+    { name: "phone", type: "STRING", desc: "Contact phone" },
   ]},
-  { id: "ods_product",           name: "商品主数据", systemId: "product_center",  x: 40,   y: 440, fields: [
-    { name: "sku_id", type: "STRING", desc: "商品编码" },
-    { name: "sku_name", type: "STRING", desc: "商品名称" },
-    { name: "category", type: "STRING", desc: "类目" },
+  { id: "ods_product",           name: "Product Master Data", systemId: "product_center",  x: 40,   y: 440, fields: [
+    { name: "sku_id", type: "STRING", desc: "Product code" },
+    { name: "sku_name", type: "STRING", desc: "Product name" },
+    { name: "category", type: "STRING", desc: "Category" },
   ]},
-  { id: "ods_order",             name: "订单主表", systemId: "order_center",    x: 300,  y: 40,  fields: [
-    { name: "order_id", type: "STRING", desc: "订单号" },
-    { name: "customer_id", type: "STRING", desc: "下单客户" },
-    { name: "amount", type: "DECIMAL", desc: "订单金额" },
-    { name: "status", type: "STRING", desc: "订单状态" },
+  { id: "ods_order",             name: "Order Master", systemId: "order_center",    x: 300,  y: 40,  fields: [
+    { name: "order_id", type: "STRING", desc: "Order number" },
+    { name: "customer_id", type: "STRING", desc: "Ordering customer" },
+    { name: "amount", type: "DECIMAL", desc: "Order amount" },
+    { name: "status", type: "STRING", desc: "Order status" },
   ]},
-  { id: "ods_payment",           name: "支付流水", systemId: "payment_gateway", x: 300,  y: 250, fields: [
-    { name: "pay_id", type: "STRING", desc: "支付单号" },
-    { name: "order_no", type: "STRING", desc: "关联订单号" },
-    { name: "amount", type: "DECIMAL", desc: "支付金额" },
-    { name: "channel", type: "STRING", desc: "支付渠道" },
+  { id: "ods_payment",           name: "Payment Transactions", systemId: "payment_gateway", x: 300,  y: 250, fields: [
+    { name: "pay_id", type: "STRING", desc: "Payment number" },
+    { name: "order_no", type: "STRING", desc: "Related order number" },
+    { name: "amount", type: "DECIMAL", desc: "Payment amount" },
+    { name: "channel", type: "STRING", desc: "Payment channel" },
   ]},
-  { id: "ods_finance_settlement", name: "财务结算流水", systemId: "finance",      x: 300,  y: 440, fields: [
-    { name: "pay_id", type: "STRING", desc: "支付单号" },
-    { name: "settle_amount", type: "DECIMAL", desc: "结算金额" },
-    { name: "settle_date", type: "DATE", desc: "结算日期" },
+  { id: "ods_finance_settlement", name: "Finance Settlement Transactions", systemId: "finance",      x: 300,  y: 440, fields: [
+    { name: "pay_id", type: "STRING", desc: "Payment number" },
+    { name: "settle_amount", type: "DECIMAL", desc: "Settlement amount" },
+    { name: "settle_date", type: "DATE", desc: "Settlement date" },
   ]},
-  { id: "ods_raw_order",         name: "原始订单明细", systemId: "dw_platform",  x: 560,  y: 40,  fields: [
-    { name: "order_no", type: "STRING", desc: "订单号" },
-    { name: "order_date", type: "DATE", desc: "下单日期" },
-    { name: "user_id", type: "STRING", desc: "下单用户" },
-    { name: "sku_id", type: "STRING", desc: "商品编码" },
-    { name: "quantity", type: "INT", desc: "购买数量" },
-    { name: "unit_price", type: "DECIMAL", desc: "成交单价" },
-    { name: "amount", type: "DECIMAL", desc: "订单金额" },
+  { id: "ods_raw_order",         name: "Raw Order Details", systemId: "dw_platform",  x: 560,  y: 40,  fields: [
+    { name: "order_no", type: "STRING", desc: "Order number" },
+    { name: "order_date", type: "DATE", desc: "Order date" },
+    { name: "user_id", type: "STRING", desc: "Ordering user" },
+    { name: "sku_id", type: "STRING", desc: "Product code" },
+    { name: "quantity", type: "INT", desc: "Quantity purchased" },
+    { name: "unit_price", type: "DECIMAL", desc: "Unit price" },
+    { name: "amount", type: "DECIMAL", desc: "Order amount" },
   ]},
-  { id: "ods_raw_user",          name: "原始用户信息", systemId: "dw_platform",  x: 560,  y: 300, fields: [
-    { name: "user_id", type: "STRING", desc: "用户唯一标识" },
-    { name: "user_name", type: "STRING", desc: "昵称" },
-    { name: "city", type: "STRING", desc: "常驻城市" },
-    { name: "register_date", type: "DATE", desc: "注册日期" },
+  { id: "ods_raw_user",          name: "Raw User Info", systemId: "dw_platform",  x: 560,  y: 300, fields: [
+    { name: "user_id", type: "STRING", desc: "User unique ID" },
+    { name: "user_name", type: "STRING", desc: "Nickname" },
+    { name: "city", type: "STRING", desc: "City of residence" },
+    { name: "register_date", type: "DATE", desc: "Registration date" },
   ]},
-  { id: "ods_raw_pay",           name: "原始支付流水", systemId: "dw_platform",  x: 560,  y: 500, fields: [
-    { name: "pay_id", type: "STRING", desc: "支付单号" },
-    { name: "order_no", type: "STRING", desc: "关联订单号" },
-    { name: "pay_amount", type: "DECIMAL", desc: "实付金额" },
-    { name: "pay_channel", type: "STRING", desc: "支付渠道" },
+  { id: "ods_raw_pay",           name: "Raw Payment Transactions", systemId: "dw_platform",  x: 560,  y: 500, fields: [
+    { name: "pay_id", type: "STRING", desc: "Payment number" },
+    { name: "order_no", type: "STRING", desc: "Related order number" },
+    { name: "pay_amount", type: "DECIMAL", desc: "Paid amount" },
+    { name: "pay_channel", type: "STRING", desc: "Payment channel" },
   ]},
-  { id: "ods_raw_sku",           name: "原始商品主数据", systemId: "dw_platform", x: 560,  y: 700, fields: [
-    { name: "sku_id", type: "STRING", desc: "商品编码" },
-    { name: "sku_name", type: "STRING", desc: "商品名称" },
-    { name: "category", type: "STRING", desc: "类目" },
+  { id: "ods_raw_sku",           name: "Raw Product Master Data", systemId: "dw_platform", x: 560,  y: 700, fields: [
+    { name: "sku_id", type: "STRING", desc: "Product code" },
+    { name: "sku_name", type: "STRING", desc: "Product name" },
+    { name: "category", type: "STRING", desc: "Category" },
   ]},
-  { id: "dwd_order",             name: "订单明细宽表", systemId: "dw_platform",  x: 800,  y: 60,  fields: [
-    { name: "order_no", type: "STRING", desc: "订单号" },
-    { name: "order_amount", type: "DECIMAL", desc: "订单金额" },
-    { name: "pay_amount", type: "DECIMAL", desc: "实付金额" },
-    { name: "user_id", type: "STRING", desc: "下单用户" },
-    { name: "city", type: "STRING", desc: "用户城市" },
+  { id: "dwd_order",             name: "Order Detail Wide Table", systemId: "dw_platform",  x: 800,  y: 60,  fields: [
+    { name: "order_no", type: "STRING", desc: "Order number" },
+    { name: "order_amount", type: "DECIMAL", desc: "Order amount" },
+    { name: "pay_amount", type: "DECIMAL", desc: "Paid amount" },
+    { name: "user_id", type: "STRING", desc: "Ordering user" },
+    { name: "city", type: "STRING", desc: "User city" },
   ]},
-  { id: "dwd_user",              name: "用户维度表", systemId: "dw_platform",    x: 800,  y: 300, fields: [
-    { name: "user_id", type: "STRING", desc: "用户标识" },
-    { name: "user_name", type: "STRING", desc: "昵称" },
-    { name: "register_date", type: "DATE", desc: "注册日期" },
+  { id: "dwd_user",              name: "User Dimension Table", systemId: "dw_platform",    x: 800,  y: 300, fields: [
+    { name: "user_id", type: "STRING", desc: "User ID" },
+    { name: "user_name", type: "STRING", desc: "Nickname" },
+    { name: "register_date", type: "DATE", desc: "Registration date" },
   ]},
-  { id: "dws_order_daily",       name: "订单日汇总", systemId: "dw_platform",    x: 1040, y: 200, fields: [
-    { name: "stat_date", type: "DATE", desc: "统计日期" },
-    { name: "order_cnt", type: "INT", desc: "订单数（去重）" },
-    { name: "gmv", type: "DECIMAL", desc: "成交额" },
-    { name: "pay_user_cnt", type: "INT", desc: "支付用户数" },
+  { id: "dws_order_daily",       name: "Daily Order Summary", systemId: "dw_platform",    x: 1040, y: 200, fields: [
+    { name: "stat_date", type: "DATE", desc: "Statistic date" },
+    { name: "order_cnt", type: "INT", desc: "Order count (distinct)" },
+    { name: "gmv", type: "DECIMAL", desc: "GMV" },
+    { name: "pay_user_cnt", type: "INT", desc: "Paying user count" },
   ]},
-  { id: "ads_gmv_dashboard",     name: "GMV 经营看板", systemId: "bi_portal",      x: 1280, y: 60,  fields: [
-    { name: "gmv_daily", type: "DECIMAL", desc: "当日 GMV" },
-    { name: "order_cnt_daily", type: "INT", desc: "当日订单数" },
-    { name: "pay_rate", type: "DECIMAL", desc: "支付转化率" },
+  { id: "ads_gmv_dashboard",     name: "GMV Business Dashboard", systemId: "bi_portal",      x: 1280, y: 60,  fields: [
+    { name: "gmv_daily", type: "DECIMAL", desc: "Daily GMV" },
+    { name: "order_cnt_daily", type: "INT", desc: "Daily order count" },
+    { name: "pay_rate", type: "DECIMAL", desc: "Payment conversion rate" },
   ]},
-  { id: "ads_user_growth",       name: "用户增长看板", systemId: "bi_portal",      x: 1280, y: 240, fields: [
-    { name: "new_user_cnt", type: "INT", desc: "新增用户数" },
-    { name: "active_user_cnt", type: "INT", desc: "活跃用户数" },
+  { id: "ads_user_growth",       name: "User Growth Dashboard", systemId: "bi_portal",      x: 1280, y: 240, fields: [
+    { name: "new_user_cnt", type: "INT", desc: "New user count" },
+    { name: "active_user_cnt", type: "INT", desc: "Active user count" },
   ]},
-  { id: "ads_risk_alerts",       name: "风控告警", systemId: "risk_engine",    x: 1280, y: 420, fields: [
-    { name: "alert_id", type: "STRING", desc: "告警 ID" },
-    { name: "gmv_anomaly", type: "DECIMAL", desc: "GMV 异常偏离度" },
-    { name: "risk_level", type: "STRING", desc: "风险等级" },
+  { id: "ads_risk_alerts",       name: "Risk Alerts", systemId: "risk_engine",    x: 1280, y: 420, fields: [
+    { name: "alert_id", type: "STRING", desc: "Alert ID" },
+    { name: "gmv_anomaly", type: "DECIMAL", desc: "GMV anomaly deviation" },
+    { name: "risk_level", type: "STRING", desc: "Risk level" },
   ]},
-  { id: "ads_campaign",          name: "营销活动效果", systemId: "marketing",     x: 1280, y: 600, fields: [
-    { name: "campaign_id", type: "STRING", desc: "活动 ID" },
-    { name: "gmv_target", type: "DECIMAL", desc: "活动 GMV 目标" },
-    { name: "conversion_rate", type: "DECIMAL", desc: "转化率" },
+  { id: "ads_campaign",          name: "Campaign Performance", systemId: "marketing",     x: 1280, y: 600, fields: [
+    { name: "campaign_id", type: "STRING", desc: "Campaign ID" },
+    { name: "gmv_target", type: "DECIMAL", desc: "Campaign GMV target" },
+    { name: "conversion_rate", type: "DECIMAL", desc: "Conversion rate" },
   ]},
-  { id: "tmp_manual_export",     name: "临时手工导出", systemId: null,            x: 40,   y: 620, fields: [
-    { name: "col_1", type: "STRING", desc: "手工导出列 1" },
-    { name: "col_2", type: "STRING", desc: "手工导出列 2" },
+  { id: "tmp_manual_export",     name: "Temp Manual Export", systemId: null,            x: 40,   y: 620, fields: [
+    { name: "col_1", type: "STRING", desc: "Manual export column 1" },
+    { name: "col_2", type: "STRING", desc: "Manual export column 2" },
   ]},
 ];
 const DATASET_MAP = Object.fromEntries(DATASETS.map(d => [d.id, d]));
 
-/* ---- 数据集级血缘（SQLite edge 表） ---- */
+/* ---- Dataset-level lineage (SQLite edge table) ---- */
 const DATASET_EDGES = [
-  { id: 1,  from: "ods_crm_customer",       fromField: "customer_id",   to: "ods_order",             toField: "customer_id",   source: "imported", confidence: 1.0,  transform: "直传" },
-  { id: 2,  from: "ods_crm_customer",       fromField: "customer_id",   to: "ods_raw_user",          toField: "user_id",       source: "imported", confidence: 1.0,  transform: "客户 ID 映射" },
-  { id: 3,  from: "ods_crm_customer",       fromField: "name",          to: "ods_raw_user",          toField: "user_name",     source: "imported", confidence: 0.95, transform: "名称清洗" },
-  { id: 4,  from: "ods_order",              fromField: "order_id",      to: "ods_payment",           toField: "order_no",      source: "imported", confidence: 1.0,  transform: "支付下单关联" },
+  { id: 1,  from: "ods_crm_customer",       fromField: "customer_id",   to: "ods_order",             toField: "customer_id",   source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
+  { id: 2,  from: "ods_crm_customer",       fromField: "customer_id",   to: "ods_raw_user",          toField: "user_id",       source: "imported", confidence: 1.0,  transform: "Customer ID mapping" },
+  { id: 3,  from: "ods_crm_customer",       fromField: "name",          to: "ods_raw_user",          toField: "user_name",     source: "imported", confidence: 0.95, transform: "Name cleansing" },
+  { id: 4,  from: "ods_order",              fromField: "order_id",      to: "ods_payment",           toField: "order_no",      source: "imported", confidence: 1.0,  transform: "Payment-to-order linkage" },
   { id: 5,  from: "ods_order",              fromField: "order_id",      to: "ods_raw_order",         toField: "order_no",      source: "imported", confidence: 1.0,  transform: "trim / cast" },
-  { id: 6,  from: "ods_order",              fromField: "amount",        to: "ods_raw_order",         toField: "amount",        source: "imported", confidence: 0.98, transform: "金额口径对齐" },
-  { id: 7,  from: "ods_payment",            fromField: "pay_id",        to: "ods_raw_pay",           toField: "pay_id",        source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 6,  from: "ods_order",              fromField: "amount",        to: "ods_raw_order",         toField: "amount",        source: "imported", confidence: 0.98, transform: "Amount definition alignment" },
+  { id: 7,  from: "ods_payment",            fromField: "pay_id",        to: "ods_raw_pay",           toField: "pay_id",        source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
   { id: 8,  from: "ods_payment",            fromField: "amount",        to: "ods_raw_pay",           toField: "pay_amount",    source: "imported", confidence: 1.0,  transform: "ROUND(2)" },
-  { id: 9,  from: "ods_product",            fromField: "sku_id",        to: "ods_raw_sku",           toField: "sku_id",        source: "imported", confidence: 1.0,  transform: "直传" },
-  { id: 10, from: "ods_finance_settlement", fromField: "pay_id",        to: "dws_order_daily",       toField: "pay_user_cnt",  source: "manual",   confidence: 0.8,  transform: "对账口径：按支付单去重" },
-  { id: 11, from: "ods_raw_order",          fromField: "order_no",      to: "dwd_order",             toField: "order_no",      source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 9,  from: "ods_product",            fromField: "sku_id",        to: "ods_raw_sku",           toField: "sku_id",        source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
+  { id: 10, from: "ods_finance_settlement", fromField: "pay_id",        to: "dws_order_daily",       toField: "pay_user_cnt",  source: "manual",   confidence: 0.8,  transform: "Reconciliation rule: dedupe by payment number" },
+  { id: 11, from: "ods_raw_order",          fromField: "order_no",      to: "dwd_order",             toField: "order_no",      source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
   { id: 12, from: "ods_raw_order",          fromField: "amount",        to: "dwd_order",             toField: "order_amount",  source: "imported", confidence: 1.0,  transform: "SUM(quantity × unit_price)" },
-  { id: 13, from: "ods_raw_user",           fromField: "user_id",       to: "dwd_user",              toField: "user_id",       source: "imported", confidence: 1.0,  transform: "直传" },
-  { id: 14, from: "ods_raw_user",           fromField: "user_name",     to: "dwd_user",              toField: "user_name",     source: "imported", confidence: 1.0,  transform: "直传" },
+  { id: 13, from: "ods_raw_user",           fromField: "user_id",       to: "dwd_user",              toField: "user_id",       source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
+  { id: 14, from: "ods_raw_user",           fromField: "user_name",     to: "dwd_user",              toField: "user_name",     source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
   { id: 15, from: "dwd_order",              fromField: "order_amount",  to: "dws_order_daily",       toField: "gmv",           source: "imported", confidence: 1.0,  transform: "SUM(order_amount)" },
   { id: 16, from: "dwd_user",               fromField: "user_id",       to: "dws_order_daily",       toField: "pay_user_cnt",  source: "manual",   confidence: 0.9,  transform: "COUNT(DISTINCT user_id)" },
-  { id: 17, from: "dws_order_daily",        fromField: "gmv",           to: "ads_gmv_dashboard",     toField: "gmv_daily",     source: "imported", confidence: 1.0,  transform: "直传" },
-  { id: 18, from: "dws_order_daily",        fromField: "gmv",           to: "ads_risk_alerts",       toField: "gmv_anomaly",   source: "imported", confidence: 0.97, transform: "异常检测输入" },
-  { id: 19, from: "dws_order_daily",        fromField: "gmv",           to: "ads_campaign",          toField: "gmv_target",    source: "imported", confidence: 0.96, transform: "活动目标参考" },
+  { id: 17, from: "dws_order_daily",        fromField: "gmv",           to: "ads_gmv_dashboard",     toField: "gmv_daily",     source: "imported", confidence: 1.0,  transform: "Direct pass-through" },
+  { id: 18, from: "dws_order_daily",        fromField: "gmv",           to: "ads_risk_alerts",       toField: "gmv_anomaly",   source: "imported", confidence: 0.97, transform: "Anomaly detection input" },
+  { id: 19, from: "dws_order_daily",        fromField: "gmv",           to: "ads_campaign",          toField: "gmv_target",    source: "imported", confidence: 0.96, transform: "Campaign target reference" },
   { id: 20, from: "dwd_user",               fromField: "user_id",       to: "ads_user_growth",       toField: "new_user_cnt",  source: "imported", confidence: 1.0,  transform: "COUNT(DISTINCT user_id)" },
 ];
 
-/* ---- 显式系统级血缘（SQLite system_edge 表） ---- */
+/* ---- Explicit system-level lineage (SQLite system_edge table) ---- */
 const EXPLICIT_SYSTEM_EDGES = [
   {
     from: "finance", to: "dw_platform", source: "manual", confidence: 0.8,
-    transform: "月度对账文件（Excel 手工上传）",
-    note: "财务每月 3 日上传对账文件；系统级接口无完整表级明细，同时存在 1 条数据集级血缘。",
+    transform: "Monthly reconciliation file (manual Excel upload)",
+    note: "Finance uploads the reconciliation file on the 3rd of each month; the system-level interface has no complete table-level detail, and there is also 1 dataset-level lineage edge.",
   },
   {
     from: "crm", to: "marketing", source: "ai", confidence: 0.62,
-    transform: "客户标签人群圈选（推断）",
-    note: "AI 建议：CRM 客户标签可能直接供营销平台圈选，待 editor 确认后转 manual。",
+    transform: "Customer-tag audience targeting (inferred)",
+    note: "AI suggestion: CRM customer tags may feed audience targeting in the marketing platform directly; pending editor confirmation to become manual.",
   },
 ];
 
-/* ---- 演示环：可切换，用于验证系统级聚合环的展示与检测 ---- */
+/* ---- Demo cycle: toggleable, used to validate display and detection of system-level aggregate cycles ---- */
 const CYCLE_EDGE = {
   from: "bi_portal", to: "dw_platform", source: "ai", confidence: 0.4,
-  transform: "指标口径回写（演示）",
-  note: "演示用：BI 看板把指标口径回写到数仓，形成系统级聚合环；数据集级并不存在反向血缘。",
+  transform: "Metric definition write-back (demo)",
+  note: "Demo only: the BI dashboard writes metric definitions back to the data warehouse, forming a system-level aggregate cycle; there is no reverse lineage at the dataset level.",
 };
 
-/* ---- 系统注释（SQLite annotation，target_kind='system'） ---- */
+/* ---- System annotations (SQLite annotation, target_kind='system') ---- */
 const SYSTEM_ANNOTATIONS = {
   dw_platform: [
-    { body: "数仓是系统级血缘的汇聚点：ODS 层承接 5 个源系统，DWD/DWS 层内部加工不再产生系统边。", author: "陈明", at: "2026-11-12 10:20" },
-    { body: "系统边默认由数据集级血缘投影；只有无法从表级推导的接口才显式登记。", author: "李雪", at: "2026-11-13 15:05" },
+    { body: "The data warehouse is the convergence point for system-level lineage: the ODS layer ingests from 5 source systems, and internal processing in DWD/DWS layers no longer produces system edges.", author: "Chen Ming", at: "2026-11-12 10:20" },
+    { body: "System edges are projected from dataset-level lineage by default; only interfaces that cannot be derived at table level are registered explicitly.", author: "Li Xue", at: "2026-11-13 15:05" },
   ],
   finance: [
-    { body: "财务系统与数仓之间是「显式 + 投影」双来源：月度对账文件是显式接口，结算流水有数据集级血缘。", author: "李雪", at: "2026-11-13 16:40" },
+    { body: "Between the finance system and the data warehouse there are two sources, \"explicit + projected\": the monthly reconciliation file is an explicit interface, and settlement transactions have dataset-level lineage.", author: "Li Xue", at: "2026-11-13 16:40" },
   ],
 };
 
 /* ============================================================
-   派生：系统边 = 显式边 ∪ 数据集边投影
+   Derivation: system edge = explicit edge ∪ dataset-edge projection
    ============================================================ */
 function buildSystemEdges(includeCycle) {
   const map = new Map();
@@ -587,7 +587,7 @@ function buildSystemEdges(includeCycle) {
 }
 
 /* ============================================================
-   状态
+   State
    ============================================================ */
 const S = {
   level: "system",              // system | dataset | field
@@ -595,7 +595,7 @@ const S = {
   selectedSystem: "dw_platform",
   selectedDataset: "dws_order_daily",
   selectedField: { ds: "dws_order_daily", f: "gmv" },
-  selectedEdge: null,           // 系统边 key：from->to；字段边：id
+  selectedEdge: null,           // System edge key: from->to; dataset edge: id
   hops: 3,
   direction: "both",
   filters: { explicit: true, derived: true, ai: true },
@@ -612,11 +612,11 @@ const S = {
 };
 S.systemEdges = buildSystemEdges(S.demoCycle);
 
-/* ---- AI 助手抽屉状态（mock；specs: docs/04_hifi/07_系统级AI助手.md）---- */
-S.ai = { open: false, status: "ok" };   // status: ok | none | loading（GET /ai/status 三态）
-let aiLog = null;                        // 对话流；首次打开播种欢迎语
-let aiBusy = false;                      // 本轮回答进行中（发送键切换为停止）
-let aiChain = [];                        // 本轮剩余步骤
+/* ---- AI assistant drawer state (mock; specs: docs/04_hifi/07_system-level-ai-assistant.md) ---- */
+S.ai = { open: false, status: "ok" };   // status: ok | none | loading (three states of GET /ai/status)
+let aiLog = null;                        // Conversation log; seeded with a welcome message on first open
+let aiBusy = false;                      // Current answer in progress (send button switches to stop)
+let aiChain = [];                        // Remaining steps in this turn
 let aiTimer = null;
 
 function canWrite() { return S.role !== "viewer"; }
@@ -646,7 +646,7 @@ function toast(msg, kind) {
   setTimeout(() => t.remove(), 3200);
 }
 
-/* ---- 系统图可见性：过滤 + 闭包 + 方向 ---- */
+/* ---- System graph visibility: filters + closure + direction ---- */
 function visibleSystemEdges() {
   return S.systemEdges.filter(e => {
     const f = S.filters;
@@ -662,8 +662,8 @@ function systemClosure() {
   const adj = {};
   const add = (a, b) => { (adj[a] = adj[a] || []).push(b); };
   edges.forEach(e => {
-    if (S.direction !== "down") add(e.to, e.from);  // 反向：找上游
-    if (S.direction !== "up") add(e.from, e.to);    // 正向：找下游
+    if (S.direction !== "down") add(e.to, e.from);  // Reverse: find upstream
+    if (S.direction !== "up") add(e.from, e.to);    // Forward: find downstream
   });
   const hop = new Map([[S.seed, 0]]);
   const queue = [S.seed];
@@ -686,7 +686,7 @@ function closureEdges(hop) {
   });
 }
 
-/* ---- 简单环检测（用于演示系统级聚合环） ---- */
+/* ---- Simple cycle detection (for demonstrating system-level aggregate cycles) ---- */
 function systemsInCycle() {
   const ids = new Set();
   const adj = {};
@@ -707,7 +707,7 @@ function systemsInCycle() {
   return ids;
 }
 
-/* ---- 数据集视图可见性 ---- */
+/* ---- Dataset view visibility ---- */
 function visibleDatasets() {
   const hop = systemClosure();
   return DATASETS.filter(d => {
@@ -721,7 +721,7 @@ function visibleDatasetEdges() {
   return DATASET_EDGES.filter(e => ids.has(e.from) && ids.has(e.to));
 }
 
-/* ---- 字段视图：焦点数据集 + 直接邻居 ---- */
+/* ---- Field view: focus dataset + direct neighbors ---- */
 function fieldViewData() {
   const focus = S.selectedDataset;
   const ids = new Set([focus]);
@@ -741,7 +741,7 @@ function involvedFields(datasetId, edges, focus) {
 }
 
 /* ============================================================
-   渲染
+   Rendering
    ============================================================ */
 function render() {
   const app = document.getElementById("app");
@@ -762,27 +762,27 @@ function yarnSvg() {
 function shellHtml() {
   const gs = S.graphState;
   const gBadge = gs === "clean"
-    ? '<span class="badge badge-ok" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu 图与 SQLite 一致；点击切换演示状态">图 clean · Kùzu</span>'
+    ? '<span class="badge badge-ok" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu graph matches SQLite; click to cycle demo state">Graph clean · Kùzu</span>'
     : gs === "dirty"
-    ? '<span class="badge badge-warn" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu 图待重建；点击切换演示状态">图 dirty · 待重建</span>'
-    : '<span class="badge badge-info" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu 不可用，已降级 SQLite 递归 CTE；点击切换">降级 CTE</span>';
+    ? '<span class="badge badge-warn" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu graph pending rebuild; click to cycle demo state">Graph dirty · pending rebuild</span>'
+    : '<span class="badge badge-info" style="cursor:pointer" onclick="cycleGraphState()" title="Kùzu unavailable; using the SQLite recursive CTE fallback; click to cycle">CTE fallback</span>';
   const cycleIds = systemsInCycle();
   const cycleBadge = cycleIds.size
-    ? '<span class="badge badge-warn" title="系统级聚合环（不代表数据集级有环）">环 · ' + cycleIds.size + ' 个系统</span>'
+    ? '<span class="badge badge-warn" title="System-level aggregate cycle (does not imply a dataset-level cycle)">Cycle · ' + cycleIds.size + ' systems</span>'
     : "";
   const pend = aiPendingCount();
-  const aiEntry = (pend ? '<span class="badge badge-ai" style="cursor:pointer" onclick="openAi()" title="查看待确认的系统级候选边（打开 AI 助手）">✦ ' + pend + ' 条系统建议待确认</span>' : "") +
-    '<button class="btn" style="border-color:rgba(79,70,229,.35);background:var(--ai-soft);color:var(--ai-deep)" onclick="openAi()" title="打开 AI 助手：系统级工具调用 + 出图联动 + 建议确认">✦ AI 助手</button>';
+  const aiEntry = (pend ? '<span class="badge badge-ai" style="cursor:pointer" onclick="openAi()" title="View pending system-level candidate edges (opens AI assistant)">✦ ' + pend + ' system suggestions pending</span>' : "") +
+    '<button class="btn" style="border-color:rgba(79,70,229,.35);background:var(--ai-soft);color:var(--ai-deep)" onclick="openAi()" title="Open AI assistant: system-level tool calls + graph update linkage + suggestion confirmation">✦ AI assistant</button>';
   return '<div class="topbar">' +
     '<div class="logo" onclick="goLevel(\'system\')"><span class="logo-mark">' + yarnSvg() + '</span>Clew</div>' +
     '<div class="navpill">' +
-      levelBtn("system", "系统") + levelBtn("dataset", "数据集") + levelBtn("field", "字段") +
+      levelBtn("system", "Systems") + levelBtn("dataset", "Datasets") + levelBtn("field", "Fields") +
     '</div>' +
-    '<div class="searchbox"><span class="faint">⌕</span><input placeholder="搜索系统 / 数据集 / 字段（SQLite LIKE）" value="' + esc(S.search) + '" oninput="onSearch(this.value)"></div>' +
+    '<div class="searchbox"><span class="faint">⌕</span><input placeholder="Search systems / datasets / fields (SQLite LIKE)" value="' + esc(S.search) + '" oninput="onSearch(this.value)"></div>' +
     '<span style="flex:1"></span>' + cycleBadge + gBadge + aiEntry +
     '<div class="userchip">' +
-      '<select class="select" style="width:auto" onchange="switchRole(this.value)" title="切换角色视角（演示 RBAC）">' +
-        [["admin", "陈明（管理员）"], ["editor", "李雪（维护者）"], ["viewer", "王珂（只读）"]].map(x =>
+      '<select class="select" style="width:auto" onchange="switchRole(this.value)" title="Switch role perspective (RBAC demo)">' +
+        [["admin", "Chen Ming (Admin)"], ["editor", "Li Xue (Maintainer)"], ["viewer", "Wang Ke (Read-only)"]].map(x =>
           '<option value="' + x[0] + '" ' + (S.role === x[0] ? "selected" : "") + '>' + x[1] + '</option>').join("") +
       '</select>' +
     '</div>' +
@@ -792,7 +792,7 @@ function shellHtml() {
 function levelBtn(level, label) {
   const disabled = level === "field" && !S.selectedDataset;
   return '<button class="' + (S.level === level ? "active" : "") + '" ' + (disabled ? "disabled" : "") +
-    ' onclick="goLevel(\'' + level + '\')" title="' + (disabled ? "先在数据集视图选择一个数据集" : "") + '">' + label + '</button>';
+    ' onclick="goLevel(\'' + level + '\')" title="' + (disabled ? "Select a dataset in the dataset view first" : "") + '">' + label + '</button>';
 }
 
 function canvasScreenHtml() {
@@ -805,9 +805,9 @@ function canvasScreenHtml() {
         '</div>' +
         legendHtml() +
         '<div class="zoomctl">' +
-          '<button onclick="zoomBy(1.25)" title="放大">+</button>' +
-          '<button onclick="zoomBy(0.8)" title="缩小">−</button>' +
-          '<button onclick="resetView()" title="重置视图" style="font-size:10px">⌂</button>' +
+          '<button onclick="zoomBy(1.25)" title="Zoom in">+</button>' +
+          '<button onclick="zoomBy(0.8)" title="Zoom out">−</button>' +
+          '<button onclick="resetView()" title="Reset view" style="font-size:10px">⌂</button>' +
         '</div>' +
         (S.showEdgeDrawer ? edgeDrawerHtml() : "") +
       '</div>' +
@@ -820,43 +820,43 @@ function toolbarHtml() {
   const f = S.filters;
   const seedOpts = SYSTEMS.map(s => '<option value="' + s.id + '" ' + (S.seed === s.id ? "selected" : "") + '>' + s.id + ' · ' + s.name + '</option>').join("");
   return '<div class="canvas-toolbar">' +
-    '<label class="muted">起点系统</label><select class="select" style="width:210px" onchange="setSeed(this.value)">' + seedOpts + '</select>' +
-    '<label class="muted">跳数</label><select class="select" style="width:64px" onchange="setHops(this.value)">' +
+    '<label class="muted">Seed system</label><select class="select" style="width:210px" onchange="setSeed(this.value)">' + seedOpts + '</select>' +
+    '<label class="muted">Hops</label><select class="select" style="width:64px" onchange="setHops(this.value)">' +
       [1, 2, 3, 5].map(h => '<option value="' + h + '" ' + (S.hops === h ? "selected" : "") + '>' + h + '</option>').join("") +
     '</select>' +
-    '<label class="muted">方向</label><select class="select" style="width:76px" onchange="setDirection(this.value)">' +
-      [["both", "双向"], ["up", "上游"], ["down", "下游"]].map(x => '<option value="' + x[0] + '" ' + (S.direction === x[0] ? "selected" : "") + '>' + x[1] + '</option>').join("") +
+    '<label class="muted">Direction</label><select class="select" style="width:76px" onchange="setDirection(this.value)">' +
+      [["both", "Both"], ["up", "Up"], ["down", "Down"]].map(x => '<option value="' + x[0] + '" ' + (S.direction === x[0] ? "selected" : "") + '>' + x[1] + '</option>').join("") +
     '</select>' +
     '<span style="width:1px;height:20px;background:var(--line)"></span>' +
     '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
-      '<input type="checkbox" ' + (f.explicit ? "checked" : "") + ' onchange="toggleFilter(\'explicit\', this.checked)">显式边</label>' +
+      '<input type="checkbox" ' + (f.explicit ? "checked" : "") + ' onchange="toggleFilter(\'explicit\', this.checked)">Explicit edges</label>' +
     '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
-      '<input type="checkbox" ' + (f.derived ? "checked" : "") + ' onchange="toggleFilter(\'derived\', this.checked)">投影边</label>' +
+      '<input type="checkbox" ' + (f.derived ? "checked" : "") + ' onchange="toggleFilter(\'derived\', this.checked)">Projected edges</label>' +
     '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
-      '<input type="checkbox" ' + (f.ai ? "checked" : "") + ' onchange="toggleFilter(\'ai\', this.checked)">AI 候选</label>' +
+      '<input type="checkbox" ' + (f.ai ? "checked" : "") + ' onchange="toggleFilter(\'ai\', this.checked)">AI candidates</label>' +
     '<span style="flex:1"></span>' +
-    (S.level === "dataset" ? '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer"><input type="checkbox" ' + (S.showAllDatasets ? "checked" : "") + ' onchange="toggleAllDatasets(this.checked)">显示全部数据集</label>' : "") +
-    (S.level === "system" ? '<button class="btn btn-xs" onclick="toggleEdgeDrawer()">' + (S.showEdgeDrawer ? "收起关系实例" : "关系实例") + '</button>' : "") +
-    '<button class="btn btn-xs" onclick="openArch()">架构说明</button>' +
-    (canWrite() ? '<button class="btn btn-xs" onclick="toast(\'原型演示：打开新建系统表单（editor+）\',\'warn\')">+ 新建系统</button>' : '<span class="badge">只读视角</span>') +
+    (S.level === "dataset" ? '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer"><input type="checkbox" ' + (S.showAllDatasets ? "checked" : "") + ' onchange="toggleAllDatasets(this.checked)">Show all datasets</label>' : "") +
+    (S.level === "system" ? '<button class="btn btn-xs" onclick="toggleEdgeDrawer()">' + (S.showEdgeDrawer ? "Hide relationship instances" : "Relationship instances") + '</button>' : "") +
+    '<button class="btn btn-xs" onclick="openArch()">Architecture notes</button>' +
+    (canWrite() ? '<button class="btn btn-xs" onclick="toast(\'Prototype demo: open the new-system form (editor+)\',\'warn\')">+ New system</button>' : '<span class="badge">Read-only view</span>') +
   '</div>';
 }
 
 function legendHtml() {
   if (S.level !== "system") {
     return '<div class="legend">' +
-      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported);border-top-style:solid"></span>导入血缘</div>' +
-      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>人工血缘</div>' +
-      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI 建议</div>' +
-      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>当前选中 / 证据链</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported);border-top-style:solid"></span>Imported lineage</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>Manual lineage</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI suggestions</div>' +
+      '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>Current selection / evidence chain</div>' +
     '</div>';
   }
   return '<div class="legend">' +
-    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>显式系统边（人工/导入）</div>' +
-    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-derived);border-top-style:dashed"></span>数据集边投影</div>' +
-    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI 候选（待确认）</div>' +
-    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>当前选中 / 证据链</div>' +
-    '<div class="lg-row faint" style="margin-top:2px">边上数字 = 贡献的数据集边数</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>Explicit system edge (manual/imported)</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-derived);border-top-style:dashed"></span>Dataset-edge projection</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI candidate (pending)</div>' +
+    '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>Current selection / evidence chain</div>' +
+    '<div class="lg-row faint" style="margin-top:2px">Number on edge = contributing dataset edges</div>' +
   '</div>';
 }
 
@@ -868,20 +868,20 @@ function sideHtml() {
     const list = SYSTEMS.filter(s => hop.has(s.id)).filter(s =>
       !q || s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || (s.owner || "").toLowerCase().includes(q));
     return '<div class="side">' +
-      '<div><h4>系统（' + list.length + ' / ' + SYSTEMS.length + '）</h4>' +
+      '<div><h4>Systems (' + list.length + ' / ' + SYSTEMS.length + ')</h4>' +
         list.sort((a, b) => (hop.get(a.id) - hop.get(b.id)) || a.name.localeCompare(b.name)).map(s => {
           const t = typeMeta(s.type);
           const count = DATASETS.filter(d => d.systemId === s.id).length;
-          return '<div class="side-item ' + (S.selectedSystem === s.id ? "active" : "") + '" onclick="delayedSelectSystem(\'' + s.id + '\')" ondblclick="drillSystemNow(\'' + s.id + '\')" title="单击查看详情，双击下钻数据集">' +
+          return '<div class="side-item ' + (S.selectedSystem === s.id ? "active" : "") + '" onclick="delayedSelectSystem(\'' + s.id + '\')" ondblclick="drillSystemNow(\'' + s.id + '\')" title="Click for details, double-click to drill into datasets">' +
             '<div class="nm"><span class="type-mark ' + t.cls + '">' + t.mark + '</span><b>' + esc(s.name) + '</b>' +
-              (cycleIds.has(s.id) ? '<span class="badge badge-warn" style="font-size:9px;padding:0 5px">环</span>' : '') +
+              (cycleIds.has(s.id) ? '<span class="badge badge-warn" style="font-size:9px;padding:0 5px">Cycle</span>' : '') +
               '<span class="count">' + count + '</span></div>' +
             '<div class="sub">' + s.id + ' · ' + t.label + ' · hop ' + hop.get(s.id) + '</div>' +
           '</div>';
         }).join("") +
       '</div>' +
       unassignedCard() +
-      '<div class="faint" style="font-size:10.5px;line-height:1.6">系统目录/归属/搜索走 SQLite；<br>N 跳链路走 Kùzu LINEAGE_SYSTEM；<br>系统边 = 显式边 ∪ 数据集边投影。</div>' +
+      '<div class="faint" style="font-size:10.5px;line-height:1.6">System catalog/ownership/search use SQLite;<br>N-hop paths use Kùzu LINEAGE_SYSTEM;<br>system edge = explicit edges ∪ dataset-edge projection.</div>' +
     '</div>';
   }
   if (S.level === "dataset") {
@@ -891,25 +891,25 @@ function sideHtml() {
     const bySys = {};
     list.forEach(d => { const k = d.systemId || "__unassigned__"; (bySys[k] = bySys[k] || []).push(d); });
     return '<div class="side">' +
-      '<div><h4>数据集（' + list.length + '）</h4>' +
+      '<div><h4>Datasets (' + list.length + ')</h4>' +
         Object.keys(bySys).sort().map(k => {
           const s = k === "__unassigned__" ? null : sys(k);
           return '<div style="margin-top:7px">' +
-            '<div class="faint" style="font-size:10px;margin-bottom:3px">' + (s ? esc(s.name) : "未归属系统") + '</div>' +
-            bySys[k].map(d => '<div class="side-item ' + (S.selectedDataset === d.id ? "active" : "") + '" onclick="delayedSelectDataset(\'' + d.id + '\')" ondblclick="drillDatasetNow(\'' + d.id + '\')" title="单击查看详情，双击进入字段视图">' +
+            '<div class="faint" style="font-size:10px;margin-bottom:3px">' + (s ? esc(s.name) : "Unassigned system") + '</div>' +
+            bySys[k].map(d => '<div class="side-item ' + (S.selectedDataset === d.id ? "active" : "") + '" onclick="delayedSelectDataset(\'' + d.id + '\')" ondblclick="drillDatasetNow(\'' + d.id + '\')" title="Click for details, double-click to open the field view">' +
               '<div class="nm"><b>' + esc(d.name) + '</b><span class="count">' + d.fields.length + '</span></div>' +
               '<div class="sub">' + d.id + '</div></div>').join("") +
           '</div>';
         }).join("") +
       '</div>' +
       unassignedCard() +
-      '<div class="faint" style="font-size:10.5px;line-height:1.6">当前显示系统闭包内的数据集；<br>勾选「显示全部数据集」可看未归属项。</div>' +
+      '<div class="faint" style="font-size:10.5px;line-height:1.6">Showing datasets inside the system closure;<br>check \"Show all datasets\" to see unassigned ones.</div>' +
     '</div>';
   }
   const focus = ds(S.selectedDataset);
   const names = focus ? focus.fields : [];
   return '<div class="side">' +
-    '<div><h4>字段 · ' + esc(focus ? focus.name : "") + '</h4>' +
+    '<div><h4>Fields · ' + esc(focus ? focus.name : "") + '</h4>' +
       names.filter(f => !q || f.name.toLowerCase().includes(q)).map(f =>
         '<div class="side-item ' + (S.selectedField && S.selectedField.ds === focus.id && S.selectedField.f === f.name ? "active" : "") +
         '" onclick="selectField(\'' + focus.id + '\',\'' + f.name + '\')">' +
@@ -917,41 +917,41 @@ function sideHtml() {
           '<div class="sub">' + esc(f.desc) + '</div>' +
         '</div>').join("") +
     '</div>' +
-    '<div class="faint" style="font-size:10.5px;line-height:1.6">字段视图只显示焦点数据集与直接邻居；<br>跨系统证据来自 SQLite edge 表。</div>' +
+    '<div class="faint" style="font-size:10.5px;line-height:1.6">The field view shows only the focus dataset and direct neighbors;<br>cross-system evidence comes from the SQLite edge table.</div>' +
   '</div>';
 }
 function unassignedCard() {
   const n = DATASETS.filter(d => !d.systemId).length;
   if (!n) return "";
   return '<div class="card" style="padding:8px 9px;background:var(--subtle);border-style:dashed">' +
-    '<div style="font-size:11.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px"><span class="badge">未归属</span><b>' + n + '</b> 个数据集</div>' +
-    '<div class="faint" style="font-size:10.5px;margin-top:3px">不进入系统图；不伪造虚拟系统节点。</div>' +
-    '<button class="btn btn-xs" style="margin-top:6px" onclick="showUnassigned()">查看清单</button></div>';
+    '<div style="font-size:11.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px"><span class="badge">Unassigned</span><b>' + n + '</b> datasets</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:3px">Not included in the system graph; no fake virtual system nodes.</div>' +
+    '<button class="btn btn-xs" style="margin-top:6px" onclick="showUnassigned()">View list</button></div>';
 }
 
 function edgeDrawerHtml() {
   const edges = S.level === "system" ? closureEdges(systemClosure()) : [];
   if (S.level !== "system") return "";
   return '<div class="edge-drawer">' +
-    '<div class="edge-drawer-head"><b>关系实例</b><span class="faint">系统级 ' + edges.length + ' 条（当前闭包/过滤）</span><span style="flex:1"></span>' +
-      '<span class="faint">点击行查看证据</span></div>' +
+    '<div class="edge-drawer-head"><b>Relationship instances</b><span class="faint">' + edges.length + ' system-level (current closure/filters)</span><span style="flex:1"></span>' +
+      '<span class="faint">Click a row to view evidence</span></div>' +
     '<div class="edge-drawer-body">' +
       (edges.length ? edges.map(e => {
         const key = edgeKey(e);
         const originCls = e.source === "ai" ? "origin-ai" : "origin-" + e.origin;
         return '<div class="edge-row ' + (S.selectedEdge === key ? "active" : "") + '" onclick="selectEdge(\'' + key + '\')">' +
-          '<span class="badge ' + originCls + '" style="font-size:10px">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + '</span>' +
+          '<span class="badge ' + originCls + '" style="font-size:10px">' + (e.source === "ai" ? "AI candidate" : ORIGIN_LABEL[e.origin]) + '</span>' +
           '<span class="route">' + esc(e.from) + ' → ' + esc(e.to) + '</span>' +
-          '<span class="faint">证据 ' + e.datasetEdgeCount + ' 条</span>' +
+          '<span class="faint">Evidence ' + e.datasetEdgeCount + '</span>' +
           '<span class="mono faint">' + e.confidence.toFixed(2) + '</span>' +
         '</div>';
-      }).join("") : '<div class="faint" style="padding:10px;font-size:11.5px">当前过滤条件下没有系统边。</div>') +
+      }).join("") : '<div class="faint" style="padding:10px;font-size:11.5px">No system edges under the current filters.</div>') +
     '</div>' +
   '</div>';
 }
 
 /* ============================================================
-   画布：系统视图
+   Canvas: system view
    ============================================================ */
 const SYS_W = 220, SYS_H = 96;
 function drawCanvas() {
@@ -987,15 +987,15 @@ function drawSystemGraph(layer, svg) {
     const isSeed = S.seed === s.id;
     const count = DATASETS.filter(d => d.systemId === s.id).length;
     return '<div class="sys-node ' + (selected ? "selected" : "") + (isSeed ? " seed" : "") + '" style="left:' + s.x + 'px;top:' + s.y + 'px" ' +
-      'onclick="delayedSelectSystem(\'' + s.id + '\')" ondblclick="drillSystemNow(\'' + s.id + '\')" title="单击查看详情，双击下钻数据集">' +
+      'onclick="delayedSelectSystem(\'' + s.id + '\')" ondblclick="drillSystemNow(\'' + s.id + '\')" title="Click for details, double-click to drill into datasets">' +
       '<div class="sys-stripe" style="background:' + t.stripe + '"></div>' +
-      (isSeed ? '<span class="hop-badge">种子</span>' : '<span class="hop-badge" style="background:var(--ink-muted)">hop ' + hop.get(s.id) + '</span>') +
-      (cycleIds.has(s.id) ? '<span class="cycle-badge">环</span>' : "") +
+      (isSeed ? '<span class="hop-badge">Seed</span>' : '<span class="hop-badge" style="background:var(--ink-muted)">hop ' + hop.get(s.id) + '</span>') +
+      (cycleIds.has(s.id) ? '<span class="cycle-badge">Cycle</span>' : "") +
       '<div class="sys-body">' +
         '<div class="sys-head"><span class="type-mark ' + t.cls + '">' + t.mark + '</span>' +
           '<div style="min-width:0;flex:1"><div class="sys-name">' + esc(s.name) + '</div><div class="sys-id">' + s.id + '</div></div></div>' +
         '<div class="sys-meta"><span class="badge" style="font-size:9.5px">' + t.label + '</span>' +
-          '<span class="badge" style="font-size:9.5px">' + count + ' 数据集</span>' +
+          '<span class="badge" style="font-size:9.5px">' + count + ' datasets</span>' +
           (s.owner ? '<span class="badge" style="font-size:9.5px">' + esc(s.owner) + '</span>' : "") + '</div>' +
         '<div class="sys-desc">' + esc(s.desc) + '</div>' +
       '</div></div>';
@@ -1015,7 +1015,7 @@ function drawSystemGraph(layer, svg) {
     const st = edgeStyle(e, selected);
     const d = curvePath(x1, y1, x2, y2);
     const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2 - 8;
-    const label = e.source === "ai" ? "AI" : e.datasetEdgeCount > 0 ? "×" + e.datasetEdgeCount : "显式";
+    const label = e.source === "ai" ? "AI" : e.datasetEdgeCount > 0 ? "×" + e.datasetEdgeCount : "Explicit";
     const lw = label.length > 2 ? 42 : 30;
     const isCycle = cycleEdgeKeys.has(edgeKey(e)) || (cycleIds.has(e.from) && cycleIds.has(e.to));
     return '<g>' +
@@ -1025,13 +1025,13 @@ function drawSystemGraph(layer, svg) {
         ' marker-end="url(#ah' + st.color.slice(1) + ')" opacity="' + (selected ? "1" : "0.9") + '"></path>' +
       '<rect x="' + (midX - lw / 2) + '" y="' + (midY - 9) + '" width="' + lw + '" height="16" rx="8" fill="#fff" stroke="' + st.color + '" stroke-opacity=".35"></rect>' +
       '<text x="' + midX + '" y="' + (midY + 2) + '" text-anchor="middle" font-size="9" fill="' + st.color + '">' + esc(label) + '</text>' +
-      (isCycle ? '<text x="' + (midX + lw / 2 + 6) + '" y="' + (midY + 2) + '" font-size="9" fill="#B45309">环</text>' : "") +
+      (isCycle ? '<text x="' + (midX + lw / 2 + 6) + '" y="' + (midY + 2) + '" font-size="9" fill="#B45309">Cycle</text>' : "") +
     '</g>';
   }).join("");
   const W = 1500, H = 760;
   svg.setAttribute("width", W); svg.setAttribute("height", H);
   svg.innerHTML = "<defs>" + markers + "</defs>" + paths;
-  // 画布容器尺寸
+  // Canvas container size
   const inner = document.getElementById("canvasInner");
   if (inner) { inner.style.width = W + "px"; inner.style.height = H + "px"; }
 }
@@ -1041,16 +1041,16 @@ function curvePath(x1, y1, x2, y2) {
   return "M " + x1 + " " + y1 + " C " + (x1 + dx * sign) + " " + y1 + ", " + (x2 - dx * sign) + " " + y2 + ", " + x2 + " " + y2;
 }
 function edgeTitle(e) {
-  const parts = [e.from + " → " + e.to, "来源: " + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin])];
-  if (e.datasetEdgeCount) parts.push("数据集级证据: " + e.datasetEdgeCount + " 条");
-  if (e.transform) parts.push("接口: " + e.transform);
-  if (e.note) parts.push("备注: " + e.note);
-  parts.push("置信度: " + e.confidence.toFixed(2));
+  const parts = [e.from + " → " + e.to, "Source: " + (e.source === "ai" ? "AI candidate" : ORIGIN_LABEL[e.origin])];
+  if (e.datasetEdgeCount) parts.push("Dataset-level evidence: " + e.datasetEdgeCount);
+  if (e.transform) parts.push("Interface: " + e.transform);
+  if (e.note) parts.push("Note: " + e.note);
+  parts.push("Confidence: " + e.confidence.toFixed(2));
   return parts.join("\n");
 }
 
 /* ============================================================
-   画布：数据集视图
+   Canvas: dataset view
    ============================================================ */
 const DS_W = 200;
 function dsHeight(d, expanded) {
@@ -1073,12 +1073,12 @@ function drawDatasetGraph(layer, svg) {
       '<span class="f-dot"></span><span class="fname">' + esc(f.name) + '</span><span class="ftype">' + esc(f.type) + '</span></div>'
     ).join("") : "";
     return '<div class="ds-node ' + (selected ? "selected" : "") + '" style="left:' + d.x + 'px;top:' + d.y + 'px" ' +
-      'onclick="delayedSelectDataset(\'' + d.id + '\')" ondblclick="drillDatasetNow(\'' + d.id + '\')" title="单击查看详情，双击进入字段视图">' +
+      'onclick="delayedSelectDataset(\'' + d.id + '\')" ondblclick="drillDatasetNow(\'' + d.id + '\')" title="Click for details, double-click to open the field view">' +
       '<div class="ds-head" style="border-left:3px solid ' + t.color + '">' +
         '<div style="min-width:0;flex:1"><div class="ds-name">' + esc(d.name) + '</div><div class="ds-id">' + d.id + '</div></div>' +
-        '<span class="ds-sys">' + (s ? esc(s.name) : "未归属") + '</span>' +
+        '<span class="ds-sys">' + (s ? esc(s.name) : "Unassigned") + '</span>' +
       '</div>' + rows +
-      (isExpanded ? "" : '<div class="faint" style="padding:5px 9px;font-size:10px;border-top:1px solid var(--line-soft)">' + d.fields.length + ' 字段 · 双击看字段视图</div>') +
+      (isExpanded ? "" : '<div class="faint" style="padding:5px 9px;font-size:10px;border-top:1px solid var(--line-soft)">' + d.fields.length + ' fields · double-click for field view</div>') +
     '</div>';
   }).join("");
   const markers = ["#475569", "#0D9488", "#4F46E5", "#94A3B8", "#EA580C"].map(c =>
@@ -1110,7 +1110,7 @@ function drawDatasetGraph(layer, svg) {
 }
 
 /* ============================================================
-   画布：字段视图
+   Canvas: field view
    ============================================================ */
 const FW = 240, FROW = 26, FHEAD = 40;
 function drawFieldGraph(layer, svg) {
@@ -1145,7 +1145,7 @@ function drawFieldGraph(layer, svg) {
       'onclick="selectDataset(\'' + n.id + '\')">' +
       '<div class="ds-head" style="border-left:3px solid ' + t.color + '">' +
         '<div style="min-width:0;flex:1"><div class="ds-name">' + esc(n.name) + '</div><div class="ds-id">' + n.id + '</div></div>' +
-        '<span class="ds-sys">' + (s ? esc(s.name) : "未归属") + '</span>' +
+        '<span class="ds-sys">' + (s ? esc(s.name) : "Unassigned") + '</span>' +
       '</div>' + rows + '</div>';
   }).join("");
   const markers = ["#475569", "#0D9488", "#4F46E5", "#EA580C"].map(c =>
@@ -1181,7 +1181,7 @@ function drawFieldGraph(layer, svg) {
 }
 
 /* ============================================================
-   详情面板
+   Detail panel
    ============================================================ */
 function detailHtml() {
   if (S.selectedEdge && S.selectedEdge.indexOf("->") >= 0 && S.level === "system") {
@@ -1199,14 +1199,14 @@ function detailHtml() {
   }
   if (S.level === "dataset") {
     const d = ds(S.selectedDataset) || visibleDatasets()[0];
-    return d ? datasetDetail(d) : "<h3>数据集</h3><div class='faint'>当前闭包内没有数据集。</div>";
+    return d ? datasetDetail(d) : "<h3>Datasets</h3><div class='faint'>No datasets in the current closure.</div>";
   }
   const d = ds(S.selectedDataset);
-  return d ? fieldDetail(d, S.selectedField) : "<h3>字段</h3><div class='faint'>请选择一个字段。</div>";
+  return d ? fieldDetail(d, S.selectedField) : "<h3>Fields</h3><div class='faint'>Select a field.</div>";
 }
 
 function systemDetail(s) {
-  if (!s) return "<h3>系统</h3><div class='faint'>请选择一个系统。</div>";
+  if (!s) return "<h3>System</h3><div class='faint'>Select a system.</div>";
   const t = typeMeta(s.type);
   const datasets = DATASETS.filter(d => d.systemId === s.id);
   const visibleEdges = visibleSystemEdges();
@@ -1215,98 +1215,98 @@ function systemDetail(s) {
   const annos = SYSTEM_ANNOTATIONS[s.id] || [];
   const hop = systemClosure();
   return '<h3>' + esc(s.name) + ' <span class="badge ' + t.cls + '" style="vertical-align:2px">' + t.label + '</span></h3>' +
-    '<div class="sub">' + s.id + ' · ' + (s.owner || "未登记负责人") + ' · hop ' + (hop.get(s.id) != null ? hop.get(s.id) : "-") + '</div>' +
+    '<div class="sub">' + s.id + ' · ' + (s.owner || "No owner recorded") + ' · hop ' + (hop.get(s.id) != null ? hop.get(s.id) : "-") + '</div>' +
     '<div style="color:var(--ink-soft);font-size:12px;margin-bottom:10px">' + esc(s.desc) + '</div>' +
     '<div style="display:flex;gap:6px">' +
-      '<button class="btn btn-primary" style="flex:1;justify-content:center" onclick="drillSystem(\'' + s.id + '\')">下钻数据集视图</button>' +
-      (canWrite() ? '<button class="btn" onclick="toast(\'原型演示：编辑系统属性（editor+）\',\'warn\')">编辑</button>' : "") +
+      '<button class="btn btn-primary" style="flex:1;justify-content:center" onclick="drillSystem(\'' + s.id + '\')">Drill into dataset view</button>' +
+      (canWrite() ? '<button class="btn" onclick="toast(\'Prototype demo: edit system attributes (editor+)\',\'warn\')">Edit</button>' : "") +
     '</div>' +
-    '<div class="sec-t">概览</div>' +
-    '<div class="kv"><span class="k">数据集</span><span class="v">' + datasets.length + ' 个</span></div>' +
-    '<div class="kv"><span class="k">上游系统</span><span class="v">' + ups.length + ' 个</span></div>' +
-    '<div class="kv"><span class="k">下游系统</span><span class="v">' + downs.length + ' 个</span></div>' +
-    '<div class="kv"><span class="k">相邻系统边</span><span class="v">' + (ups.length + downs.length) + ' 条（含投影）</span></div>' +
-    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
-      (ups.length ? ups.map(e => '<a onclick="selectEdge(\'' + edgeKey(e) + '\')">' + e.from + ' → ' + s.id + ' <span class="hop">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + ' · 证据 ' + e.datasetEdgeCount + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头系统（无上游）</span>') +
+    '<div class="sec-t">Overview</div>' +
+    '<div class="kv"><span class="k">Datasets</span><span class="v">' + datasets.length + '</span></div>' +
+    '<div class="kv"><span class="k">Upstream systems</span><span class="v">' + ups.length + '</span></div>' +
+    '<div class="kv"><span class="k">Downstream systems</span><span class="v">' + downs.length + '</span></div>' +
+    '<div class="kv"><span class="k">Adjacent system edges</span><span class="v">' + (ups.length + downs.length) + ' (incl. projected)</span></div>' +
+    '<div class="sec-t">Upstream (' + ups.length + ')</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="selectEdge(\'' + edgeKey(e) + '\')">' + e.from + ' → ' + s.id + ' <span class="hop">' + (e.source === "ai" ? "AI candidate" : ORIGIN_LABEL[e.origin]) + ' · evidence ' + e.datasetEdgeCount + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Source system (no upstream)</span>') +
     '</div>' +
-    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
-      (downs.length ? downs.map(e => '<a onclick="selectEdge(\'' + edgeKey(e) + '\')">' + s.id + ' → ' + e.to + ' <span class="hop">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + ' · 证据 ' + e.datasetEdgeCount + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子系统（无下游）</span>') +
+    '<div class="sec-t">Downstream (' + downs.length + ')</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="selectEdge(\'' + edgeKey(e) + '\')">' + s.id + ' → ' + e.to + ' <span class="hop">' + (e.source === "ai" ? "AI candidate" : ORIGIN_LABEL[e.origin]) + ' · evidence ' + e.datasetEdgeCount + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Leaf system (no downstream)</span>') +
     '</div>' +
-    '<div class="sec-t">数据集（' + datasets.length + '）</div>' +
-    datasets.map(d => '<div class="evi" onclick="drillDataset(\'' + d.id + '\')"><div class="f">' + esc(d.name) + '</div><div class="m">' + d.id + ' · ' + d.fields.length + ' 字段</div></div>').join("") +
-    (annos.length ? '<div class="sec-t">系统注释</div>' + annos.map(a => '<div class="anno">' + esc(a.body) + '<div class="meta">' + esc(a.author) + ' · ' + esc(a.at) + '</div></div>').join("") : "") +
-    '<div class="sec-t">系统级查询（Kùzu Cypher）</div>' +
+    '<div class="sec-t">Datasets (' + datasets.length + ')</div>' +
+    datasets.map(d => '<div class="evi" onclick="drillDataset(\'' + d.id + '\')"><div class="f">' + esc(d.name) + '</div><div class="m">' + d.id + ' · ' + d.fields.length + ' fields</div></div>').join("") +
+    (annos.length ? '<div class="sec-t">System notes</div>' + annos.map(a => '<div class="anno">' + esc(a.body) + '<div class="meta">' + esc(a.author) + ' · ' + esc(a.at) + '</div></div>').join("") : "") +
+    '<div class="sec-t">System-level query (Kùzu Cypher)</div>' +
     '<div class="codelist">' + esc('MATCH p = (s:System {id: "' + s.id + '"})\n  <-[:LINEAGE_SYSTEM*1..' + S.hops + ']-(up:System)\nRETURN DISTINCT up.id, min(length(p)) AS hop\nORDER BY hop;') + '</div>' +
-    '<div class="faint" style="font-size:10.5px;margin-top:8px;line-height:1.6">系统属性来自 SQLite；N 跳遍历走 Kùzu。图 dirty 时自动重建，失败则降级 v_system_edge 递归 CTE。</div>';
+    '<div class="faint" style="font-size:10.5px;margin-top:8px;line-height:1.6">System attributes come from SQLite; N-hop traversal runs on Kùzu. Dirty graphs are rebuilt automatically; on failure it falls back to the v_system_edge recursive CTE.</div>';
 }
 
 function systemEdgeDetail(e) {
   const originCls = e.source === "ai" ? "origin-ai" : "origin-" + e.origin;
-  return '<button class="btn btn-ghost btn-xs" onclick="S.selectedEdge=null;render()">← 返回系统</button>' +
+  return '<button class="btn btn-ghost btn-xs" onclick="S.selectedEdge=null;render()">← Back to system</button>' +
     '<h3 style="margin-top:6px">' + esc(e.from) + ' → ' + esc(e.to) + '</h3>' +
-    '<div class="sub">系统级血缘 · <span class="badge ' + originCls + '">' + (e.source === "ai" ? "AI 候选" : ORIGIN_LABEL[e.origin]) + '</span></div>' +
-    '<div class="kv"><span class="k">上游</span><span class="v">' + esc((sys(e.from) || {}).name || e.from) + '</span></div>' +
-    '<div class="kv"><span class="k">下游</span><span class="v">' + esc((sys(e.to) || {}).name || e.to) + '</span></div>' +
-    '<div class="kv"><span class="k">来源</span><span class="v">' + SRC_LABEL[e.source] + ' · 置信度 ' + e.confidence.toFixed(2) + '</span></div>' +
-    '<div class="kv"><span class="k">证据</span><span class="v">' + e.datasetEdgeCount + ' 条数据集级边</span></div>' +
-    (e.transform ? '<div class="kv"><span class="k">接口/加工</span><span class="v">' + esc(e.transform) + '</span></div>' : "") +
+    '<div class="sub">System-level lineage · <span class="badge ' + originCls + '">' + (e.source === "ai" ? "AI candidate" : ORIGIN_LABEL[e.origin]) + '</span></div>' +
+    '<div class="kv"><span class="k">Upstream</span><span class="v">' + esc((sys(e.from) || {}).name || e.from) + '</span></div>' +
+    '<div class="kv"><span class="k">Downstream</span><span class="v">' + esc((sys(e.to) || {}).name || e.to) + '</span></div>' +
+    '<div class="kv"><span class="k">Source</span><span class="v">' + SRC_LABEL[e.source] + ' · confidence ' + e.confidence.toFixed(2) + '</span></div>' +
+    '<div class="kv"><span class="k">Evidence</span><span class="v">' + e.datasetEdgeCount + ' dataset-level edges</span></div>' +
+    (e.transform ? '<div class="kv"><span class="k">Interface / transform</span><span class="v">' + esc(e.transform) + '</span></div>' : "") +
     (e.note ? '<div class="anno" style="margin-top:10px">' + esc(e.note) + '</div>' : "") +
-    '<div class="sec-t">关系证据（SQLite edge）</div>' +
+    '<div class="sec-t">Relationship evidence (SQLite edge)</div>' +
     (e.evidence.length ? e.evidence.map(x =>
       '<div class="evi" onclick="jumpEvidence(' + x.id + ')">' +
         '<div class="f">' + esc(x.from) + '.' + esc(x.fromField) + ' → ' + esc(x.to) + '.' + esc(x.toField) + '</div>' +
         '<div class="m">' + esc(x.transform) + ' · ' + SRC_LABEL[x.source] + ' · conf ' + x.confidence.toFixed(2) + '</div>' +
       '</div>').join("") :
       '<div class="card" style="padding:10px;background:var(--subtle);border-style:dashed;font-size:11.5px;color:var(--ink-muted)">' +
-        '纯显式系统边：没有数据集级证据。它表达的是「系统间接口」这一粗粒度关系，允许存在；下钻时不会伪造底层表级血缘。' +
+        'Pure explicit system edge: no dataset-level evidence. It expresses the coarse-grained \"inter-system interface\" relationship and is allowed to exist; drilling down never fabricates underlying table-level lineage.' +
       '</div>') +
-    '<div class="sec-t">为什么合并成一条边</div>' +
+    '<div class="sec-t">Why merged into one edge</div>' +
     '<div class="codelist">' + esc(
-      '-- SQLite：显式边 ∪ 数据集边投影\n' +
+      '-- SQLite: explicit edges ∪ dataset-edge projection\n' +
       'SELECT from_system, to_system, origin,\n' +
       '       dataset_edge_count, system_edge_id\n' +
       'FROM v_system_edge\n' +
       'WHERE from_system = \'' + e.from + '\'\n' +
       '  AND to_system   = \'' + e.to + '\';'
     ) + '</div>' +
-    '<div class="faint" style="font-size:10.5px;margin-top:8px;line-height:1.6">origin=both 时显式边属性优先；dataset_edge_count 来自投影，不落库。</div>';
+    '<div class="faint" style="font-size:10.5px;margin-top:8px;line-height:1.6">When origin=both, explicit-edge attributes win; dataset_edge_count comes from projection and is not persisted.</div>';
 }
 
 function datasetDetail(d) {
   const s = d.systemId ? sys(d.systemId) : null;
   const ups = DATASET_EDGES.filter(e => e.to === d.id);
   const downs = DATASET_EDGES.filter(e => e.from === d.id);
-  return '<h3>' + esc(d.name) + ' <span class="badge" style="vertical-align:2px">' + d.fields.length + ' 字段</span></h3>' +
-    '<div class="sub">' + d.id + ' · ' + (s ? esc(s.name) : "未归属系统") + '</div>' +
+  return '<h3>' + esc(d.name) + ' <span class="badge" style="vertical-align:2px">' + d.fields.length + ' fields</span></h3>' +
+    '<div class="sub">' + d.id + ' · ' + (s ? esc(s.name) : "Unassigned system") + '</div>' +
     '<div style="display:flex;gap:6px;margin-bottom:8px">' +
-      '<button class="btn btn-primary" style="flex:1;justify-content:center" onclick="drillDataset(\'' + d.id + '\')">进入字段视图</button>' +
-      (canWrite() ? '<button class="btn" onclick="toast(\'原型演示：修改数据集归属（editor+）\',\'warn\')">改归属</button>' : "") +
+      '<button class="btn btn-primary" style="flex:1;justify-content:center" onclick="drillDataset(\'' + d.id + '\')">Open field view</button>' +
+      (canWrite() ? '<button class="btn" onclick="toast(\'Prototype demo: change dataset ownership (editor+)\',\'warn\')">Change owner</button>' : "") +
     '</div>' +
-    '<div class="sec-t">字段</div>' +
+    '<div class="sec-t">Fields</div>' +
     d.fields.map(f => '<div class="evi" onclick="selectField(\'' + d.id + '\',\'' + f.name + '\')"><div class="f">' + esc(f.name) + ' <span class="faint" style="font-size:10px">' + esc(f.type) + '</span></div><div class="m">' + esc(f.desc) + '</div></div>').join("") +
-    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
-      (ups.length ? ups.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.from + '.' + e.fromField + ' <span class="hop">→ ' + e.toField + ' · ' + SRC_LABEL[e.source] + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头数据集（无上游）</span>') +
+    '<div class="sec-t">Upstream (' + ups.length + ')</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.from + '.' + e.fromField + ' <span class="hop">→ ' + e.toField + ' · ' + SRC_LABEL[e.source] + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Source dataset (no upstream)</span>') +
     '</div>' +
-    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
-      (downs.length ? downs.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.to + '.' + e.toField + ' <span class="hop">← ' + e.fromField + ' · ' + SRC_LABEL[e.source] + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子数据集（无下游）</span>') +
+    '<div class="sec-t">Downstream (' + downs.length + ')</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.to + '.' + e.toField + ' <span class="hop">← ' + e.fromField + ' · ' + SRC_LABEL[e.source] + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Leaf dataset (no downstream)</span>') +
     '</div>' +
-    '<div class="faint" style="font-size:10.5px;margin-top:12px;line-height:1.6">双击画布节点可直接进入字段视图；字段级证据始终来自 SQLite edge 表。</div>';
+    '<div class="faint" style="font-size:10.5px;margin-top:12px;line-height:1.6">Double-click a canvas node to open the field view; field-level evidence always comes from the SQLite edge table.</div>';
 }
 
 function datasetEdgeDetail(e) {
-  return '<button class="btn btn-ghost btn-xs" onclick="S.selectedEdge=null;render()">← 返回</button>' +
-    '<h3 style="margin-top:6px">字段级血缘 #' + e.id + '</h3>' +
+  return '<button class="btn btn-ghost btn-xs" onclick="S.selectedEdge=null;render()">← Back</button>' +
+    '<h3 style="margin-top:6px">Field-level lineage #' + e.id + '</h3>' +
     '<div class="sub">' + esc(e.from) + ' → ' + esc(e.to) + '</div>' +
-    '<div class="kv"><span class="k">上游字段</span><span class="v mono">' + esc(e.from + "." + e.fromField) + '</span></div>' +
-    '<div class="kv"><span class="k">下游字段</span><span class="v mono">' + esc(e.to + "." + e.toField) + '</span></div>' +
-    '<div class="kv"><span class="k">转换</span><span class="v">' + esc(e.transform) + '</span></div>' +
-    '<div class="kv"><span class="k">来源</span><span class="v">' + SRC_LABEL[e.source] + ' · 置信度 ' + e.confidence.toFixed(2) + '</span></div>' +
+    '<div class="kv"><span class="k">Upstream field</span><span class="v mono">' + esc(e.from + "." + e.fromField) + '</span></div>' +
+    '<div class="kv"><span class="k">Downstream field</span><span class="v mono">' + esc(e.to + "." + e.toField) + '</span></div>' +
+    '<div class="kv"><span class="k">Transform</span><span class="v">' + esc(e.transform) + '</span></div>' +
+    '<div class="kv"><span class="k">Source</span><span class="v">' + SRC_LABEL[e.source] + ' · confidence ' + e.confidence.toFixed(2) + '</span></div>' +
     '<div style="margin-top:10px;display:flex;gap:6px">' +
-      '<button class="btn btn-primary" onclick="jumpEvidence(' + e.id + ')">在字段视图定位</button>' +
+      '<button class="btn btn-primary" onclick="jumpEvidence(' + e.id + ')">Locate in field view</button>' +
     '</div>' +
-    '<div class="sec-t">它贡献了哪条系统边</div>' +
+    '<div class="sec-t">Which system edge it contributes to</div>' +
     '<div class="codelist">' + esc(
-      '-- 投影：dataset.system_id 把字段边折叠为系统边\n' +
+      '-- Projection: dataset.system_id folds field edges into system edges\n' +
       'SELECT d_from.system_id, d_to.system_id,\n' +
       '       COUNT(DISTINCT e.from_dataset || \'->\' || e.to_dataset)\n' +
       'FROM edge e JOIN dataset d_from ... JOIN dataset d_to ...\n' +
@@ -1316,21 +1316,21 @@ function datasetEdgeDetail(e) {
 
 function fieldDetail(d, sel) {
   const f = sel ? d.fields.find(x => x.name === sel.f) : d.fields[0];
-  if (!f) return "<h3>字段</h3><div class='faint'>请选择一个字段。</div>";
+  if (!f) return "<h3>Field</h3><div class='faint'>Select a field.</div>";
   const ups = DATASET_EDGES.filter(e => e.to === d.id && e.toField === f.name);
   const downs = DATASET_EDGES.filter(e => e.from === d.id && e.fromField === f.name);
   return '<h3>' + esc(f.name) + ' <span class="badge" style="vertical-align:2px">' + esc(f.type) + '</span></h3>' +
     '<div class="sub">' + d.id + ' · ' + esc(d.name) + '</div>' +
     '<div style="color:var(--ink-soft);font-size:12px;margin-bottom:10px">' + esc(f.desc) + '</div>' +
-    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
-      (ups.length ? ups.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.from + '.' + e.fromField + ' <span class="hop">→ ' + SRC_LABEL[e.source] + ' ' + e.confidence.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头字段（无上游）</span>') +
+    '<div class="sec-t">Upstream (' + ups.length + ')</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.from + '.' + e.fromField + ' <span class="hop">→ ' + SRC_LABEL[e.source] + ' ' + e.confidence.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Source field (no upstream)</span>') +
     '</div>' +
-    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
-      (downs.length ? downs.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.to + '.' + e.toField + ' <span class="hop">← ' + SRC_LABEL[e.source] + ' ' + e.confidence.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子字段（无下游）</span>') +
+    '<div class="sec-t">Downstream (' + downs.length + ')</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="jumpEvidence(' + e.id + ')">' + e.to + '.' + e.toField + ' <span class="hop">← ' + SRC_LABEL[e.source] + ' ' + e.confidence.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Leaf field (no downstream)</span>') +
     '</div>' +
-    '<div class="sec-t">字段级查询（Kùzu Cypher）</div>' +
+    '<div class="sec-t">Field-level query (Kùzu Cypher)</div>' +
     '<div class="codelist">' + esc('MATCH (src:Field)-[r:LINEAGE_FIELD]->\n      (f:Field {id: "' + d.id + '.' + f.name + '"})\nRETURN src.id, r.edge_id, r.confidence;') + '</div>' +
-    '<div class="faint" style="font-size:10.5px;margin-top:10px;line-height:1.6">字段视图只用于核对系统边的底层证据；系统级关系不替代字段级血缘。</div>';
+    '<div class="faint" style="font-size:10.5px;margin-top:10px;line-height:1.6">The field view only verifies the underlying evidence of system edges; system-level relationships do not replace field-level lineage.</div>';
 }
 
 function renderDetail() {
@@ -1339,10 +1339,10 @@ function renderDetail() {
 }
 
 /* ============================================================
-   交互
+   Interactions
    ============================================================ */
 function goLevel(level) {
-  if (level === "field" && !S.selectedDataset) { toast("先在数据集视图选择一个数据集", "warn"); return; }
+  if (level === "field" && !S.selectedDataset) { toast("Select a dataset in the dataset view first", "warn"); return; }
   readRebuild();
   S.level = level;
   S.selectedEdge = null;
@@ -1356,7 +1356,7 @@ function onSearch(v) {
 }
 function switchRole(role) {
   S.role = role;
-  toast("已切换视角：" + (role === "admin" ? "陈明（管理员）" : role === "editor" ? "李雪（维护者）" : "王珂（只读）"));
+  toast("Switched perspective: " + (role === "admin" ? "Chen Ming (Admin)" : role === "editor" ? "Li Xue (Maintainer)" : "Wang Ke (Read-only)"));
   render();
 }
 function setSeed(id) {
@@ -1366,9 +1366,9 @@ function setSeed(id) {
   S.selectedEdge = null;
   S.needsFit = true;
   render();
-  toast("系统闭包已重算：Kùzu LINEAGE_SYSTEM *1.." + S.hops);
+  toast("System closure recomputed: Kùzu LINEAGE_SYSTEM *1.." + S.hops);
 }
-function setHops(v) { readRebuild(); S.hops = +v; render(); toast("重新取系统子图：*1.." + S.hops); }
+function setHops(v) { readRebuild(); S.hops = +v; render(); toast("Re-fetched system subgraph: *1.." + S.hops); }
 function setDirection(v) { readRebuild(); S.direction = v; render(); }
 function toggleFilter(k, v) { S.filters[k] = v; render(); }
 function toggleAllDatasets(v) { readRebuild(); S.showAllDatasets = v; S.needsFit = true; render(); }
@@ -1387,7 +1387,7 @@ function drillSystem(id) {
   S.level = "dataset";
   S.needsFit = true;
   render();
-  toast("下钻：数据集视图 · " + id);
+  toast("Drill-down: dataset view · " + id);
 }
 function selectDataset(id) {
   S.selectedDataset = id;
@@ -1408,7 +1408,7 @@ function drillDataset(id) {
   if (d && d.fields.length) S.selectedField = { ds: id, f: d.fields[0].name };
   S.needsFit = true;
   render();
-  toast("下钻：字段视图 · " + id);
+  toast("Drill-down: field view · " + id);
 }
 function selectField(dsid, fname) {
   S.selectedDataset = dsid;
@@ -1438,7 +1438,7 @@ function jumpEvidence(id) {
   S.selectedEdge = "ds:" + id;
   S.level = "field";
   render();
-  toast("已定位到底层字段证据 #" + id);
+  toast("Located underlying field evidence #" + id);
 }
 function showUnassigned() {
   readRebuild();
@@ -1448,19 +1448,19 @@ function showUnassigned() {
   S.selectedDataset = list.length ? list[0].id : S.selectedDataset;
   S.needsFit = true;
   render();
-  toast("已显示全部数据集；未归属项不进入系统图", "warn");
+  toast("Showing all datasets; unassigned items are excluded from the system graph", "warn");
 }
 function cycleGraphState() {
   S.graphState = S.graphState === "clean" ? "dirty" : S.graphState === "dirty" ? "cte" : "clean";
   render();
-  const msg = S.graphState === "clean" ? "Kùzu 图已重建（COPY FROM，幂等）" : S.graphState === "dirty" ? "图已标脏；下次读请求自动重建" : "Kùzu 不可用：已降级 SQLite v_system_edge 递归 CTE";
+  const msg = S.graphState === "clean" ? "Kùzu graph rebuilt (COPY FROM, idempotent)" : S.graphState === "dirty" ? "Graph marked dirty; rebuilt automatically on the next read request" : "Kùzu unavailable: fell back to the SQLite v_system_edge recursive CTE";
   toast(msg, S.graphState === "clean" ? "ok" : "warn");
 }
 function toggleCycleDemo() {
   S.demoCycle = !S.demoCycle;
   S.systemEdges = buildSystemEdges(S.demoCycle);
   render();
-  toast(S.demoCycle ? "已注入系统级聚合环（BI → 数仓）；注意：数据集级没有反向血缘" : "已移除演示环", S.demoCycle ? "warn" : "ok");
+  toast(S.demoCycle ? "Injected a system-level aggregate cycle (BI → warehouse); note: there is no reverse lineage at dataset level" : "Demo cycle removed", S.demoCycle ? "warn" : "ok");
 }
 function zoomBy(k) { S.zoom = Math.min(2, Math.max(0.4, S.zoom * k)); applyView(); }
 function focusCanvas(level) {
@@ -1515,60 +1515,60 @@ document.addEventListener("wheel", ev => {
 }, { passive: false });
 
 /* ============================================================
-   架构说明弹层
+   Architecture notes modal
    ============================================================ */
 function openArch() {
   const html =
     '<div class="arch-grid">' +
       '<div class="arch-box">' +
-        '<h4><span class="arch-tag badge-info">SQLite · 唯一事实源</span>实体属性 + 入口检索</h4>' +
+        '<h4><span class="arch-tag badge-info">SQLite · single source of truth</span>Entity attributes + entry search</h4>' +
         '<ul>' +
-          '<li><code>system</code>：系统目录（名称/类型/负责人/说明）</li>' +
-          '<li><code>dataset.system_id</code>：数据集归属</li>' +
-          '<li><code>system_edge</code>：显式系统边（接口/置信度/来源）</li>' +
-          '<li><code>v_system_edge</code>：显式边 ∪ 数据集边投影</li>' +
-          '<li><code>change_log</code>：系统/归属/系统边的版本与回滚</li>' +
+          '<li><code>system</code>: system catalog (name/type/owner/description)</li>' +
+          '<li><code>dataset.system_id</code>: dataset ownership</li>' +
+          '<li><code>system_edge</code>: explicit system edges (interface/confidence/source)</li>' +
+          '<li><code>v_system_edge</code>: explicit edges ∪ dataset-edge projection</li>' +
+          '<li><code>change_log</code>: versions and rollback for systems/ownership/system edges</li>' +
         '</ul>' +
       '</div>' +
       '<div class="arch-box">' +
-        '<h4><span class="arch-tag badge-brand">Kùzu · 派生层</span>关系实例 + 链路遍历</h4>' +
+        '<h4><span class="arch-tag badge-brand">Kùzu · derived layer</span>Relationship instances + path traversal</h4>' +
         '<ul>' +
-          '<li><code>System</code> 节点：只存 id/name/type</li>' +
-          '<li><code>LINEAGE_SYSTEM</code>：系统级关系实例</li>' +
-          '<li><code>Dataset.system_id</code>：归属属性，供下钻过滤</li>' +
-          '<li>N 跳：<code>*1..n</code> 变长路径 + <code>min(length(p))</code></li>' +
-          '<li>随时可从 SQLite 全量重建，可整体移除</li>' +
+          '<li><code>System</code> nodes: store only id/name/type</li>' +
+          '<li><code>LINEAGE_SYSTEM</code>: system-level relationship instances</li>' +
+          '<li><code>Dataset.system_id</code>: ownership attribute used for drill-down filtering</li>' +
+          '<li>N hops: <code>*1..n</code> variable-length paths + <code>min(length(p))</code></li>' +
+          '<li>Can be fully rebuilt from SQLite at any time and removed entirely</li>' +
         '</ul>' +
       '</div>' +
       '<div class="arch-box">' +
-        '<h4><span class="arch-tag badge-ok">同一渲染协议</span>不另起炉灶</h4>' +
+        '<h4><span class="arch-tag badge-ok">Same rendering protocol</span>No separate stack</h4>' +
         '<ul>' +
-          '<li><code>SystemGraphPayload</code> 与 <code>GraphPayload</code> 同构</li>' +
-          '<li>同一画布：系统 / 数据集 / 字段三级切换</li>' +
-          '<li>同一套过滤、缩放、详情、边列表</li>' +
-          '<li>AI 出图与手工浏览共用 <code>applyGraph</code></li>' +
-          '<li>无新增服务、消息队列或搜索集群</li>' +
+          '<li><code>SystemGraphPayload</code> is isomorphic to <code>GraphPayload</code></li>' +
+          '<li>Same canvas: system / dataset / field three-level switching</li>' +
+          '<li>Same filters, zoom, details and edge list</li>' +
+          '<li>AI graph updates and manual browsing share <code>applyGraph</code></li>' +
+          '<li>No new services, message queues or search clusters</li>' +
         '</ul>' +
       '</div>' +
     '</div>' +
-    '<div class="flowrow"><b>GET /lineage/systems</b><span>→</span><b>图路由</b><span>（clean 走 Kùzu；dirty 自动重建；失败降级 CTE）</span><span>→</span><b>SystemGraphPayload</b><span>→</span><b>同一画布</b></div>' +
+    '<div class="flowrow"><b>GET /lineage/systems</b><span>→</span><b>Graph router</b><span>(clean → Kùzu; dirty → auto rebuild; failure → CTE fallback)</span><span>→</span><b>SystemGraphPayload</b><span>→</span><b>Same canvas</b></div>' +
     '<div style="display:flex;gap:12px;align-items:stretch">' +
       '<div class="principle" style="background:var(--brand-50);border:1px solid var(--brand-200)">' +
-        '<div class="pt"><span class="pn" style="background:var(--brand-700)">1</span>系统边可解释</div>' +
-        '每条系统边必须带 <code>origin</code>（explicit/derived/both）与 <code>dataset_edge_count</code>；投影边能列出底层数据集边，显式边允许没有数据集证据，但不允许「无法解释来源的线」。' +
+        '<div class="pt"><span class="pn" style="background:var(--brand-700)">1</span>System edges are explainable</div>' +
+        'Every system edge must carry <code>origin</code> (explicit/derived/both) and <code>dataset_edge_count</code>; projected edges can list their underlying dataset edges, and explicit edges may lack dataset evidence, but a \"line with an unexplainable source\" is not allowed.' +
       '</div>' +
       '<div class="principle" style="background:var(--info-soft);border:1px solid #BFDBFE">' +
-        '<div class="pt"><span class="pn" style="background:var(--info-deep)">2</span>投影不落库</div>' +
-        '数据集边 + <code>dataset.system_id</code> 实时投影为系统边，避免「数据集边改了、系统边忘了改」的双写漂移；只有显式边落 <code>system_edge</code> 并参与版本。' +
+        '<div class="pt"><span class="pn" style="background:var(--info-deep)">2</span>Projections are not persisted</div>' +
+        'Dataset edges + <code>dataset.system_id</code> are projected into system edges in real time, avoiding dual-write drift where \"a dataset edge changes but the system edge is forgotten\"; only explicit edges are persisted in <code>system_edge</code> and versioned.' +
       '</div>' +
       '<div class="principle" style="background:var(--warning-soft);border:1px solid #FDE68A">' +
-        '<div class="pt"><span class="pn" style="background:var(--warning-deep)">3</span>环要检测，不阻断</div>' +
-        '数据集级无环不代表系统级无环：聚合可能产生环。查询用 <code>DISTINCT</code> + <code>min(hop)</code> + 跳数上限；UI 标记「系统级聚合环」，不据此判定数据集级有环。' +
+        '<div class="pt"><span class="pn" style="background:var(--warning-deep)">3</span>Cycles are detected, not blocked</div>' +
+        'No cycle at dataset level does not mean no cycle at system level: aggregation can create cycles. Queries use <code>DISTINCT</code> + <code>min(hop)</code> + a hop limit; the UI marks a \"system-level aggregate cycle\" and never concludes from it that a dataset-level cycle exists.' +
       '</div>' +
     '</div>' +
-    '<div class="sec-t" style="margin-top:14px">关键 SQL / Cypher</div>' +
+    '<div class="sec-t" style="margin-top:14px">Key SQL / Cypher</div>' +
     '<div class="codelist">' + esc(
-      '-- SQLite：系统级关系视图（显式 ∪ 投影）\n' +
+      '-- SQLite: system-level relationship view (explicit ∪ projected)\n' +
       'CREATE VIEW v_system_edge AS\n' +
       'WITH derived AS (\n' +
       '  SELECT d_from.system_id AS from_system, d_to.system_id AS to_system,\n' +
@@ -1581,14 +1581,14 @@ function openArch() {
       ')\n' +
       'SELECT ... FROM system_edge e LEFT JOIN derived d ...\n' +
       'UNION ALL SELECT ... FROM derived d LEFT JOIN system_edge e ...;\n\n' +
-      '-- Kùzu：系统级 N 跳上游\n' +
+      '-- Kùzu: system-level N-hop upstream\n' +
       'MATCH p = (s:System {id: $sid})<-[:LINEAGE_SYSTEM*1..3]-(up:System)\n' +
       'RETURN DISTINCT up.id, min(length(p)) AS hop ORDER BY hop;'
     ) + '</div>' +
-    '<div class="faint" style="font-size:11px;margin-top:10px;line-height:1.6">本原型只验证交互与信息架构，不代表后端已实现。设计定稿见 <code>docs/01_design/Clew-设计方案.md</code> §4.7 / §5.3 与 <code>docs/01_design/Clew-数据模型.md</code> §3.3 / §十。</div>';
-  modal("系统级血缘 · 同一分层架构上的第三层视图", html,
-    '<button class="btn" onclick="toggleCycleDemo();closeModal();openArch()">' + (S.demoCycle ? "移除演示环" : "注入系统级环（演示）") + '</button>' +
-    '<button class="btn btn-primary" onclick="closeModal()">关闭</button>');
+    '<div class="faint" style="font-size:11px;margin-top:10px;line-height:1.6">This prototype only validates interaction and information architecture; it does not mean the backend is implemented. The final design is in <code>docs/01_design/clew-design-proposal.md</code> §4.7 / §5.3 and <code>docs/01_design/clew-data-model.md</code> §3.3 / §10.</div>';
+  modal("System-level lineage · the third view layer on the same layered architecture", html,
+    '<button class="btn" onclick="toggleCycleDemo();closeModal();openArch()">' + (S.demoCycle ? "Remove demo cycle" : "Inject system-level cycle (demo)") + '</button>' +
+    '<button class="btn btn-primary" onclick="closeModal()">Close</button>');
 }
 function modal(title, body, foot) {
   closeModal();
@@ -1597,17 +1597,17 @@ function modal(title, body, foot) {
   ov.innerHTML = '<div class="modal"><div class="modal-head"><h3>' + title + '</h3>' +
     '<button class="btn btn-ghost btn-xs" onclick="closeModal()">✕</button></div>' +
     '<div class="modal-body">' + body + '</div>' +
-    '<div class="modal-foot">' + (foot || '<button class="btn" onclick="closeModal()">关闭</button>') + '</div></div>';
+    '<div class="modal-foot">' + (foot || '<button class="btn" onclick="closeModal()">Close</button>') + '</div></div>';
   ov.addEventListener("mousedown", e => { if (e.target === ov) closeModal(); });
   document.body.appendChild(ov);
 }
 function closeModal() { const ov = document.getElementById("modal-ov"); if (ov) ov.remove(); }
 
 /* ============================================================
-   AI 助手抽屉（mock）
-   工具集对齐设计方案 §6.2（系统级：search_systems / trace_system_lineage /
-   get_system_details 只读；suggest_system_lineage 写类，editor+）
-   出图联动：SystemGraphPayload → 与手工浏览同一渲染入口（S.level/seed/…）
+   AI assistant drawer (mock)
+   Tool set aligned with design §6.2 (system level: search_systems / trace_system_lineage /
+   get_system_details read-only; suggest_system_lineage write-type, editor+)
+   Graph update linkage: SystemGraphPayload → same render entry as manual browsing (S.level/seed/…)
    ============================================================ */
 const AI_MODEL = "demo-chat-model";
 function aiConfigured() { return S.ai.status === "ok"; }
@@ -1616,9 +1616,9 @@ function aiPendingCount() {
 }
 function aiWelcome() {
   return { who: "ai", text:
-    "你好，我是 Clew 血缘助手。系统级视图下我通过 function calling 调用本系统查询工具：" +
-    "search_systems / trace_system_lineage / get_system_details（只读；系统链路走 Kùzu LINEAGE_SYSTEM 变长路径，证据来自 SQLite）。\n" +
-    "我也能生成系统级候选边（suggest_system_lineage，source='ai'），必须 editor 及以上确认才转 manual。\n\n试试下面的示例问题，或直接输入。" };
+    "Hi, I'm the Clew lineage assistant. In the system view I call this system's query tools through function calling: " +
+    "search_systems / trace_system_lineage / get_system_details (read-only; system paths use Kùzu LINEAGE_SYSTEM variable-length paths, evidence comes from SQLite).\n" +
+    "I can also generate system-level candidate edges (suggest_system_lineage, source='ai'); they require editor or above to confirm before becoming manual.\n\nTry one of the sample questions below, or type your own." };
 }
 function openAi() {
   if (!aiLog) aiLog = [aiWelcome()];
@@ -1634,108 +1634,108 @@ function refreshAiStatus() {
   setTimeout(() => {
     S.ai.status = next;
     renderAi();
-    toast(next === "ok" ? "GET /ai/status：已检测到 LLM 配置（" + AI_MODEL + "）" : "GET /ai/status：未配置 LLM（503 语义）", next === "ok" ? "ok" : "warn");
+    toast(next === "ok" ? "GET /ai/status: LLM configuration detected (" + AI_MODEL + ")" : "GET /ai/status: LLM not configured (503 semantics)", next === "ok" ? "ok" : "warn");
   }, 700);
 }
 function clearAi() {
-  modal("清空对话？",
-    '<div style="font-size:12.5px;color:var(--ink-soft)">将清空当前会话（含工具轨迹与候选卡操作状态）。已落库的候选边与画布不受影响。</div>',
-    '<button class="btn" onclick="closeModal()">取消</button><button class="btn btn-primary" onclick="doClearAi()">清空</button>');
+  modal("Clear conversation?",
+    '<div style="font-size:12.5px;color:var(--ink-soft)">This clears the current session (including tool traces and candidate-card action state). Persisted candidate edges and the canvas are unaffected.</div>',
+    '<button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="doClearAi()">Clear</button>');
 }
 function doClearAi() {
   clearTimeout(aiTimer); aiChain = []; aiBusy = false;
   aiLog = [aiWelcome()];
   closeModal();
   renderAi();
-  toast("已清空 AI 会话");
+  toast("AI conversation cleared");
 }
 function aiFocusLabel() {
   if (S.level === "field") {
     const d = ds(S.selectedField && S.selectedField.ds);
-    return d && S.selectedField ? "字段 · " + d.id + "." + S.selectedField.f : null;
+    return d && S.selectedField ? "Field · " + d.id + "." + S.selectedField.f : null;
   }
   if (S.level === "dataset") {
     const d = ds(S.selectedDataset);
-    return d ? "数据集 · " + d.id + " " + d.name : null;
+    return d ? "Dataset · " + d.id + " " + d.name : null;
   }
   const s = sys(S.selectedSystem) || sys(S.seed);
-  return s ? "系统 · " + s.id + " " + s.name : null;
+  return s ? "System · " + s.id + " " + s.name : null;
 }
 function markDirty(msg) {
   S.graphState = "dirty";
-  toast(msg + "；Kùzu 图标脏，下次读请求自动重建", "warn");
+  toast(msg + "; Kùzu graph marked dirty, rebuilt automatically on next read request", "warn");
 }
 function readRebuild() {
   if (S.graphState === "dirty") {
     S.graphState = "clean";
-    toast("读请求触发 Kùzu 图自动重建（COPY FROM，幂等）", "ok");
+    toast("Read request triggered automatic Kùzu graph rebuild (COPY FROM, idempotent)", "ok");
   }
 }
 
-/* ---- mock 对话流（内容与 mock 数据逐条对齐） ---- */
+/* ---- Mock conversation flows (contents aligned item by item with mock data) ---- */
 const AI_FLOWS = [
   {
-    q: "数仓的上游系统有哪些？数据是怎么汇进来的？",
+    q: "What are the upstream systems of the data warehouse? How does the data flow in?",
     steps: [
       { t: "tool", n: "search_systems", a: '"dw_platform"', h:
         '<div class="mini-list">' +
-        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">精确</span><span class="mono">dw_platform</span><span class="score">数据仓库 · 数仓/湖 · 5 数据集</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">Exact</span><span class="mono">dw_platform</span><span class="score">Data Warehouse · Warehouse/Lake · 5 datasets</span></div>' +
         '</div>' },
       { t: "tool", n: "trace_system_lineage", a: 'system="dw_platform", direction="up", hops=3', h:
         '<div class="mini-list">' +
-        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">finance → dw_platform</span><span class="score">显式+投影 · 证据 1 · conf 0.80</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">crm → dw_platform</span><span class="score">投影 · 证据 1 · conf 0.95</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">order_center → dw_platform</span><span class="score">投影 · 证据 1 · conf 0.98</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">payment_gateway → dw_platform</span><span class="score">投影 · 证据 1 · conf 1.00</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">product_center → dw_platform</span><span class="score">投影 · 证据 1 · conf 1.00</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">finance → dw_platform</span><span class="score">Explicit + projected · evidence 1 · conf 0.80</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">crm → dw_platform</span><span class="score">Projected · evidence 1 · conf 0.95</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">order_center → dw_platform</span><span class="score">Projected · evidence 1 · conf 0.98</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">payment_gateway → dw_platform</span><span class="score">Projected · evidence 1 · conf 1.00</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">product_center → dw_platform</span><span class="score">Projected · evidence 1 · conf 1.00</span></div>' +
         '</div>' },
-      { t: "graph", g: { level: "system", seed: "dw_platform", direction: "up", hops: 3 }, strip: "系统子图 · 上游 3 跳 · 6 系统 · 5 连线" },
-      { t: "ai", x: "数仓（dw_platform）上游共 5 个系统，全部 1 跳直达（Kùzu LINEAGE_SYSTEM *1..3 变长路径一次查出）：\n\n1. 订单中心 / 支付网关 / CRM / 商品中心 —— 数据集级血缘自动投影，各贡献 1 条数据集边；\n2. 财务系统 —— 显式+投影双来源：显式边是「月度对账文件」，另有 1 条结算流水投影，合并视图显式属性优先。\n\n注意：源系统之间的链路（CRM→订单中心→支付网关）属于上游系统间关系，不算数仓的直接上游，切回双向视图可见。\n\n已把画布切到系统视图（上游 3 跳），可点击边查看证据。" },
+      { t: "graph", g: { level: "system", seed: "dw_platform", direction: "up", hops: 3 }, strip: "System subgraph · upstream 3 hops · 6 systems · 5 links" },
+      { t: "ai", x: "The data warehouse (dw_platform) has 5 upstream systems, all 1 hop away (fetched in one query via the Kùzu LINEAGE_SYSTEM *1..3 variable-length path):\n\n1. Order Center / Payment Gateway / CRM / Product Center — auto-projected from dataset-level lineage, each contributing 1 dataset edge;\n2. Finance System — dual source, explicit + projected: the explicit edge is the \"monthly reconciliation file\", plus 1 settlement-transaction projection; in the merged view the explicit attributes take precedence.\n\nNote: links between source systems (CRM→Order Center→Payment Gateway) are upstream inter-system relationships and do not count as direct upstream of the warehouse; switch back to the bidirectional view to see them.\n\nThe canvas has switched to the system view (upstream 3 hops); click an edge to inspect evidence." },
     ],
   },
   {
-    q: "财务系统到数仓那条边是怎么来的？证据充分吗？",
+    q: "Where does the Finance System → warehouse edge come from? Is the evidence sufficient?",
     steps: [
       { t: "tool", n: "get_system_details", a: '"finance"', h:
         '<div class="mini-list">' +
-        '<div class="mini-hit"><span class="badge" style="font-size:10px">属性</span><span class="mono">finance</span><span class="score">外部系统 · 财务部 · 1 数据集</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">显式边</span><span class="mono">finance → dw_platform</span><span class="score">manual · conf 0.80 · 月度对账文件</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">投影边</span><span class="mono">ods_finance_settlement → dws_order_daily</span><span class="score">pay_id → pay_user_cnt · conf 0.80</span></div>' +
+        '<div class="mini-hit"><span class="badge" style="font-size:10px">Attributes</span><span class="mono">finance</span><span class="score">External system · Finance Dept · 1 dataset</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">Explicit edge</span><span class="mono">finance → dw_platform</span><span class="score">manual · conf 0.80 · monthly reconciliation file</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">Projected edge</span><span class="mono">ods_finance_settlement → dws_order_daily</span><span class="score">pay_id → pay_user_cnt · conf 0.80</span></div>' +
         '</div>' },
-      { t: "graph", g: { level: "system", seed: "dw_platform", selectedEdge: "finance->dw_platform" }, strip: "已在画布选中该边 · 详情面板列出数据集级证据" },
-      { t: "ai", x: "这条边 origin=both，两个来源互相印证：\n\n1. 显式边：财务部每月 3 日上传对账文件（Excel），接口无完整表级明细，按「显式登记」写入 SQLite system_edge（manual，conf 0.80）；\n2. 投影边：ods_finance_settlement.pay_id → dws_order_daily.pay_user_cnt（对账口径：按支付单去重，manual，conf 0.80），由 dataset.system_id 自动投影，不落库。\n\n合并视图显式属性优先，证据计数 1。结论：证据充分——显式接口与表级投影一致。\n\n点击画布上的边或「关系实例」行，可在右侧详情面板逐条核查底层字段证据。" },
+      { t: "graph", g: { level: "system", seed: "dw_platform", selectedEdge: "finance->dw_platform" }, strip: "Edge selected on canvas · detail panel lists dataset-level evidence" },
+      { t: "ai", x: "This edge has origin=both, and the two sources corroborate each other:\n\n1. Explicit edge: Finance Dept uploads the reconciliation file (Excel) on the 3rd of every month; the interface has no complete table-level detail, so it is registered as \"explicit\" in the SQLite system_edge table (manual, conf 0.80);\n2. Projected edge: ods_finance_settlement.pay_id → dws_order_daily.pay_user_cnt (reconciliation rule: dedupe by payment number, manual, conf 0.80), auto-projected via dataset.system_id and not persisted.\n\nIn the merged view explicit attributes win; the evidence count is 1. Conclusion: the evidence is sufficient — the explicit interface and the table-level projection agree.\n\nClick the edge on the canvas or a \"Relationship instances\" row to verify the underlying field evidence item by item in the right-hand detail panel." },
     ],
   },
   {
-    q: "帮我找可能漏掉的系统级血缘",
+    q: "Find system-level lineage I might have missed",
     steps: [
       { t: "tool", n: "suggest_system_lineage", a: 'scope="system", min_conf=0.5', h:
         '<div class="mini-list">' +
-        '<div class="mini-hit"><span class="badge badge-ai" style="font-size:10px">新候选</span><span class="mono">payment_gateway → finance</span><span class="score">对账接口同名启发式 · conf 0.58</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ai" style="font-size:10px">New candidate</span><span class="mono">payment_gateway → finance</span><span class="score">Reconciliation-interface name heuristic · conf 0.58</span></div>' +
         '</div>' },
       { t: "suggest", from: "payment_gateway", to: "finance", conf: 0.58,
-        reason: "支付网关与财务系统都持有对账口径字段（pay_id / settle_amount），当前两系统间无任何已登记关系" },
+        reason: "Payment Gateway and Finance System both hold reconciliation fields (pay_id / settle_amount), yet no relationship between the two systems is currently registered" },
       { t: "graph", g: { level: "system", seed: "dw_platform", direction: "both", hops: 3 },
-        strip: "已切回双向视图 · 候选虚线边 payment_gateway → finance 可见" },
-      { t: "ai", x: "建议 1 条系统级候选边：payment_gateway → finance（渠道对账，conf 0.58）。\n\n依据：支付网关的支付流水与财务的结算流水都以 pay_id 为对账键，但两系统间当前没有任何已登记关系（无投影、无显式边）。候选已落 system_edge（source='ai'），画布上为 indigo 虚线。\n\n治理约定：必须 editor 及以上角色确认才转 manual；确认或拒绝都会写 change_log，并把 Kùzu 图标脏、下次读请求自动重建。可在上方候选卡操作，或在「关系实例」列表找到「AI 候选」行。\n\n另：画布已有 1 条待确认候选 crm → marketing（conf 0.62，标签圈选推断）。" },
+        strip: "Switched back to the bidirectional view · dashed candidate edge payment_gateway → finance is visible" },
+      { t: "ai", x: "1 system-level candidate edge suggested: payment_gateway → finance (channel reconciliation, conf 0.58).\n\nBasis: Payment Gateway's payment transactions and Finance's settlement transactions both use pay_id as the reconciliation key, but no relationship between the two systems is currently registered (no projection, no explicit edge). The candidate is persisted to system_edge (source='ai') and shown as an indigo dashed line on the canvas.\n\nGovernance: an editor or above must confirm before it becomes manual; both confirm and reject write change_log, mark the Kùzu graph dirty, and trigger an automatic rebuild on the next read request. Use the candidate card above, or find the \"AI candidate\" row in the \"Relationship instances\" list.\n\nAlso: the canvas already has 1 pending candidate, crm → marketing (conf 0.62, tag-targeting inference)." },
     ],
   },
   {
-    q: "gmv 这个指标是怎么算出来的？",
+    q: "How is the gmv metric calculated?",
     steps: [
       { t: "tool", n: "trace_lineage", a: 'field="dws_order_daily.gmv", direction="up", hops=3', h:
         '<div class="mini-list">' +
-        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">dwd_order.order_amount</span><span class="score">导入 · conf 1.00 · SUM(order_amount)</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">ods_raw_order.quantity / unit_price</span><span class="score">导入 · conf 1.00 · quantity × unit_price</span></div>' +
-        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 3</span><span class="mono">ods_order.amount</span><span class="score">导入 · conf 0.98 · 金额口径对齐</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">dwd_order.order_amount</span><span class="score">Imported · conf 1.00 · SUM(order_amount)</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">ods_raw_order.quantity / unit_price</span><span class="score">Imported · conf 1.00 · quantity × unit_price</span></div>' +
+        '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 3</span><span class="mono">ods_order.amount</span><span class="score">Imported · conf 0.98 · amount definition alignment</span></div>' +
         '</div>' },
-      { t: "graph", g: { level: "field", ds: "dws_order_daily", f: "gmv", edge: 15 }, strip: "字段视图 · gmv 上游 3 跳链路已点亮" },
-      { t: "ai", x: "gmv 的 3 跳上游链路（SQLite edge + Kùzu LINEAGE_FIELD）：\n\n1. dws_order_daily.gmv ← dwd_order.order_amount：SUM(order_amount) 日汇总（导入，conf 1.00）\n2. dwd_order.order_amount ← ods_raw_order.quantity × unit_price（导入，conf 1.00）\n3. ods_raw_order.amount ← ods_order.amount：金额口径对齐（导入，conf 0.98）\n\n画布已切到字段视图并点亮整条链，点击链上任意字段可回源核查。提示：hop 3 的 0.98 是「订单金额 ↔ 明细金额」口径对齐边，改动金额口径时沿这条链评估影响面。" },
+      { t: "graph", g: { level: "field", ds: "dws_order_daily", f: "gmv", edge: 15 }, strip: "Field view · the 3-hop upstream chain of gmv is highlighted" },
+      { t: "ai", x: "The 3-hop upstream chain of gmv (SQLite edge + Kùzu LINEAGE_FIELD):\n\n1. dws_order_daily.gmv ← dwd_order.order_amount: daily rollup via SUM(order_amount) (imported, conf 1.00)\n2. dwd_order.order_amount ← ods_raw_order.quantity × unit_price (imported, conf 1.00)\n3. ods_raw_order.amount ← ods_order.amount: amount definition alignment (imported, conf 0.98)\n\nThe canvas has switched to the field view and the whole chain is highlighted; click any field on the chain to verify it at the source. Tip: the 0.98 at hop 3 is the \"order amount ↔ detail amount\" definition-alignment edge — when changing the amount definition, assess impact along this chain." },
     ],
   },
 ];
 
-/* ---- 步骤执行 ---- */
+/* ---- Step execution ---- */
 function startChain(steps) {
   aiBusy = true;
   aiChain = steps.slice();
@@ -1760,13 +1760,13 @@ function applyStep(st) {
     if (!EXPLICIT_SYSTEM_EDGES.some(x => edgeKey(x) === key)) {
       EXPLICIT_SYSTEM_EDGES.push({
         from: st.from, to: st.to, source: "ai", confidence: st.conf,
-        transform: "渠道对账（推断）",
-        note: "AI 建议：支付网关对账单疑似与财务结算共用对账接口，待 editor 确认后转 manual。",
+        transform: "Channel reconciliation (inferred)",
+        note: "AI suggestion: the payment gateway reconciliation statement appears to share a reconciliation interface with finance settlement; pending editor confirmation to become manual.",
       });
       S.systemEdges = buildSystemEdges(S.demoCycle);
     }
     aiLog.push({ who: "suggest", key: key, from: st.from, to: st.to, conf: st.conf, reason: st.reason });
-    render();   // 画布立即出现候选虚线边
+    render();   // The candidate dashed edge appears on the canvas immediately
     return;
   }
   if (st.t === "graph") {
@@ -1799,7 +1799,7 @@ function stopAi() {
   clearTimeout(aiTimer);
   aiChain = [];
   aiBusy = false;
-  aiLog.push({ who: "note", text: "本轮回答已停止（未完成的工具调用与作答已丢弃）" });
+  aiLog.push({ who: "note", text: "This answer was stopped (unfinished tool calls and output discarded)" });
   renderAi();
 }
 function sendAi() {
@@ -1810,7 +1810,7 @@ function sendAi() {
   inp.value = "";
   if (!aiConfigured()) {
     aiLog.push({ who: "me", text: q });
-    aiLog.push({ who: "ai", err: true, text: "503 服务未配置：.env 缺少 LLM_BASE_URL / LLM_MODEL，AI 助手暂不可用。配置后点右上角 ⟳ 重新检测。" });
+    aiLog.push({ who: "ai", err: true, text: "503 service not configured: .env is missing LLM_BASE_URL / LLM_MODEL; the AI assistant is temporarily unavailable. After configuring, click ⟳ in the top-right corner to re-check." });
     renderAi();
     return;
   }
@@ -1822,9 +1822,9 @@ function sendAi() {
     { t: "tool", n: "search_systems", a: JSON.stringify(q), h:
       (hits.length
         ? '<div class="mini-list">' + hits.slice(0, 4).map(s =>
-            '<div class="mini-hit"><span class="badge" style="font-size:10px">命中</span><span class="mono">' + esc(s.id) + '</span><span class="score">' + esc(s.name) + ' · ' + typeMeta(s.type).label + '</span></div>').join("") + '</div>'
-        : '<div class="faint" style="font-size:11px">SQLite LIKE 无匹配系统。</div>') },
-    { t: "ai", x: "本原型为脚本化演示：点击示例问题可看完整的「工具调用 → 回答 → 画布联动」动线（链路问答 / 边证据解释 / 建议生成 / 字段级追溯）。自由输入时我只演示 search_systems 的实时检索（上为 SQLite LIKE 结果）。生产实现中回答由 LLM 经 function calling 组织，见 Clew-设计方案 §6。" },
+            '<div class="mini-hit"><span class="badge" style="font-size:10px">Match</span><span class="mono">' + esc(s.id) + '</span><span class="score">' + esc(s.name) + ' · ' + typeMeta(s.type).label + '</span></div>').join("") + '</div>'
+        : '<div class="faint" style="font-size:11px">No matching systems via SQLite LIKE.</div>') },
+    { t: "ai", x: "This prototype is a scripted demo: click a sample question to see the full \"tool call → answer → canvas linkage\" flow (path Q&A / edge-evidence explanation / suggestion generation / field-level tracing). For free-form input I only demo the live search_systems query (the SQLite LIKE results above). In production the answer is composed by an LLM via function calling; see Clew design proposal §6." },
   ]);
 }
 function aiKey(e) {
@@ -1844,7 +1844,7 @@ function toggleAiTool(i) {
   renderAi();
 }
 
-/* ---- 系统级建议边生命周期：确认转 manual / 拒绝删除 ---- */
+/* ---- System-level suggestion edge lifecycle: confirm → manual / reject → delete ---- */
 function aiConfirmSuggest(key, idx) {
   if (!canWrite()) return;
   const e = EXPLICIT_SYSTEM_EDGES.find(x => edgeKey(x) === key && x.source === "ai");
@@ -1853,7 +1853,7 @@ function aiConfirmSuggest(key, idx) {
   S.systemEdges = buildSystemEdges(S.demoCycle);
   const m = aiLog[idx];
   if (m && m.who === "suggest") m.state = "confirmed";
-  markDirty("已确认转 manual：" + key + "（写 change_log）");
+  markDirty("Confirmed and converted to manual: " + key + " (writes change_log)");
   render(); renderAi();
 }
 function aiRejectSuggest(key, idx) {
@@ -1863,52 +1863,52 @@ function aiRejectSuggest(key, idx) {
   S.systemEdges = buildSystemEdges(S.demoCycle);
   const m = aiLog[idx];
   if (m && m.who === "suggest") m.state = "rejected";
-  markDirty("已拒绝候选边：" + key + "（写 deleted 日志）");
+  markDirty("Rejected candidate edge: " + key + " (writes deleted log)");
   render(); renderAi();
 }
 
-/* ---- 抽屉渲染（独立层，画布重渲染不丢失输入） ---- */
+/* ---- Drawer rendering (separate layer; canvas re-render does not lose input) ---- */
 function aiMsgHtml(m, i) {
   if (m.who === "me") {
-    return '<div class="msg-row me"><div class="msg-who">你</div><div class="msg-bubble">' + esc(m.text) + '</div></div>';
+    return '<div class="msg-row me"><div class="msg-who">You</div><div class="msg-bubble">' + esc(m.text) + '</div></div>';
   }
   if (m.who === "ai") {
-    return '<div class="msg-row ai"><div class="msg-who">✦ AI 助手</div><div class="msg-bubble' + (m.err ? " err" : "") + '">' + esc(m.text) + '</div></div>';
+    return '<div class="msg-row ai"><div class="msg-who">✦ AI assistant</div><div class="msg-bubble' + (m.err ? " err" : "") + '">' + esc(m.text) + '</div></div>';
   }
   if (m.who === "note") return '<div class="msg-note">' + esc(m.text) + '</div>';
   if (m.who === "strip") {
-    return '<div class="msg-row ai"><div class="graph-strip"><span class="badge badge-ok" style="font-size:10px">画布已更新</span><span>' + esc(m.text) + '</span>' +
-      '<button class="btn btn-xs" style="margin-left:auto" onclick="closeAi()">关闭并查看</button></div></div>';
+    return '<div class="msg-row ai"><div class="graph-strip"><span class="badge badge-ok" style="font-size:10px">Canvas updated</span><span>' + esc(m.text) + '</span>' +
+      '<button class="btn btn-xs" style="margin-left:auto" onclick="closeAi()">Close and view</button></div></div>';
   }
   if (m.who === "tool") {
     return '<div class="msg-row ai"><div class="tool-card">' +
       '<div class="tool-head" onclick="toggleAiTool(' + i + ')" aria-expanded="' + (m.open ? "true" : "false") + '">' +
         '<span class="tool-chip">tool <span style="color:' + (m.ok === false ? "var(--danger)" : "var(--success)") + '">' + (m.ok === false ? "✗" : "✓") + '</span></span>' +
         '<span class="mono" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(m.n + "(" + m.a + ")") + '</span>' +
-        '<span class="faint" style="font-size:10px;flex-shrink:0">' + (m.open ? "收起 ▲" : "展开 ▼") + '</span>' +
+        '<span class="faint" style="font-size:10px;flex-shrink:0">' + (m.open ? "Collapse ▲" : "Expand ▼") + '</span>' +
       '</div>' +
       (m.open ? '<div class="tool-body">' + m.h + '</div>' : "") +
     '</div></div>';
   }
   if (m.who === "suggest") {
-    const resolved = m.state === "confirmed" ? '<span class="badge badge-ok">已确认转 manual</span>'
-      : m.state === "rejected" ? '<span class="badge">已拒绝 · 未写入事实源</span>' : "";
+    const resolved = m.state === "confirmed" ? '<span class="badge badge-ok">Confirmed → manual</span>'
+      : m.state === "rejected" ? '<span class="badge">Rejected · not written to the source of truth</span>' : "";
     const editable = canWrite() && !m.state;
     const actions = m.state ? resolved :
       '<div style="display:flex;gap:6px;margin-top:7px;align-items:center;flex-wrap:wrap">' +
-        '<button class="btn btn-primary btn-xs" ' + (editable ? "" : "disabled") + ' onclick="aiConfirmSuggest(\'' + m.key + '\',' + i + ')">✓ 确认转正</button>' +
-        '<button class="btn btn-xs" style="color:var(--danger-deep)" ' + (editable ? "" : "disabled") + ' onclick="aiRejectSuggest(\'' + m.key + '\',' + i + ')">拒绝</button>' +
-        (canWrite() ? "" : '<span class="faint" style="font-size:10.5px">需要 editor 角色（当前只读视角）</span>') +
+        '<button class="btn btn-primary btn-xs" ' + (editable ? "" : "disabled") + ' onclick="aiConfirmSuggest(\'' + m.key + '\',' + i + ')">✓ Confirm</button>' +
+        '<button class="btn btn-xs" style="color:var(--danger-deep)" ' + (editable ? "" : "disabled") + ' onclick="aiRejectSuggest(\'' + m.key + '\',' + i + ')">Reject</button>' +
+        (canWrite() ? "" : '<span class="faint" style="font-size:10.5px">Requires editor role (currently read-only view)</span>') +
       '</div>';
     return '<div class="msg-row ai"><div class="suggest-card">' +
-      '<div style="font-size:10.5px;color:var(--ai-deep);letter-spacing:.06em">✦ AI 助手 · suggest_system_lineage</div>' +
+      '<div style="font-size:10.5px;color:var(--ai-deep);letter-spacing:.06em">✦ AI assistant · suggest_system_lineage</div>' +
       '<div class="mono" style="font-size:11.5px;color:var(--ink-soft);margin-top:4px">' + esc(m.from) + ' → ' + esc(m.to) + '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap">' +
-        '<span class="badge badge-ai" style="font-size:10px">置信 ' + m.conf.toFixed(2) + '</span>' +
+        '<span class="badge badge-ai" style="font-size:10px">Conf ' + m.conf.toFixed(2) + '</span>' +
         '<span class="faint" style="font-size:11px">' + esc(m.reason) + '</span>' +
       '</div>' +
       actions +
-      '<div class="faint" style="font-size:10px;margin-top:6px">确认后 source 由 ai 改写为 manual · 写 change_log · 触发 Kùzu 图重建</div>' +
+      '<div class="faint" style="font-size:10px;margin-top:6px">After confirmation source changes from ai to manual · writes change_log · triggers Kùzu graph rebuild</div>' +
     '</div></div>';
   }
   return "";
@@ -1916,47 +1916,47 @@ function aiMsgHtml(m, i) {
 function aiDrawerHtml() {
   const st = S.ai.status;
   const statusBadge = st === "ok"
-    ? '<span class="badge badge-ai" title="GET /ai/status · .env LLM_MODEL">已配置 · ' + AI_MODEL + '</span>'
-    : st === "loading" ? '<span class="badge"><span class="aispin"></span>检测中</span>'
-    : '<span class="badge" title="GET /ai/status · 503">未配置</span>';
+    ? '<span class="badge badge-ai" title="GET /ai/status · .env LLM_MODEL">Configured · ' + AI_MODEL + '</span>'
+    : st === "loading" ? '<span class="badge"><span class="aispin"></span>Checking</span>'
+    : '<span class="badge" title="GET /ai/status · 503">Not configured</span>';
   const focus = aiFocusLabel();
   const banner = st === "none"
-    ? '<div class="ai-banner">AI 助手暂不可用：.env 未配置 LLM_BASE_URL / LLM_MODEL。配置后点右上角 ⟳ 重新检测。</div>' : "";
+    ? '<div class="ai-banner">AI assistant is unavailable: .env is missing LLM_BASE_URL / LLM_MODEL. After configuring, click ⟳ in the top-right corner to re-check.</div>' : "";
   const prompts = aiLog.length === 1 && !aiBusy
     ? '<div class="ai-qs">' + AI_FLOWS.map((f, i) =>
-        '<button class="qbtn" ' + (aiConfigured() ? "" : "disabled") + ' onclick="runFlow(' + i + ')" title="点击直接演示该问题">' + esc(f.q) + '</button>').join("") + '</div>'
+        '<button class="qbtn" ' + (aiConfigured() ? "" : "disabled") + ' onclick="runFlow(' + i + ')" title="Click to demo this question">' + esc(f.q) + '</button>').join("") + '</div>'
     : "";
   const msgs = aiLog.map(aiMsgHtml).join("") + prompts +
     (aiBusy
-      ? '<div class="msg-row ai"><div class="msg-bubble" style="border-style:dashed;background:rgba(255,255,255,.7);color:var(--ink-muted);display:inline-flex;align-items:center;gap:7px"><span class="aispin"></span>正在调用工具并组织回答…</div></div>'
+      ? '<div class="msg-row ai"><div class="msg-bubble" style="border-style:dashed;background:rgba(255,255,255,.7);color:var(--ink-muted);display:inline-flex;align-items:center;gap:7px"><span class="aispin"></span>Calling tools and composing an answer…</div></div>'
       : "");
   const sendBtn = aiBusy
-    ? '<button class="btn" style="flex-shrink:0;border-color:rgba(220,38,38,.35);color:var(--danger-deep)" onclick="stopAi()" title="中断本轮回答">■ 停止</button>'
-    : '<button class="btn btn-primary" style="flex-shrink:0" ' + (aiConfigured() ? "" : "disabled") + ' onclick="sendAi()">发送</button>';
-  const placeholder = st === "ok" ? "问血缘：系统上下游 / 边证据解释 / 找漏掉的血缘…"
-    : st === "loading" ? "正在读取 AI 状态…"
-    : "AI 未配置：在 .env 配置 LLM_BASE_URL / LLM_MODEL 后可用";
+    ? '<button class="btn" style="flex-shrink:0;border-color:rgba(220,38,38,.35);color:var(--danger-deep)" onclick="stopAi()" title="Stop this answer">■ Stop</button>'
+    : '<button class="btn btn-primary" style="flex-shrink:0" ' + (aiConfigured() ? "" : "disabled") + ' onclick="sendAi()">Send</button>';
+  const placeholder = st === "ok" ? "Ask about lineage: system upstream/downstream / edge evidence / find missing lineage…"
+    : st === "loading" ? "Reading AI status…"
+    : "AI not configured: set LLM_BASE_URL / LLM_MODEL in .env to enable";
   return '<div class="ai-mask" onclick="closeAi()"></div>' +
-    '<aside class="ai-drawer" role="dialog" aria-label="AI 助手">' +
+    '<aside class="ai-drawer" role="dialog" aria-label="AI assistant">' +
       '<div class="ai-head">' +
         '<span class="ai-ic">✦</span>' +
-        '<h3>AI 助手 ' + statusBadge + '</h3>' +
-        '<button class="ai-iconbtn" onclick="refreshAiStatus()" aria-label="重新检测 AI 状态" title="模拟 .env 变更后重新检测">⟳</button>' +
-        '<button class="ai-iconbtn" onclick="clearAi()" aria-label="清空对话" title="清空对话（二次确认）">🗑</button>' +
-        '<button class="ai-iconbtn" onclick="closeAi()" aria-label="关闭抽屉" title="关闭（Esc）">✕</button>' +
+        '<h3>AI assistant ' + statusBadge + '</h3>' +
+        '<button class="ai-iconbtn" onclick="refreshAiStatus()" aria-label="Re-check AI status" title="Re-check after simulating an .env change">⟳</button>' +
+        '<button class="ai-iconbtn" onclick="clearAi()" aria-label="Clear conversation" title="Clear conversation (confirm first)">🗑</button>' +
+        '<button class="ai-iconbtn" onclick="closeAi()" aria-label="Close drawer" title="Close (Esc)">✕</button>' +
       '</div>' +
-      '<div class="ai-focus"><span>当前聚焦</span><span class="fv" title="' + esc(focus || "") + '">' + esc(focus || "未聚焦") + '</span><span style="flex:1"></span>' +
-        '<span class="badge" title="查询实时可用；建议 / 草稿等写操作需 editor">🔒 只读工具</span></div>' +
+      '<div class="ai-focus"><span>Current focus</span><span class="fv" title="' + esc(focus || "") + '">' + esc(focus || "Not focused") + '</span><span style="flex:1"></span>' +
+        '<span class="badge" title="Queries are live; write actions such as suggestions/drafts require editor">🔒 Read-only tools</span></div>' +
       banner +
       '<div class="ai-msgs" id="aiMsgs" role="log" aria-live="polite">' + msgs + '</div>' +
       '<div class="ai-input">' +
         '<div style="display:flex;gap:7px;align-items:flex-end">' +
-          '<label for="aiInput" style="position:absolute;left:-9999px">向 AI 助手提问</label>' +
+          '<label for="aiInput" style="position:absolute;left:-9999px">Ask the AI assistant</label>' +
           '<textarea id="aiInput" class="input" rows="2" maxlength="8000" placeholder="' + placeholder + '" ' +
             (aiConfigured() && !aiBusy ? "" : "disabled") + ' onkeydown="aiKey(event)" oninput="aiCount(this)"></textarea>' +
           sendBtn +
         '</div>' +
-        '<div class="ai-counter"><span>Enter 发送 · Shift+Enter 换行 · 仅回传最近 50 条</span><span id="aiCount" class="mono">0/8000</span></div>' +
+        '<div class="ai-counter"><span>Enter to send · Shift+Enter for newline · only the latest 50 messages are sent</span><span id="aiCount" class="mono">0/8000</span></div>' +
       '</div>' +
     '</aside>';
 }
@@ -1978,11 +1978,11 @@ function renderAi() {
 }
 
 /* ============================================================
-   启动
+   Startup
    ============================================================ */
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
-  if (document.getElementById("modal-ov")) return;   // 弹层优先自行关闭
+  if (document.getElementById("modal-ov")) return;   // Modal closes itself first
   if (S.ai.open) closeAi();
 });
 render();

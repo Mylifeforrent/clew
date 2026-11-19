@@ -1,4 +1,4 @@
-"""应用入口：路由装配、启动初始化（建库 + 初始管理员种子）。"""
+"""Application entry point: route assembly and startup initialization (create DB + initial admin seed)."""
 
 import sys
 from collections.abc import AsyncIterator
@@ -26,18 +26,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "INSERT INTO user(username, password_hash, display_name, role, created_at)"
                 " VALUES (?,?,?,?,datetime('now'))",
                 (s.admin_username, hash_password(s.admin_password),
-                 "初始管理员", "admin"))
-        print(f"已创建初始管理员「{s.admin_username}」（密码来自 ADMIN_PASSWORD）",
+                 "Initial admin", "admin"))
+        print(f'Created initial admin "{s.admin_username}" (password from ADMIN_PASSWORD)',
               file=sys.stderr)
     yield
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="LineageLite", version="0.1.0",
-                  description="轻量级 AI 数据血缘工具（M4：AI 对话与血缘建议）",
+                  description="Lightweight AI data lineage tool (M4: AI chat and lineage suggestions)",
                   lifespan=lifespan)
-    # M2：前端已接入，跨域来源由 CORS_ORIGINS 显式配置；认证走 Bearer
-    # 而非 Cookie，无需 allow_credentials（避免通配来源下的凭证回显）。
+    # M2: the frontend is integrated and cross-origin origins are explicitly configured via
+    # CORS_ORIGINS; authentication uses Bearer rather than cookies, so allow_credentials is
+    # unnecessary (avoiding credential echo under wildcard origins).
     origins = [origin.strip() for origin in get_settings().cors_origins.split(",")
                if origin.strip()]
     app.add_middleware(

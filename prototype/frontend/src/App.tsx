@@ -16,7 +16,7 @@ export default function App() {
     function handleAuthExpired() {
       clearSession();
       setSession(null);
-      setNotice('登录已过期，请重新登录后继续。');
+      setNotice('Your session has expired. Please log in again to continue.');
     }
 
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);

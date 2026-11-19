@@ -1,15 +1,15 @@
-"""M3 验收：标注、字段/边人工编辑、变更历史、版本标签 diff 与幂等回滚。
+"""M3 acceptance: annotations, manual field/edge editing, change history, version-tag diff and idempotent rollback.
 
-覆盖接口：
-- POST/GET /annotations（目标存在校验、只增不改）
-- PATCH /fields/{ds}/{field}（定位器实文件核查与 resolved 重新物化）
-- POST/PATCH/DELETE /edges（source=manual、自然键唯一、混合字段校验）
-- GET /changes（过滤 + 倒序 + limit）
-- POST/GET /version-tags、GET /version-tags/diff、POST /version-tags/{name}/rollback
+Endpoints covered:
+- POST/GET /annotations (target existence validation, append-only)
+- PATCH /fields/{ds}/{field} (locator real-file verification and resolved re-materialization)
+- POST/PATCH/DELETE /edges (source=manual, natural-key uniqueness, mixed-field validation)
+- GET /changes (filtering + descending order + limit)
+- POST/GET /version-tags, GET /version-tags/diff, POST /version-tags/{name}/rollback
 - GraphPayload.edges[].id
 
-权限：viewer 全写接口 403；标签回滚仅 admin。
-所有数据通过正式上传 + 导入 API 入库。
+Permissions: viewer gets 403 on all write endpoints; tag rollback is admin-only.
+All data enters the database through the formal upload + import APIs.
 """
 
 import json
@@ -20,50 +20,50 @@ from clew.config import db_path
 from tests.conftest import create_user, login, upload
 from tests.fixtures import order_xlsx_bytes, user_csv_bytes
 
-# 用户表.csv 表头：user_id,user_name,phone；订单明细.xlsx 的订单号在 C 列
-XLSX_ORDER_LOCATOR = {"sheet": "订单", "column": "C", "row_start": 3}
+# users.csv header: user_id,user_name,phone; the order number in orders.xlsx is in column C
+XLSX_ORDER_LOCATOR = {"sheet": "Orders", "column": "C", "row_start": 3}
 CSV_USER_LOCATOR = {"column": 2}
 
 
 def _seed(client, headers) -> str:
-    """上传两类源文件并导入 3 个数据集 / 4 个字段 / 1 字段级边 + 1 表级边。"""
+    """Upload two kinds of source files and import 3 datasets / 4 fields / 1 field-level edge + 1 table-level edge."""
     files = upload(client, headers, [
-        ("订单明细.xlsx", order_xlsx_bytes(),
+        ("orders.xlsx", order_xlsx_bytes(),
          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        ("用户表.csv", user_csv_bytes(), "text/csv"),
+        ("users.csv", user_csv_bytes(), "text/csv"),
     ])
     source_ids = ",".join(str(f["id"]) for f in files)
     manifest = {
         "datasets": [
-            {"dataset_id": "ods_order", "dataset_name": "订单原始",
+            {"dataset_id": "ods_order", "dataset_name": "Raw Orders",
              "field_name": "order_no", "field_type": "STRING",
-             "src_file": "订单明细.xlsx", "src_type": "xlsx",
-             "src_locator": XLSX_ORDER_LOCATOR, "description": "订单号"},
-            {"dataset_id": "ods_order", "dataset_name": "订单原始",
+             "src_file": "orders.xlsx", "src_type": "xlsx",
+             "src_locator": XLSX_ORDER_LOCATOR, "description": "Order number"},
+            {"dataset_id": "ods_order", "dataset_name": "Raw Orders",
              "field_name": "user_name", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": CSV_USER_LOCATOR, "description": "用户名"},
-            {"dataset_id": "dwd_order", "dataset_name": "订单宽表",
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": CSV_USER_LOCATOR, "description": "User name"},
+            {"dataset_id": "dwd_order", "dataset_name": "Order Wide Table",
              "field_name": "order_no", "field_type": "STRING",
-             "src_file": "订单明细.xlsx", "src_type": "xlsx",
-             "src_locator": XLSX_ORDER_LOCATOR, "description": "宽表订单号"},
-            {"dataset_id": "dwd_order", "dataset_name": "订单宽表",
+             "src_file": "orders.xlsx", "src_type": "xlsx",
+             "src_locator": XLSX_ORDER_LOCATOR, "description": "Wide-table order number"},
+            {"dataset_id": "dwd_order", "dataset_name": "Order Wide Table",
              "field_name": "user_name", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": CSV_USER_LOCATOR, "description": "宽表用户名"},
-            {"dataset_id": "dim_user", "dataset_name": "用户维表",
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": CSV_USER_LOCATOR, "description": "Wide-table user name"},
+            {"dataset_id": "dim_user", "dataset_name": "User Dimension",
              "field_name": "user_name", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": CSV_USER_LOCATOR, "description": "维表用户名"},
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": CSV_USER_LOCATOR, "description": "Dimension user name"},
         ],
         "lineage": [
             {"from_dataset": "ods_order", "from_field": "order_no",
              "to_dataset": "dwd_order", "to_field": "order_no",
-             "transform": "trim/cast", "confidence": 1.0, "note": "导入字段级"},
+             "transform": "trim/cast", "confidence": 1.0, "note": "imported field-level"},
             {"from_dataset": "ods_order", "from_field": None,
              "to_dataset": "dwd_order", "to_field": None,
              "transform": "table_projection", "confidence": 1.0,
-             "note": "导入表级"},
+             "note": "imported table-level"},
         ],
     }
     r = client.post(
@@ -78,13 +78,13 @@ def _seed(client, headers) -> str:
 
 
 def _import_phone_field(client, headers, source_ids: str) -> None:
-    """标签之后追加一次导入（用于验证标签回滚会反做导入批次日志）。"""
+    """Import once more after the tag (to verify that tag rollback reverses import-batch logs)."""
     manifest = {
         "datasets": [
-            {"dataset_id": "ods_order", "dataset_name": "订单原始",
+            {"dataset_id": "ods_order", "dataset_name": "Raw Orders",
              "field_name": "phone", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": {"column": 3}, "description": "手机号"},
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": {"column": 3}, "description": "Phone number"},
         ],
         "lineage": [],
     }
@@ -114,8 +114,8 @@ def _edge_id(client, headers, *, from_dataset: str, from_field: str | None,
                 and edge["to_dataset"] == to_dataset
                 and edge["to_field"] == to_field):
             return edge["id"]
-    raise AssertionError(f"未找到边 {from_dataset}.{from_field}-->"
-                         f"{to_dataset}.{to_field}")
+    raise AssertionError(f"Edge {from_dataset}.{from_field}-->"
+                         f"{to_dataset}.{to_field} not found")
 
 
 def _db_count(sql: str, args: tuple = ()) -> int:
@@ -130,13 +130,13 @@ def _max_change_id() -> int:
     return _db_count("SELECT COALESCE(MAX(id),0) FROM change_log")
 
 
-# ---------- 标注 ----------
+# ---------- Annotations ----------
 
 def test_annotations_append_only_and_target_validation(client):
     admin_headers = login(client)
     editor_headers = create_user(client, admin_headers, "editor_m3", "editor")
     viewer_headers = create_user(client, admin_headers, "viewer_m3", "viewer")
-    _seed(client, admin_headers)  # 触发建库并准备标注目标
+    _seed(client, admin_headers)  # triggers DB creation and prepares annotation targets
     log_count = _db_count("SELECT COUNT(*) FROM change_log")
 
     targets = [
@@ -144,40 +144,40 @@ def test_annotations_append_only_and_target_validation(client):
         ("field", "ods_order.order_no"),
         ("edge", "ods_order.order_no-->dwd_order.order_no"),
         ("edge", "ods_order.*-->dwd_order.*"),
-        ("edge", "ods_order-->dwd_order"),  # 表级简写
+        ("edge", "ods_order-->dwd_order"),  # table-level shorthand
     ]
     created = []
     for kind, target_id in targets:
         r = client.post("/annotations", headers=editor_headers,
                         json={"target_kind": kind, "target_id": target_id,
-                              "body": f"{kind} 说明"})
+                              "body": f"{kind} note"})
         assert r.status_code == 201, r.text
         body = r.json()
         assert body["author"] == "editor_m3"
         assert body["target_kind"] == kind and body["target_id"] == target_id
         created.append(body["id"])
 
-    # 追加式：同一字段再写一条，旧记录仍原样保留
+    # Append-only: write one more note for the same field; the old record is kept as-is
     r = client.post("/annotations", headers=editor_headers,
                     json={"target_kind": "field",
                           "target_id": "ods_order.order_no",
-                          "body": "第二条说明"})
+                          "body": "second note"})
     assert r.status_code == 201, r.text
     rows = client.get("/annotations", headers=viewer_headers,
                       params={"target_kind": "field",
                               "target_id": "ods_order.order_no"}).json()
-    assert [row["body"] for row in rows] == ["field 说明", "第二条说明"]
+    assert [row["body"] for row in rows] == ["field note", "second note"]
     assert [row["id"] for row in rows] == sorted(row["id"] for row in rows)
     assert len(client.get("/annotations", headers=viewer_headers).json()) == 6
-    # 标注不写 change_log（只增不改、不随回滚删除）
+    # Annotations do not write change_log (append-only, not deleted by rollback)
     assert _db_count("SELECT COUNT(*) FROM change_log") == log_count
-    # 没有标注更新/删除接口
+    # There are no annotation update/delete endpoints
     assert client.patch(f"/annotations/{created[0]}", headers=editor_headers,
-                        json={"body": "修改"}).status_code in (404, 405)
+                        json={"body": "modified"}).status_code in (404, 405)
     assert client.delete(f"/annotations/{created[0]}",
                          headers=editor_headers).status_code in (404, 405)
 
-    # 三种目标不存在 → 404
+    # All three target kinds missing → 404
     for kind, target_id in [
         ("dataset", "no_such"),
         ("field", "ods_order.no_such"),
@@ -189,14 +189,14 @@ def test_annotations_append_only_and_target_validation(client):
                               "body": "x"})
         assert r.status_code == 404, (kind, target_id, r.text)
 
-    # 格式不合法 → 400
+    # Invalid format → 400
     for kind, target_id in [("field", "no_dot"), ("edge", "a->b")]:
         r = client.post("/annotations", headers=editor_headers,
                         json={"target_kind": kind, "target_id": target_id,
                               "body": "x"})
         assert r.status_code == 400, (kind, target_id, r.text)
 
-    # 空白内容拒绝；viewer 可读不可写
+    # Blank body rejected; viewer can read but not write
     assert client.post("/annotations", headers=editor_headers,
                        json={"target_kind": "dataset", "target_id": "ods_order",
                              "body": "   "}).status_code == 400
@@ -207,7 +207,7 @@ def test_annotations_append_only_and_target_validation(client):
     assert client.get("/annotations").status_code == 401
 
 
-# ---------- 字段编辑 ----------
+# ---------- Field editing ----------
 
 def test_patch_field_description_and_locator_recheck(client):
     admin_headers = login(client)
@@ -215,14 +215,15 @@ def test_patch_field_description_and_locator_recheck(client):
     viewer_headers = create_user(client, admin_headers, "viewer_m3", "viewer")
     _seed(client, admin_headers)
 
-    # 改描述/类型
+    # Change description/type
     r = client.patch("/fields/ods_order/user_name", headers=editor_headers,
-                     json={"description": "人工修正", "field_type": "TEXT"})
+                     json={"description": "manually corrected", "field_type": "TEXT"})
     assert r.status_code == 200, r.text
-    assert r.json()["description"] == "人工修正"
+    assert r.json()["description"] == "manually corrected"
     assert r.json()["field_type"] == "TEXT"
 
-    # 改定位器：column 2 → 3，必须重新做结构校验 + 实文件核查并物化 resolved
+    # Change locator: column 2 → 3, requiring structural validation + real-file
+    # verification and resolved re-materialization
     r = client.patch("/fields/ods_order/user_name", headers=editor_headers,
                      json={"src_locator": {"column": 3}})
     assert r.status_code == 200, r.text
@@ -234,38 +235,38 @@ def test_patch_field_description_and_locator_recheck(client):
 
     ds = client.get("/datasets/ods_order", headers=editor_headers).json()
     field = next(f for f in ds["fields"] if f["name"] == "user_name")
-    assert field["description"] == "人工修正"
+    assert field["description"] == "manually corrected"
     assert field["src_locator"]["resolved"]["column_index"] == 3
 
-    # change_log：同一实体两条 updated，倒序且 actor 正确
+    # change_log: two updated entries for the same entity, descending, with the correct actor
     rows = client.get("/changes", headers=editor_headers,
                       params={"entity_kind": "field",
                               "entity_key": "ods_order.user_name"}).json()
     assert [row["op"] for row in rows[:2]] == ["updated", "updated"]
     assert rows[0]["actor"] == "editor_m3"
     assert rows[0]["before"]["src_locator"] != rows[0]["after"]["src_locator"]
-    assert rows[1]["before"]["description"] == "用户名"
+    assert rows[1]["before"]["description"] == "User name"
 
-    # 实文件核查失败 → 409，字段保持原值
+    # Real-file verification failure → 409, the field keeps its previous value
     r = client.patch("/fields/ods_order/user_name", headers=editor_headers,
                      json={"src_locator": {"column": 99}})
     assert r.status_code == 409, r.text
-    assert "实文件核查失败" in r.json()["detail"]
-    assert "超出源文件列数" in r.json()["detail"]
+    assert "real-file verification failed" in r.json()["detail"]
+    assert "exceeds the source file's column count" in r.json()["detail"]
     ds = client.get("/datasets/ods_order", headers=editor_headers).json()
     assert next(f for f in ds["fields"]
                 if f["name"] == "user_name")["src_locator"]["resolved"]["column_index"] == 3
 
-    # 结构校验失败 / 类型不一致 → 409
+    # Structural validation failure / type mismatch → 409
     r = client.patch("/fields/ods_order/user_name", headers=editor_headers,
                      json={"src_locator": {"column": 0}})
-    assert r.status_code == 409 and "结构校验失败" in r.json()["detail"]
+    assert r.status_code == 409 and "structural validation failed" in r.json()["detail"]
     r = client.patch("/fields/ods_order/user_name", headers=editor_headers,
                      json={"src_locator": {"type": "json",
                                            "input": {"json_path": "$"}}})
-    assert r.status_code == 409 and "不一致" in r.json()["detail"]
+    assert r.status_code == 409 and "does not match" in r.json()["detail"]
 
-    # 参数/权限/不存在
+    # Parameters/permissions/non-existence
     assert client.patch("/fields/ods_order/user_name", headers=editor_headers,
                         json={}).status_code == 400
     assert client.patch("/fields/ods_order/user_name", headers=editor_headers,
@@ -278,7 +279,7 @@ def test_patch_field_description_and_locator_recheck(client):
                         json={"description": "x"}).status_code == 401
 
 
-# ---------- 边编辑 ----------
+# ---------- Edge editing ----------
 
 def test_edge_crud_natural_key_and_changes(client):
     admin_headers = login(client)
@@ -286,11 +287,11 @@ def test_edge_crud_natural_key_and_changes(client):
     viewer_headers = create_user(client, admin_headers, "viewer_m3", "viewer")
     _seed(client, admin_headers)
 
-    # 新增字段级人工边
+    # Add a field-level manual edge
     r = client.post("/edges", headers=editor_headers, json={
         "from_dataset": "ods_order", "from_field": "user_name",
         "to_dataset": "dim_user", "to_field": "user_name",
-        "transform": "lookup", "confidence": 0.8, "note": "人工补边",
+        "transform": "lookup", "confidence": 0.8, "note": "manually added edge",
     })
     assert r.status_code == 201, r.text
     edge = r.json()
@@ -298,13 +299,13 @@ def test_edge_crud_natural_key_and_changes(client):
     assert isinstance(edge_id, int) and edge["source"] == "manual"
     assert edge["confidence"] == 0.8
 
-    # 同自然键重复 → 409
+    # Duplicate natural key → 409
     r = client.post("/edges", headers=editor_headers, json={
         "from_dataset": "ods_order", "from_field": "user_name",
         "to_dataset": "dim_user", "to_field": "user_name"})
     assert r.status_code == 409, r.text
 
-    # 新增表级人工边；重复同样 409
+    # Add a table-level manual edge; a duplicate is likewise 409
     table_payload = {"from_dataset": "dwd_order", "to_dataset": "dim_user"}
     r = client.post("/edges", headers=editor_headers, json=table_payload)
     assert r.status_code == 201, r.text
@@ -313,7 +314,7 @@ def test_edge_crud_natural_key_and_changes(client):
     assert client.post("/edges", headers=editor_headers,
                        json=table_payload).status_code == 409
 
-    # 混合字段边 / 引用不存在 → 400 / 404
+    # Mixed-field edge / non-existent references → 400 / 404
     for payload in [
         {"from_dataset": "ods_order", "from_field": "order_no",
          "to_dataset": "dim_user", "to_field": None},
@@ -322,17 +323,17 @@ def test_edge_crud_natural_key_and_changes(client):
     ]:
         r = client.post("/edges", headers=editor_headers, json=payload)
         assert r.status_code == 400, r.text
-        assert "同时提供上下游字段" in r.json()["detail"]
+        assert "must provide both upstream and downstream fields" in r.json()["detail"]
     assert client.post("/edges", headers=editor_headers, json={
         "from_dataset": "no_such", "to_dataset": "dim_user"}).status_code == 404
     assert client.post("/edges", headers=editor_headers, json={
         "from_dataset": "ods_order", "from_field": "no_such",
         "to_dataset": "dim_user", "to_field": "user_name"}).status_code == 404
 
-    # PATCH：改 transform/note/confidence，写 updated 日志
+    # PATCH: change transform/note/confidence and write an updated log
     r = client.patch(f"/edges/{edge_id}", headers=editor_headers,
                      json={"transform": "lookup/cast", "confidence": 0.5,
-                           "note": "修正"})
+                           "note": "corrected"})
     assert r.status_code == 200, r.text
     assert r.json()["transform"] == "lookup/cast"
     assert r.json()["confidence"] == 0.5
@@ -347,7 +348,7 @@ def test_edge_crud_natural_key_and_changes(client):
     assert rows[0]["after"]["transform"] == "lookup/cast"
     assert rows[0]["actor"] == "editor_m3"
 
-    # 置信度边界 / 空 patch / 不存在
+    # Confidence bounds / empty patch / non-existence
     assert client.patch(f"/edges/{edge_id}", headers=editor_headers,
                         json={"confidence": 1.5}).status_code == 422
     assert client.patch(f"/edges/{edge_id}", headers=editor_headers,
@@ -357,7 +358,7 @@ def test_edge_crud_natural_key_and_changes(client):
     assert client.patch("/edges/99999", headers=editor_headers,
                         json={"note": "x"}).status_code == 404
 
-    # DELETE 导入的表级边 → 204，写 deleted 日志，重复删除 404
+    # DELETE an imported table-level edge → 204, write a deleted log, repeated delete 404
     imported_table_edge = _edge_id(
         client, editor_headers, from_dataset="ods_order", from_field=None,
         to_dataset="dwd_order", to_field=None)
@@ -372,7 +373,7 @@ def test_edge_crud_natural_key_and_changes(client):
     assert rows[0]["before"]["transform"] == "table_projection"
     assert rows[0]["after"] is None
 
-    # viewer 全写接口 403（角色守卫先于目标存在性检查）
+    # viewer gets 403 on all write endpoints (role guard precedes target existence checks)
     assert client.post("/edges", headers=viewer_headers,
                        json={"from_dataset": "ods_order",
                              "to_dataset": "dim_user"}).status_code == 403
@@ -391,7 +392,7 @@ def test_graph_payload_edges_include_unique_id(client):
     assert all(isinstance(edge_id, int) for edge_id in ids)
 
 
-# ---------- 变更历史 ----------
+# ---------- Change history ----------
 
 def test_changes_filter_order_limit_and_permissions(client):
     admin_headers = login(client)
@@ -402,14 +403,14 @@ def test_changes_filter_order_limit_and_permissions(client):
     assert client.post("/edges", headers=editor_headers, json={
         "from_dataset": "ods_order", "from_field": "user_name",
         "to_dataset": "dim_user", "to_field": "user_name"}).status_code == 201
-    for description in ("第一次修正", "第二次修正"):
+    for description in ("first correction", "second correction"):
         assert client.patch("/fields/ods_order/order_no", headers=editor_headers,
                             json={"description": description}).status_code == 200
 
     rows = client.get("/changes", headers=viewer_headers,
                       params={"entity_kind": "field",
                               "entity_key": "ods_order.order_no"}).json()
-    assert len(rows) == 3  # 导入 added + 两次人工 updated
+    assert len(rows) == 3  # import added + two manual updated
     assert [row["op"] for row in rows[:2]] == ["updated", "updated"]
     assert [row["id"] for row in rows] == sorted(
         (row["id"] for row in rows), reverse=True)
@@ -428,7 +429,7 @@ def test_changes_filter_order_limit_and_permissions(client):
                 "entity_key": "ods_order.user_name-->dim_user.user_name"}).json()
     assert [row["op"] for row in edge_rows] == ["added"]
 
-    # 参数与认证
+    # Parameters and authentication
     assert client.get("/changes", headers=viewer_headers,
                       params={"entity_kind": "tag"}).status_code == 422
     assert client.get("/changes", headers=viewer_headers,
@@ -436,7 +437,7 @@ def test_changes_filter_order_limit_and_permissions(client):
     assert client.get("/changes").status_code == 401
 
 
-# ---------- 版本标签 ----------
+# ---------- Version tags ----------
 
 def test_version_tags_create_list_and_diff(client):
     admin_headers = login(client)
@@ -447,13 +448,13 @@ def test_version_tags_create_list_and_diff(client):
     before_count = _db_count("SELECT COUNT(*) FROM change_log")
     base_seq = _max_change_id()
     r = client.post("/version-tags", headers=editor_headers,
-                    json={"name": "base", "note": "基线"})
+                    json={"name": "base", "note": "baseline"})
     assert r.status_code == 201, r.text
     tag = r.json()
-    assert tag["name"] == "base" and tag["note"] == "基线"
+    assert tag["name"] == "base" and tag["note"] == "baseline"
     assert tag["change_seq"] == base_seq
     assert tag["created_by"] == "editor_m3"
-    # 标签创建以 created_by 留痕，不写入 change_log（避免回滚删除标签）
+    # Tag creation leaves a trail via created_by and does not write change_log (avoiding rollback-deletes-tag)
     assert _db_count("SELECT COUNT(*) FROM change_log") == before_count
 
     assert client.post("/version-tags", headers=editor_headers,
@@ -464,9 +465,9 @@ def test_version_tags_create_list_and_diff(client):
     base_list = client.get("/version-tags", headers=viewer_headers).json()
     assert [row["name"] for row in base_list] == ["base"]
 
-    # 标签后：1 次字段更新 + 1 条新边 + 1 条导入边删除
+    # After the tag: 1 field update + 1 new edge + 1 imported-edge deletion
     assert client.patch("/fields/ods_order/order_no", headers=editor_headers,
-                        json={"description": "修正后"}).status_code == 200
+                        json={"description": "corrected"}).status_code == 200
     r = client.post("/edges", headers=editor_headers, json={
         "from_dataset": "ods_order", "from_field": "user_name",
         "to_dataset": "dim_user", "to_field": "user_name"})
@@ -500,10 +501,10 @@ def test_version_tags_create_list_and_diff(client):
         elif item["op"] == "deleted":
             assert item["before"] is not None and item["after"] is None
         else:
-            assert item["before"]["description"] == "订单号"
-            assert item["after"]["description"] == "修正后"
+            assert item["before"]["description"] == "Order number"
+            assert item["after"]["description"] == "corrected"
 
-    # 不存在的标签 / 顺序颠倒
+    # Non-existent tags / reversed order
     assert client.get("/version-tags/diff", headers=viewer_headers,
                       params={"from": "no_such", "to": "next"}).status_code == 404
     assert client.get("/version-tags/diff", headers=viewer_headers,
@@ -518,7 +519,7 @@ def test_rollback_to_tag_is_idempotent_and_keeps_annotations(client):
 
     base_seq = _max_change_id()
     r = client.post("/version-tags", headers=admin_headers,
-                    json={"name": "base", "note": "回滚基线"})
+                    json={"name": "base", "note": "rollback baseline"})
     assert r.status_code == 201, r.text
     baseline = client.get("/lineage/snapshot", headers=admin_headers).json()
 
@@ -529,30 +530,30 @@ def test_rollback_to_tag_is_idempotent_and_keeps_annotations(client):
         client, admin_headers, from_dataset="ods_order", from_field=None,
         to_dataset="dwd_order", to_field=None)
 
-    # 标签后的变更：字段 updated / 边 added / 边 updated / 边 deleted / 导入批次 added
+    # Changes after the tag: field updated / edge added / edge updated / edge deleted / import batch added
     assert client.patch("/fields/ods_order/user_name", headers=editor_headers,
-                        json={"description": "改坏", "src_locator": {"column": 3}}
+                        json={"description": "broken", "src_locator": {"column": 3}}
                         ).status_code == 200
     r = client.post("/edges", headers=editor_headers, json={
         "from_dataset": "ods_order", "from_field": "user_name",
         "to_dataset": "dim_user", "to_field": "user_name"})
     assert r.status_code == 201, r.text
     assert client.patch(f"/edges/{imported_field_edge}", headers=editor_headers,
-                        json={"transform": "改坏", "confidence": 0.3}
+                        json={"transform": "broken", "confidence": 0.3}
                         ).status_code == 200
     assert client.delete(f"/edges/{imported_table_edge}",
                          headers=editor_headers).status_code == 204
     _import_phone_field(client, admin_headers, source_ids)
-    # 标注在标签之后写入：不写 change_log，也不随回滚删除
+    # The annotation is written after the tag: no change_log and not deleted by rollback
     assert client.post("/annotations", headers=editor_headers,
                        json={"target_kind": "dataset", "target_id": "ods_order",
-                             "body": "回滚也要保留"}).status_code == 201
+                             "body": "keep after rollback"}).status_code == 201
 
     expected_reverted = _max_change_id() - base_seq
     assert expected_reverted == 5
     log_count_before_rollback = _db_count("SELECT COUNT(*) FROM change_log")
 
-    # 仅 admin 可回滚
+    # Only admin can roll back
     assert client.post("/version-tags/base/rollback",
                        headers=editor_headers).status_code == 403
     assert client.post("/version-tags/base/rollback",
@@ -564,12 +565,12 @@ def test_rollback_to_tag_is_idempotent_and_keeps_annotations(client):
     assert r.status_code == 200, r.text
     assert r.json() == {"reverted": expected_reverted}
 
-    # 数据回到打标签时；字段定位器/描述一并恢复
+    # Data returns to the tag point; field locator/description restored as well
     assert client.get("/lineage/snapshot", headers=admin_headers).json() == baseline
     ds = client.get("/datasets/ods_order", headers=admin_headers).json()
     assert [f["name"] for f in ds["fields"]] == ["order_no", "user_name"]
     user_name = next(f for f in ds["fields"] if f["name"] == "user_name")
-    assert user_name["description"] == "用户名"
+    assert user_name["description"] == "User name"
     assert user_name["src_locator"]["resolved"]["column_index"] == 2
     payload = _subgraph(client, admin_headers)
     field_edge = next(e for e in payload["edges"]
@@ -579,15 +580,17 @@ def test_rollback_to_tag_is_idempotent_and_keeps_annotations(client):
     assert any(e["from_field"] is None and e["to_field"] is None
                for e in payload["edges"])
 
-    # 回滚本身不写 change_log（否则重复回滚会反做回滚日志）；审计落 rollback_record
+    # The rollback itself does not write change_log (otherwise repeated rollbacks
+    # would reverse rollback logs); the audit goes to rollback_record
     assert _db_count("SELECT COUNT(*) FROM change_log") == log_count_before_rollback
     assert _db_count("SELECT COUNT(*) FROM rollback_record") == 1
     annotations = client.get("/annotations", headers=viewer_headers,
                              params={"target_kind": "dataset",
                                      "target_id": "ods_order"}).json()
-    assert [row["body"] for row in annotations] == ["回滚也要保留"]
+    assert [row["body"] for row in annotations] == ["keep after rollback"]
 
-    # 重复回滚安全：已反做日志被跳过，reverted=0 且状态不变，追加审计
+    # Repeated rollback is safe: already-reversed logs are skipped, reverted=0,
+    # state unchanged, and another audit row is appended
     r = client.post("/version-tags/base/rollback", headers=admin_headers)
     assert r.status_code == 200, r.text
     assert r.json() == {"reverted": 0}
@@ -598,7 +601,7 @@ def test_rollback_to_tag_is_idempotent_and_keeps_annotations(client):
         ("admin", "base")) == 2
 
 
-# ---------- 权限矩阵 ----------
+# ---------- Permission matrix ----------
 
 def test_viewer_read_only_on_all_m3_endpoints(client):
     admin_headers = login(client)

@@ -76,7 +76,7 @@
 @layer components {
   .field-input {
     @apply w-full rounded-md border border-line bg-card/60 px-3 text-[13px] text-ink outline-none transition-all duration-150 placeholder:text-ink-faint;
-    height: 36px; /* 紧凑场景由页面加 h-8 覆盖 */
+    height: 36px; /* compact contexts override with h-8 on the page */
   }
 
   .field-input:hover:not(:disabled) {
@@ -98,7 +98,7 @@
 /* ---------- React Flow canvas ---------- */
 
 .lineage-flow {
-  background: #f8fafc; /* 点阵由容器类 bg-dot-grid bg-grid-24 提供 */
+  background: #f8fafc; /* dot grid comes from the container classes bg-dot-grid bg-grid-24 */
   font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
@@ -110,7 +110,7 @@
   cursor: grabbing;
 }
 
-/* 02 文档改造点 #27：框选矩形（brand-600/15 填充 + brand-600/55 描边，待回写 00 §2.5） */
+/* 02 doc change #27: box-selection rectangle (brand-600/15 fill + brand-600/55 border; to be backported to 00 §2.5) */
 .lineage-flow .react-flow__selection {
   background: rgba(234, 88, 12, 0.15);
   border: 1px solid rgba(234, 88, 12, 0.55);
@@ -201,7 +201,7 @@
   box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
 }
 
-/* 字段追踪链路命中的字段行：handle 转为品牌橙追踪态（Clew「点亮线索」） */
+/* Field row hit by the field trace chain: the handle switches to the brand-orange trace state (Clew "light the thread") */
 .react-flow__handle.field-handle.field-handle-traced {
   opacity: 1;
   border-color: #ea580c;

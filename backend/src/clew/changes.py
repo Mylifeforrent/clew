@@ -1,20 +1,26 @@
-"""变更日志写入与行快照工具（M3 人工编辑共用）。
+"""Change-log writes and row snapshot helpers (shared by M3 manual editing).
 
-``change_log`` 是版本重建的唯一依据（数据模型 §七）：
-- 导入路径由 ``import_service`` 写入 ``batch_id=<批次>``；
-- 人工编辑路径（字段/边/标签回滚之外）写 ``batch_id=NULL``，actor 取当前登录用户；
-- 标注（annotation）追加式、只增不改，**不写 change_log**，也不随回滚删除；
-- 版本标签创建以 ``version_tag.created_by/created_at`` 留痕，同样不写 change_log，
-  否则「回滚到标签」会把标签本身当作可反做数据删除，违背标签永久保留的语义。
+``change_log`` is the sole basis for version reconstruction (data model §7):
+- the import path writes ``batch_id=<batch>`` from ``import_service``;
+- the manual-edit path (fields/edges, excluding tag rollbacks) writes
+  ``batch_id=NULL`` and uses the current logged-in user as actor;
+- annotations are append-only, never modified, **do not write change_log**, and
+  are not deleted by rollbacks;
+- version tag creation leaves a trail in ``version_tag.created_by/created_at``
+  and also does not write change_log; otherwise "roll back to tag" would treat
+  the tag itself as reversible data and delete it, violating the semantics of
+  permanently retained tags.
 
-快照只包含业务列（不含 id / 时间戳），字段与边各有固定键集合，
-保证同一实体的 before/after 可直接用于版本 diff 与反做。
+Snapshots contain only business columns (no id / timestamps); fields and edges
+each have a fixed key set so the before/after of the same entity can be used
+directly for version diffs and reversal.
 """
 
 import json
 from datetime import UTC, datetime
 
-# 与导入路径写入的快照键保持一致（import_service._upsert_field / lineage 边快照）
+# Keep consistent with the snapshot keys written by the import path
+# (import_service._upsert_field / lineage edge snapshots)
 FIELD_SNAPSHOT_KEYS = (
     "dataset_id", "name", "field_type", "source_file_id",
     "src_locator", "description",
@@ -26,12 +32,12 @@ EDGE_SNAPSHOT_KEYS = (
 
 
 def now() -> str:
-    """统一时间格式：ISO8601 UTC（秒精度）。"""
+    """Uniform time format: ISO8601 UTC (second precision)."""
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def snapshot(row, keys: tuple[str, ...]) -> dict:
-    """从 sqlite3.Row / dict 提取业务快照。"""
+    """Extract a business snapshot from a sqlite3.Row / dict."""
     return {key: row[key] for key in keys}
 
 
@@ -45,14 +51,14 @@ def edge_snapshot(row) -> dict:
 
 def edge_key(from_dataset: str, from_field: str | None,
              to_dataset: str, to_field: str | None) -> str:
-    """边的多态/日志命名规则（数据模型 §5.2）：字段为空用 ``*``。"""
+    """Polymorphic/log key rule for edges (data model §5.2): use ``*`` for empty fields."""
     return f"{from_dataset}.{from_field or '*'}-->{to_dataset}.{to_field or '*'}"
 
 
 def log_change(conn, *, entity_kind: str, entity_key: str, op: str,
                before: dict | None, after: dict | None, actor: str,
                batch_id: int | None = None) -> None:
-    """追加一条 change_log；调用方保证处于同一事务。"""
+    """Append a change_log row; the caller must be in the same transaction."""
     conn.execute(
         "INSERT INTO change_log(batch_id, entity_kind, entity_key, op,"
         " before, after, actor, created_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -63,5 +69,5 @@ def log_change(conn, *, entity_kind: str, entity_key: str, op: str,
 
 
 def load_snapshot(raw: str | None) -> dict | None:
-    """change_log.before/after（TEXT）→ dict；空值返回 None。"""
+    """change_log.before/after (TEXT) → dict; empty value returns None."""
     return json.loads(raw) if raw else None

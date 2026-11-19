@@ -1,4 +1,4 @@
-"""测试夹具：临时 DATA_DIR、TestClient、登录/上传辅助。"""
+"""Test fixtures: temporary DATA_DIR, TestClient, login/upload helpers."""
 
 import csv as csvmod
 import io

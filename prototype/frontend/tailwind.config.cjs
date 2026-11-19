@@ -4,24 +4,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        /* 表面 */
-        page: '#F8FAFC',      // 页面/画布背景（slate-50）
-        card: '#FFFFFF',      // 卡片/面板/模态表面
-        subtle: '#F1F5F9',    // 次级表面：表头、代码底、hover 行（slate-100）
-        /* 文字 */
+        /* Surfaces */
+        page: '#F8FAFC',      // page/canvas background (slate-50)
+        card: '#FFFFFF',      // card/panel/modal surface
+        subtle: '#F1F5F9',    // secondary surface: table headers, code background, hover rows (slate-100)
+        /* Text */
         ink: {
-          DEFAULT: '#0F172A', // 主文字（slate-900）
-          soft: '#334155',    // 次级文字（slate-700）
-          muted: '#475569',   // 辅助文字（slate-600）
-          faint: '#64748B',   // 占位/禁用辅助（slate-500）
+          DEFAULT: '#0F172A', // primary text (slate-900)
+          soft: '#334155',    // secondary text (slate-700)
+          muted: '#475569',   // helper text (slate-600)
+          faint: '#64748B',   // placeholder/disabled helper (slate-500)
         },
-        /* 边框 */
+        /* Borders */
         line: {
-          DEFAULT: '#E2E8F0', // 默认边框（slate-200）
-          strong: '#CBD5E1',  // 强边框/hover（slate-300）
-          soft: '#F1F5F9',    // 弱分隔（= subtle）
+          DEFAULT: '#E2E8F0', // default border (slate-200)
+          strong: '#CBD5E1',  // strong border/hover (slate-300)
+          soft: '#F1F5F9',    // weak divider (= subtle)
         },
-        /* 主色（锚点：800=#1E40AF，500=#3B82F6） */
+        /* Primary color (anchors: 800=#1E40AF, 500=#3B82F6) */
         blue: {
           50: '#EFF6FF',
           100: '#DBEAFE',
@@ -34,21 +34,21 @@ module.exports = {
           800: '#1E40AF',
           900: '#1E3A8A',
         },
-        /* 语义色（DEFAULT=图标/白底文字/实心底，soft=浅底，deep=soft 底正文） */
+        /* Semantic colors (DEFAULT=icons/white-on-solid text/solid background, soft=light background, deep=body text on soft background) */
         success: { DEFAULT: '#15803D', soft: '#F0FDF4', deep: '#166534' },
         warning: { DEFAULT: '#D97706', soft: '#FFFBEB', deep: '#B45309' },
         danger: { DEFAULT: '#DC2626', soft: '#FEF2F2', deep: '#B91C1C' },
         info: { DEFAULT: '#2563EB', soft: '#EFF6FF', deep: '#1E40AF' },
-        /* AI 功能色（indigo，与主蓝区分；soft 底正文用 deep） */
+        /* AI feature color (indigo, distinct from the primary blue; use deep for text on the soft background) */
         ai: { DEFAULT: '#4F46E5', soft: '#EEF2FF', deep: '#3730A3' },
-        /* 血缘边来源色（getEdgeVisual 四形态专用，SVG stroke） */
+        /* Lineage edge source colors (used by getEdgeVisual for its four forms, SVG stroke) */
         lineage: {
-          imported: '#475569',        // imported 字段级（实线 1.55）
-          'imported-weak': '#64748B', // imported 表级（虚线 1.4）
-          manual: '#D97706',          // 人工确认
-          ai: '#4F46E5',              // AI 建议（虚线+流动）
-          derived: '#94A3B8',         // 视图派生：表级血缘同名字段匹配推断线
-          focus: '#DC2626',           // 字段追踪高亮（= danger）
+          imported: '#475569',        // imported field-level (solid 1.55)
+          'imported-weak': '#64748B', // imported table-level (dashed 1.4)
+          manual: '#D97706',          // manually confirmed
+          ai: '#4F46E5',              // AI suggested (dashed + animated)
+          derived: '#94A3B8',         // view-derived: inferred link from same-name field matching across table-level lineage
+          focus: '#DC2626',           // field trace highlight (= danger)
         },
       },
       fontFamily: {

@@ -1,4 +1,4 @@
-"""验收：v2 导入后按批次回滚 → 恢复 v1 状态；重复回滚被拒。"""
+"""Acceptance: roll back a v2 import by batch → restore the v1 state; repeated rollback is rejected."""
 
 import json
 
@@ -8,21 +8,21 @@ from tests.fixtures import order_xlsx_bytes, source_json_bytes, user_csv_bytes
 
 def _seed_and_import_v1(client, headers) -> int:
     upload(client, headers, [
-        ("订单明细.xlsx", order_xlsx_bytes(),
+        ("order_details.xlsx", order_xlsx_bytes(),
          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        ("用户表.csv", user_csv_bytes(), "text/csv"),
-        ("源.json", source_json_bytes(), "application/json"),
+        ("users.csv", user_csv_bytes(), "text/csv"),
+        ("source.json", source_json_bytes(), "application/json"),
     ])
     ds_rows = [
         ["dataset_id", "dataset_name", "field_name", "field_type", "src_file",
          "src_type", "src_locator", "description"],
-        ["ods_raw", "订单明细", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "header_path": ["商品信息", "订单号"],
-                     "header_rows": 2, "row_start": 3}), "订单号"],
-        ["dwd_order", "订单宽表", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "column": "C", "row_start": 3}), "订单号宽表"],
-        ["dwd_order", "订单宽表", "user_name", "STRING", "用户表.csv", "csv",
-         json.dumps({"column": 2}), "用户名"],
+        ["ods_raw", "Order Details", "order_no", "STRING", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Order No"],
+                     "header_rows": 2, "row_start": 3}), "Order No"],
+        ["dwd_order", "Order Wide Table", "order_no", "STRING", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "column": "C", "row_start": 3}), "Wide table order number"],
+        ["dwd_order", "Order Wide Table", "user_name", "STRING", "users.csv", "csv",
+         json.dumps({"column": 2}), "User name"],
     ]
     edge_rows = [
         ["from_dataset", "from_field", "to_dataset", "to_field", "transform",
@@ -42,16 +42,16 @@ def _seed_and_import_v1(client, headers) -> int:
 def _import_v2(client, headers) -> int:
     manifest = {
         "datasets": [
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_id",
-             "field_type": "INTEGER", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_id",
+             "field_type": "INTEGER", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"header": "user_id"}},
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_name",
-             "field_type": "STRING", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_name",
+             "field_type": "STRING", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"column": 2}},
             {"dataset_id": "dwd_order", "field_name": "order_no", "field_type": "STRING",
-             "src_file": "订单明细.xlsx", "src_type": "xlsx",
-             "src_locator": {"sheet": "订单", "column": "C", "row_start": 3},
-             "description": "v2 修正描述"},
+             "src_file": "order_details.xlsx", "src_type": "xlsx",
+             "src_locator": {"sheet": "Orders", "column": "C", "row_start": 3},
+             "description": "v2 corrected description"},
         ],
         "lineage": [
             {"from_dataset": "ods_user", "from_field": "user_name",
@@ -74,20 +74,20 @@ def test_rollback_v2_restores_v1(client):
 
     batch2 = _import_v2(client, headers)
     snap_v2 = client.get("/lineage/snapshot", headers=headers).json()
-    assert len(snap_v2["fields"]) == len(snap_v1["fields"]) + 2  # ods_user +2 字段
+    assert len(snap_v2["fields"]) == len(snap_v1["fields"]) + 2  # ods_user +2 fields
     dwd = client.get("/datasets/dwd_order", headers=headers).json()
     assert next(f for f in dwd["fields"]
-                if f["name"] == "order_no")["description"] == "v2 修正描述"
+                if f["name"] == "order_no")["description"] == "v2 corrected description"
 
     r = client.post(f"/import/batches/{batch2}/rollback", headers=headers)
     assert r.status_code == 200, r.text
     snap_restored = client.get("/lineage/snapshot", headers=headers).json()
     assert snap_restored == snap_v1
 
-    # 重复回滚被拒
+    # Repeated rollback is rejected
     assert client.post(f"/import/batches/{batch2}/rollback",
                        headers=headers).status_code == 409
-    # v1 未受影响，可继续操作
+    # v1 is unaffected and can continue to be used
     assert client.get(f"/import/batches/{batch1}",
                       headers=headers).json()["rolled_back_at"] is None
 

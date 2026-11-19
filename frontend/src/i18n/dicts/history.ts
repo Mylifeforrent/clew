@@ -1,4 +1,4 @@
-/** history.* 字典：变更历史抽屉。 */
+/** history.* dictionary: change history drawer. */
 export const zhHistory = {
   'history.field.dataset_id': '数据集',
   'history.field.name': '名称',

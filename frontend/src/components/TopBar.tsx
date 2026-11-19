@@ -7,10 +7,10 @@ import { Icon } from './Icon';
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from '../i18n';
 
-// 与后端 /lineage/subgraph 的 hops 1..5 契约保持一致
+// Aligned with the backend /lineage/subgraph hops 1..5 contract
 const HOP_OPTIONS = [1, 2, 3, 4, 5] as const;
 
-// 角色徽章三套（00 §7.4）：admin/editor/viewer，未知角色按 viewer 中性档兜底
+// Three role badge variants (00 §7.4): admin/editor/viewer; unknown roles fall back to the neutral viewer style
 const ROLE_BADGE_CLASSES: Record<string, string> = {
   admin: 'border-transparent bg-brand-800 text-white',
   editor: 'border-brand-200 bg-brand-50 text-brand-800',
@@ -29,7 +29,7 @@ interface TopBarProps {
   aiOpen: boolean;
   onOpenAi: () => void;
   onOpenImport: () => void;
-  /** editor+ 才渲染「导入数据」入口（不渲染写入口模式，权限校验在后端） */
+  /** Only editor+ renders the "Import" entry (write entries are not rendered otherwise; authorization stays in the backend) */
   canImport: boolean;
   onOpenVersions: () => void;
   onOpenUsers: () => void;
@@ -47,7 +47,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-/** 用户菜单中的语言切换项（md 以下替代顶栏 LanguageToggle）：语言名用原文名 */
+/** Language switch items in the user menu (replaces the top bar LanguageToggle below md): language names use their native form */
 const LOCALE_MENU_OPTIONS: ReadonlyArray<{ value: 'zh' | 'en'; nameKey: 'langToggle.zhName' | 'langToggle.enName' }> = [
   { value: 'zh', nameKey: 'langToggle.zhName' },
   { value: 'en', nameKey: 'langToggle.enName' },
@@ -117,7 +117,7 @@ export function TopBar({
   const initials = Array.from(session.username).slice(0, 2).join('').toUpperCase();
   const admin = isAdmin(session.role);
 
-  /** radiogroup 键盘协议：方向键在 1–5 间移动并立即选中（roving tabindex，选中项持有 Tab 位） */
+  /** radiogroup keyboard protocol: arrow keys move between 1–5 and select immediately (roving tabindex; the selected item holds the Tab stop) */
   function handleHopKeyDown(
     event: ReactKeyboardEvent<HTMLButtonElement>,
     option: number,
@@ -204,7 +204,7 @@ export function TopBar({
             aria-label={t('topbar.import')}
           >
             <Icon name="upload" size={14} />
-            {/* R14：lg 以下降为 icon-only，文案仅保留在 ≥lg 档 */}
+            {/* R14: below lg this becomes icon-only; the label is kept at ≥lg only */}
             <span className="hidden lg:inline">{t('topbar.import')}</span>
           </button>
         )}
@@ -237,7 +237,7 @@ export function TopBar({
           <span className="hidden lg:inline">{t('topbar.versions')}</span>
         </button>
 
-        {/* R14：md 及以上为 radiogroup 按钮组（单选语义 + roving tabindex）；md 以下收为单个下拉 */}
+        {/* R14: md and up is a radiogroup button group (single-select semantics + roving tabindex); below md it collapses into a single dropdown */}
         <div className="hidden shrink-0 items-center gap-2 rounded-lg border border-line bg-card p-1 pl-2.5 md:flex">
           <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
             {t('topbar.hops')}
@@ -300,7 +300,7 @@ export function TopBar({
           )}
         </div>
 
-        {/* R14：md 以下语言切换并入用户菜单，顶栏不再占位 */}
+        {/* R14: below md, language switching moves into the user menu and no longer takes top-bar space */}
         <div className="hidden md:block">
           <LanguageToggle />
         </div>
@@ -367,7 +367,7 @@ export function TopBar({
                   </span>
                 </div>
               </div>
-              {/* R14：md 以下语言切换并入用户菜单（menuitemradio 单选语义） */}
+              {/* R14: below md, language switching moves into the user menu (menuitemradio single-select semantics) */}
               <div className="px-3 py-2 md:hidden">
                 <div
                   className="mb-1.5 text-[11px] text-ink-faint"

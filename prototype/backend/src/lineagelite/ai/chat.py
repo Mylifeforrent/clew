@@ -1,19 +1,21 @@
-"""AI 对话编排：OpenAI 兼容 function calling 循环（最多 5 轮工具调用）。
+"""AI chat orchestration: OpenAI-compatible function calling loop (at most 5 tool rounds).
 
-流程：
-1. 固定 system 提示（含可选的 focus 上下文）+ 前端传来的对话历史；
-2. 调 ``llm.complete(messages, tools)``；模型返回 tool_calls 时逐个执行工具，
-   把结果以 role=tool 的消息追加回去，继续下一轮；
-3. 模型不再请求工具时，取该条消息的 content 作为最终 answer；
-4. 若连续 5 轮都在调用工具，再发一次不带 tools 的请求强制收口（保证循环有界）。
+Flow:
+1. A fixed system prompt (with optional focus context) + the conversation history sent by the frontend;
+2. Call ``llm.complete(messages, tools)``; when the model returns tool_calls, execute each tool,
+   append the results as role=tool messages, and continue to the next round;
+3. When the model requests no more tools, take that message's content as the final answer;
+4. If 5 consecutive rounds all call tools, send one more request without tools to force closure
+   (guaranteeing a bounded loop).
 
-``tool_trace`` 记录每次工具调用的 ``{tool, args, ok}``；``graph`` 取最后一次
-图查询工具（trace_lineage）返回的 GraphPayload，供前端画布联动渲染；
-``highlights`` 汇总 mark_highlight 声明的字段（画布红色追踪链联动信号）；
-``suggestions``/``drafts`` 为 M5 新增（suggest_lineage 候选、描述草稿）。
+``tool_trace`` records ``{tool, args, ok}`` for every tool call; ``graph`` takes the GraphPayload
+returned by the last graph-query tool (trace_lineage) for the frontend canvas to render;
+``highlights`` aggregates fields declared by mark_highlight (the canvas red trace-chain signal);
+``suggestions``/``drafts`` are new in M5 (suggest_lineage candidates, description drafts).
 
-流式：``stream_run_chat`` 复用同一编排，仅把模型调用换成 ``llm.stream_complete``
-（逐 token 回调）并把工具轮事件经 ``on_event`` 实时抛给 SSE 路由。
+Streaming: ``stream_run_chat`` reuses the same orchestration, only replacing the model call with
+``llm.stream_complete`` (per-token callback) and emitting tool-round events to the SSE route in
+real time via ``on_event``.
 """
 
 from __future__ import annotations
@@ -28,30 +30,30 @@ from .tools import MAX_HIGHLIGHT_FIELDS, TOOL_SCHEMAS, run_tool
 
 MAX_TOOL_ROUNDS = 5
 
-SYSTEM_PROMPT = """你是 LineageLite（轻量级 AI 数据血缘工具）的助手。
+SYSTEM_PROMPT = """You are the assistant of LineageLite, a lightweight AI data lineage tool.
 
-你可以调用工具查询数据集字段、源文件定位、上下游血缘与变更历史：
-- search_fields：按关键词定位字段；
-- get_field_details：字段详情、源文件定位器与回源预览；
-- trace_lineage：按数据集/字段追溯上下游 N 跳子图；
-- get_field_history：字段的变更历史；
-- mark_highlight：声明要在画布上红色追踪高亮的字段（画布联动信号，不返回数据）；
-- suggest_lineage：对数据集/字段运行血缘建议，候选边落库并出现在画布上（用户人工确认后生效）；
-- analyze_impact：分析字段下游影响面（下游字段、源文件、最近变更）；
-- draft_descriptions：为缺描述的字段生成描述草稿（用户确认后才成为标注）。
+You can call tools to query dataset fields, source-file locators, upstream/downstream lineage and change history:
+- search_fields: locate fields by keyword;
+- get_field_details: field details, source-file locator and source preview;
+- trace_lineage: trace the upstream/downstream N-hop subgraph by dataset/field;
+- get_field_history: change history of a field;
+- mark_highlight: declare fields to highlight as a red trace chain on the canvas (a canvas signal; returns no data);
+- suggest_lineage: run lineage suggestions for a dataset/field; candidate edges are persisted and shown on the canvas (effective only after the user confirms manually);
+- analyze_impact: analyze the downstream impact surface of a field (downstream fields, source files, recent changes);
+- draft_descriptions: generate description drafts for fields missing descriptions (they become annotations only after the user accepts).
 
-回答规则：
-1. 必须基于工具返回的数据作答，不得编造数据集、字段、边或文件位置；
-   查不到时明确说明「未找到」，并给出下一步建议。
-2. 用户用中文提问时用中文回答；涉及血缘时说明方向、跳数与置信度，
-   涉及回源时给出文件名与定位器（sheet/列/JSONPath）。
-3. 你没有直接修改业务数据的权限：血缘候选必须经用户确认、描述草稿必须经
-   用户采纳，不要声称已修改任何正式数据。
-4. 当用户要求「高亮/标记/标出」结果，或回答围绕某些字段的上下游时，
-   在给出最终回答前调用 mark_highlight，fields 传本次回答聚焦的字段
-   （最多 8 个）；这些字段会在画布上以红色追踪链高亮。
-5. 回答中的字段尽量写成 `数据集.字段` 形式（如 d0.amount），前端会渲染为
-   可点击的证据锚点。"""
+Answering rules:
+1. Base every answer on data returned by the tools; never invent datasets, fields, edges or file locations;
+   when nothing is found, say "not found" explicitly and suggest a next step.
+2. If the user asks in Chinese, answer in Chinese; when lineage is involved, state the direction, hops and confidence;
+   when source traceability is involved, give the file name and locator (sheet/column/JSONPath).
+3. You have no permission to modify business data directly: lineage candidates must be confirmed by the user and
+   description drafts must be accepted by the user; do not claim to have modified any official data.
+4. When the user asks to "highlight/mark/point out" results, or the answer revolves around the upstream/downstream
+   of some fields, call mark_highlight before giving the final answer, passing the fields this answer focuses on
+   (at most 8); those fields are highlighted as a red trace chain on the canvas.
+5. Write fields in answers as `dataset.field` where possible (e.g. d0.amount); the frontend renders them as
+   clickable evidence anchors."""
 
 
 def _system_prompt(focus: dict | None) -> str:
@@ -60,23 +62,23 @@ def _system_prompt(focus: dict | None) -> str:
         dataset = str(focus.get("dataset") or "").strip()
         field = str(focus.get("field") or "").strip()
         if dataset:
-            scope = f"数据集「{dataset}」"
+            scope = f'Dataset "{dataset}"'
             if field:
-                scope += f"的字段「{field}」"
-            lines.append(f"当前用户聚焦于{scope}，请优先围绕该范围回答。")
+                scope += f' field "{field}"'
+            lines.append(f"The current user is focused on {scope}; prefer answering within that scope.")
     return "\n\n".join(lines)
 
 
 def _response_message(response: dict) -> dict:
     if not isinstance(response, dict):
-        raise llm.LLMError("LLM 响应不是 JSON 对象")
+        raise llm.LLMError("LLM response is not a JSON object")
     choices = response.get("choices")
     if not isinstance(choices, list) or not choices:
-        raise llm.LLMError("LLM 响应缺少 choices")
+        raise llm.LLMError("LLM response is missing choices")
     first = choices[0]
     message = first.get("message") if isinstance(first, dict) else None
     if not isinstance(message, dict):
-        raise llm.LLMError("LLM 响应缺少 message")
+        raise llm.LLMError("LLM response is missing message")
     return message
 
 
@@ -86,7 +88,7 @@ def _tool_calls(message: dict) -> list:
 
 
 def _content_text(content) -> str:
-    """兼容 content 为字符串或 [{type:text,text:...}] 的供应商差异。"""
+    """Tolerate provider differences where content is a string or [{type:text,text:...}]."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -109,11 +111,11 @@ def _parse_arguments(raw) -> dict:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
-            raise ValueError("工具参数不是合法 JSON") from None
+            raise ValueError("Tool arguments are not valid JSON") from None
         if not isinstance(parsed, dict):
-            raise ValueError("工具参数必须是 JSON 对象")
+            raise ValueError("Tool arguments must be a JSON object")
         return parsed
-    raise ValueError("工具参数必须是 JSON 对象")
+    raise ValueError("Tool arguments must be a JSON object")
 
 
 def _is_graph_payload(value) -> bool:
@@ -124,7 +126,7 @@ def _is_graph_payload(value) -> bool:
 
 def _drive(messages: list[dict], focus: dict | None, actor: str,
            complete_fn: Callable, on_event: Callable[[dict], None] | None) -> dict:
-    """function calling 主循环；``complete_fn`` 可替换为流式实现。"""
+    """Function calling main loop; ``complete_fn`` can be replaced by a streaming implementation."""
     conversation: list[dict] = [
         {"role": "system", "content": _system_prompt(focus)},
     ]
@@ -145,7 +147,7 @@ def _drive(messages: list[dict], focus: dict | None, actor: str,
             on_event(event)
 
     while True:
-        # 第 6 次请求（rounds == 5）不再提供工具，强制模型给出最终回答
+        # The 6th request (rounds == 5) no longer provides tools, forcing the model to give the final answer
         tools = TOOL_SCHEMAS if rounds < MAX_TOOL_ROUNDS else None
         response = complete_fn(conversation, tools)
         message = _response_message(response)
@@ -182,7 +184,7 @@ def _drive(messages: list[dict], focus: dict | None, actor: str,
                     with get_db() as conn:
                         result = run_tool(conn, name, args, actor=actor)
                     ok = True
-                except Exception as exc:  # 工具错误回传给模型，不中断整轮对话
+                except Exception as exc:  # Tool errors are returned to the model without aborting the whole conversation
                     result = {"error": str(exc) or exc.__class__.__name__}
                     ok = False
             else:
@@ -239,11 +241,12 @@ def _drive(messages: list[dict], focus: dict | None, actor: str,
 
 def run_chat(messages: list[dict], focus: dict | None = None,
              actor: str = "system") -> dict:
-    """执行一轮 AI 对话（非流式），返回编排 payload。
+    """Run one AI chat turn (non-streaming) and return the orchestration payload.
 
-    ``messages`` 已由路由层校验为 ``[{role, content}]``（role 仅 user/assistant）。
-    未配置 LLM 抛 :class:`llm.LLMNotConfigured`；上游 HTTP/结构错误抛
-    :class:`llm.LLMError`。
+    ``messages`` has already been validated by the route layer as ``[{role, content}]``
+    (role is user/assistant only). Missing LLM configuration raises
+    :class:`llm.LLMNotConfigured`; upstream HTTP/structure errors raise
+    :class:`llm.LLMError`.
     """
     if not llm.is_configured(get_settings()):
         raise llm.LLMNotConfigured(llm.NOT_CONFIGURED_MESSAGE)
@@ -252,9 +255,9 @@ def run_chat(messages: list[dict], focus: dict | None = None,
 
 def stream_run_chat(messages: list[dict], focus: dict | None, actor: str,
                     on_event: Callable[[dict], None]) -> dict:
-    """流式编排：最终回答经 ``llm.stream_complete`` 逐 token 回调，其余同构。
+    """Streaming orchestration: the final answer calls back token by token via ``llm.stream_complete``; the rest is identical.
 
-    返回完整 payload（含 answer/graph/highlights/suggestions/drafts）。
+    Returns the complete payload (including answer/graph/highlights/suggestions/drafts).
     """
     if not llm.is_configured(get_settings()):
         raise llm.LLMNotConfigured(llm.NOT_CONFIGURED_MESSAGE)

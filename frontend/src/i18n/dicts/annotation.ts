@@ -1,4 +1,4 @@
-/** annotation.* 字典：标注区。 */
+/** annotation.* dictionary: annotations section. */
 export const zhAnnotation = {
   'annotation.title': '标注（{count}）',
   'annotation.appendOnly': '追加式',

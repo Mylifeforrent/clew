@@ -1,8 +1,9 @@
-"""版本业务标签 API（M3）：创建、列表、标签间 diff、回滚到标签。
+"""Version business tag API (M3): create, list, diff between tags, rollback to a tag.
 
-- 创建（editor+）：锚定当前 change_log 末尾，重名 409；
-- diff（viewer+）：两个标签 change_seq 区间内的净变更；
-- 回滚（admin）：反做标签之后全部 change_log（含人工编辑），审计写 rollback_record。
+- create (editor+): anchor at the current end of change_log; duplicate name 409;
+- diff (viewer+): net changes within the change_seq range between two tags;
+- rollback (admin): reverse all change_log entries after the tag (including
+  manual edits); the audit is written to rollback_record.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,10 +18,10 @@ router = APIRouter(tags=["version-tags"])
 @router.post("/version-tags", status_code=201)
 def create_tag(body: VersionTagCreate,
                user: dict = Depends(require_role("editor"))):
-    """创建业务标签；change_seq = 当前 change_log 最大 id。"""
+    """Create a business tag; change_seq = current maximum change_log id."""
     name = body.name.strip()
     if not name:
-        raise HTTPException(400, "标签名不能为空")
+        raise HTTPException(400, "Tag name cannot be empty")
     note = body.note.strip() if body.note is not None else None
     try:
         row = versioning.create_tag(name, note, user["username"])
@@ -37,11 +38,11 @@ def list_tags(user: dict = Depends(require_role("viewer"))):
 
 @router.get("/version-tags/diff")
 def diff_tags(
-    from_name: str = Query(..., alias="from", description="起始标签名"),
-    to_name: str = Query(..., alias="to", description="结束标签名"),
+    from_name: str = Query(..., alias="from", description="Start tag name"),
+    to_name: str = Query(..., alias="to", description="End tag name"),
     user: dict = Depends(require_role("viewer")),
 ):
-    """两个标签之间的净变更（added/updated/deleted）。"""
+    """Net changes between two tags (added/updated/deleted)."""
     try:
         return versioning.tag_diff(from_name, to_name)
     except LookupError as e:
@@ -53,7 +54,7 @@ def diff_tags(
 @router.post("/version-tags/{name}/rollback")
 def rollback_to_tag(name: str,
                     admin: dict = Depends(require_role("admin"))):
-    """回滚到标签：反做 change_seq 之后的全部变更（幂等，重复回滚安全）。"""
+    """Roll back to a tag: reverse all changes after change_seq (idempotent; repeated rollbacks are safe)."""
     try:
         reverted = versioning.rollback_to_tag(name, admin["username"])
     except LookupError as e:

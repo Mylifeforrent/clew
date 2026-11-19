@@ -40,7 +40,7 @@ interface DetailPanelProps {
   onNotify: (message: string, tone?: ToastTone) => void;
 }
 
-/** 空状态提示条目：中文标签走字典，技术示例值保留字面量。 */
+/** Empty-state hint item: the label is localized, technical example values stay literal. */
 function detailHints(t: TranslateFn): Array<[string, string, IconName]> {
   return [
     [t('detail.hintLocatorTitle'), t('detail.hintLocatorDetail'), 'code'],
@@ -164,8 +164,8 @@ function draftFromField(field: DatasetField): LocatorDraft {
   const headerPath = Array.isArray(input.header_path)
     ? input.header_path.map((item) => String(item)).join(' → ')
     : '';
-  // CSV 的 header / column 与 XLSX 的 header_path / column 都是二选一语义：
-  // 初始值只回填实际生效的那一种，避免「改了列号却被表头优先命中」。
+  // CSV header / column and XLSX header_path / column are both either-or:
+  // initial values only prefill the one actually in effect, avoiding "changed the column but the header still wins".
   const csvUsesHeader = type === 'csv' && input.header !== null &&
     input.header !== undefined;
   const xlsxUsesPath = type === 'xlsx' && headerPath.length > 0;
@@ -673,7 +673,7 @@ export function DetailPanel({
     ) ?? [];
   const locatorText = humanizeLocator(field.src_locator, t);
   const rawLocator = JSON.stringify(field.src_locator, null, 2);
-  // 字段本身由源文件导入；若有上游字段级边，则优先展示该边的 source。
+  // The field itself comes from the source file import; if it has an upstream field-level edge, prefer that edge's source.
   const fieldSource = incomingEdges[0]?.source ?? 'imported';
   const entityKey = fieldEntityKey(dataset.id, field.name);
 
@@ -719,7 +719,7 @@ export function DetailPanel({
           t('detail.notifySuggestCreated', { count: candidates.length }),
           'success',
         );
-        // 新候选已落库，刷新子图让 ai 边立即出现在画布上
+        // New candidates are saved; refresh the subgraph so ai edges appear on the canvas immediately
         onRefresh();
       } else {
         setSuggestNote(

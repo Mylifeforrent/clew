@@ -6,9 +6,9 @@ interface BrandMarkProps {
 }
 
 /**
- * Clew 品牌图形：一团缠绕的线 + 一根引向右下角的线头。
- * 深橙底（currentColor，随上下文 text-brand-* 取色），
- * 线团用浅橙两档制造缠绕层次，线头端点即「溯源的源头」。
+ * Clew brand mark: a tangled ball of thread plus a loose end trailing to the bottom-right.
+ * Deep orange base (currentColor, following text-brand-* in context);
+ * the ball uses two light-orange tones for intertwined depth, and the loose end's tip is "the source of the trace".
  */
 export function BrandMark({ size = 34, className = '' }: BrandMarkProps) {
   return (
@@ -22,9 +22,9 @@ export function BrandMark({ size = 34, className = '' }: BrandMarkProps) {
       aria-hidden="true"
     >
       <rect width="40" height="40" rx="11" fill="currentColor" />
-      {/* 线团本体 */}
+      {/* The thread ball itself */}
       <circle cx="18.5" cy="18.5" r="9" stroke="#FB923C" strokeWidth="1.7" />
-      {/* 缠绕弧线：两浅一深，制造绕线层次 */}
+      {/* Intertwined arcs: two light and one dark, creating wrapping depth */}
       <path
         d="M10.2 16.8Q18.5 11.2 26.8 16.8"
         stroke="#FFEDD5"
@@ -43,7 +43,7 @@ export function BrandMark({ size = 34, className = '' }: BrandMarkProps) {
         strokeWidth="1.7"
         strokeLinecap="round"
       />
-      {/* 线头：从线团引出，端点即源头 */}
+      {/* Loose end: leads out of the ball; the tip is the source */}
       <path
         d="M26.2 24.6Q30.5 27.5 33 31.5"
         stroke="#FFEDD5"

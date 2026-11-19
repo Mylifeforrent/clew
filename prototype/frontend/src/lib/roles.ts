@@ -1,8 +1,9 @@
 /**
- * 前端角色可见性工具（UI 层）。
+ * Frontend role visibility helpers (UI layer).
  *
- * 注意：这里只决定「是否展示写操作入口」，真正的权限校验始终在后端。
- * viewer 隐藏全部写入口；editor 可编辑/标注/打标签；admin 额外可回滚与管用户。
+ * Note: this only decides whether write-operation entry points are shown; real
+ * permission checks always live in the backend. viewer hides all write entry points;
+ * editor can edit/annotate/tag; admin can additionally roll back and manage users.
  */
 export type Role = 'viewer' | 'editor' | 'admin' | (string & {});
 
@@ -17,12 +18,12 @@ export function isAdmin(role: string): boolean {
 export function roleLabel(role: string): string {
   switch (role) {
     case 'admin':
-      return '管理员';
+      return 'Admin';
     case 'editor':
-      return '编辑';
+      return 'Editor';
     case 'viewer':
-      return '只读';
+      return 'Read-only';
     default:
-      return role || '未知角色';
+      return role || 'Unknown role';
   }
 }

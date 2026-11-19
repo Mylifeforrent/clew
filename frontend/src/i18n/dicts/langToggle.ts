@@ -1,7 +1,7 @@
-/** langToggle.* 字典。 */
+/** langToggle.* dictionary. */
 export const zhLangToggle = {
   'langToggle.label': '切换语言',
-  // 语言名用原文名（两种 locale 下一致），选择器里自我标识
+  // Language names use their native form (identical in both locales) so the selector self-identifies
   'langToggle.zhName': '中文',
   'langToggle.enName': 'English',
 } as const;

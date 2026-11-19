@@ -4,7 +4,7 @@ import { useI18n } from '../i18n';
 
 export type ToastTone = 'success' | 'error' | 'info';
 
-/** 可选操作按钮插槽（评审 R18 预留；本期无调用方） */
+/** Optional action-button slot (reserved in review R18; unused this iteration) */
 export interface ToastAction {
   label: string;
   onClick: () => void;
@@ -30,13 +30,14 @@ const TONE_ICONS = {
 } as const;
 
 const INFO_DURATION_MS = 4200;
-/** 错误级停留 ≥8s 且带关闭按钮（评审 R18） */
+/** Errors stay for ≥8s and include a close button (review R18) */
 const ERROR_DURATION_MS = 8000;
 
 /**
- * 全局 toast（评审 R18 升级）：容器可交互（去掉 pointer-events-none），
- * 错误级 8s + 关闭按钮 + 可选操作按钮；hover 暂停自动消失（保留剩余时长）。
- * 自动消失计时在组件内自管，Workspace 只负责 showToast / dismiss。
+ * Global toast (review R18 upgrade): the container is interactive (no pointer-events-none);
+ * errors get 8s + a close button + an optional action button; hovering pauses auto-dismiss
+ * (remaining time is preserved). The auto-dismiss timer is managed inside the component;
+ * Workspace only calls showToast / dismiss.
  */
 export function Toast({
   toast,
@@ -52,7 +53,7 @@ export function Toast({
 
   useEffect(() => {
     if (!toast) return;
-    // 新消息（id 递增）重置计时；卸载/替换时清理
+    // A new message (increasing id) resets the timer; cleaned up on unmount/replacement
     const duration =
       toast.tone === 'error' ? ERROR_DURATION_MS : INFO_DURATION_MS;
     remainingRef.current = duration;
@@ -65,7 +66,7 @@ export function Toast({
     };
   }, [toast, onDismiss]);
 
-  /** hover 暂停：停表并记录剩余时长 */
+  /** Hover pause: stop the clock and record the remaining time */
   function pauseTimer() {
     if (!toast || timerRef.current === null) return;
     window.clearTimeout(timerRef.current);
@@ -77,7 +78,7 @@ export function Toast({
     );
   }
 
-  /** 离开恢复：按剩余时长续表 */
+  /** Leave resume: continue with the remaining time */
   function resumeTimer() {
     if (!toast || timerRef.current !== null) return;
     startedAtRef.current = Date.now();

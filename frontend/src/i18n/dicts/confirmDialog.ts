@@ -1,4 +1,4 @@
-/** confirmDialog.* 字典：通用二次确认弹窗。 */
+/** confirmDialog.* dictionary: generic confirmation dialog. */
 export const zhConfirmDialog = {
   'confirmDialog.busy': '处理中…',
 } as const;

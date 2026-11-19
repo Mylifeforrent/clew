@@ -1,9 +1,9 @@
 import type { LineageEdge } from '../types';
 
 /**
- * 标注 / change_log 的实体命名规则（与后端一致）：
- * - 字段：<dataset_id>.<field_name>
- * - 边：<from_dataset>.<from_field | *>--><to_dataset>.<to_field | *>
+ * Entity naming rules for annotations / change_log (consistent with the backend):
+ * - Field: <dataset_id>.<field_name>
+ * - Edge: <from_dataset>.<from_field | *>--><to_dataset>.<to_field | *>
  */
 export function fieldEntityKey(datasetId: string, fieldName: string): string {
   return `${datasetId}.${fieldName}`;

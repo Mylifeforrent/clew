@@ -1,4 +1,4 @@
-/** app.* 字典：应用壳层文案。 */
+/** app.* dictionary: application shell copy. */
 export const zhApp = {
   'app.sessionExpired': '登录已过期，请重新登录后继续。',
 } as const;

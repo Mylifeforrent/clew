@@ -1,4 +1,4 @@
-/** importWiz.* 字典：导入向导模态（ImportWizardModal）。 */
+/** importWiz.* dictionary: import wizard modal (ImportWizardModal). */
 export const zhImportWiz = {
   'importWiz.stepsAria': '导入步骤',
   'importWiz.step1Upload': '上传源文件',

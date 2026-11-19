@@ -1,16 +1,19 @@
-"""Clew MCP server（M5，演进规划 07 §4.6）。
+"""Clew MCP server (M5, evolution plan 07 §4.6).
 
-把血缘查询能力以 Model Context Protocol（stdio 传输）暴露给外部 AI 客户端
-（Claude Desktop / Cursor 等），复用与 REST API 相同的只读查询函数与同一 SQLite 库。
+Exposes lineage query capabilities to external AI clients (Claude Desktop /
+Cursor, etc.) via the Model Context Protocol (stdio transport), reusing the
+same read-only query functions as the REST API and the same SQLite database.
 
-**只读边界**：仅暴露查询类工具；suggest/mark_highlight/描述草稿等写候选或草稿的
-能力一律不暴露——外部 agent 不可触发任何写库（业务不变量#4 的延伸）。
+**Read-only boundary**: only query-type tools are exposed; capabilities that
+write candidates or drafts (suggest/mark_highlight/description drafts) are never
+exposed — external agents cannot trigger any database write (an extension of
+business invariant #4).
 
-运行::
+Run with::
 
     cd backend && uv run python -m clew.ai.mcp_server
 
-客户端接入示例见 docs/03_dev/07_AI模块演进规划.md §4.6。
+Client integration examples: see the AI module evolution plan (doc 07) §4.6.
 """
 
 from __future__ import annotations
@@ -27,7 +30,7 @@ mcp = MCPServer("clew")
 
 @mcp.tool()
 def lineage_search_fields(q: str) -> str:
-    """按关键词模糊搜索字段（匹配数据集 ID/名称、字段名、字段描述与标注）。"""
+    """Fuzzy-search fields by keyword (matches dataset ID/name, field name, field description and annotations)."""
     with get_db() as conn:
         result = search_fields(conn, {"q": q})
     return json.dumps(result, ensure_ascii=False)
@@ -35,7 +38,7 @@ def lineage_search_fields(q: str) -> str:
 
 @mcp.tool()
 def lineage_field_details(dataset: str, field: str) -> str:
-    """字段详情：类型、描述、源文件定位器、回源预览与标注历史。"""
+    """Field details: type, description, source-file locator, source preview and annotation history."""
     with get_db() as conn:
         result = get_field_details(conn, {"dataset": dataset, "field": field})
     return json.dumps(result, ensure_ascii=False, default=str)
@@ -44,7 +47,7 @@ def lineage_field_details(dataset: str, field: str) -> str:
 @mcp.tool()
 def lineage_trace(dataset: str, field: str | None = None,
                   direction: str = "both", hops: int = 3) -> str:
-    """按数据集/字段追溯上下游 N 跳血缘子图（GraphPayload：datasets/edges）。"""
+    """Trace the N-hop upstream/downstream lineage subgraph of a dataset/field (GraphPayload: datasets/edges)."""
     with get_db() as conn:
         result = trace_lineage(conn, {"dataset": dataset, "field": field,
                                       "direction": direction, "hops": hops})
@@ -53,7 +56,7 @@ def lineage_trace(dataset: str, field: str | None = None,
 
 @mcp.tool()
 def lineage_field_history(dataset: str, field: str) -> str:
-    """字段变更历史（change_log 倒序，最近 50 条）。"""
+    """Field change history (change_log descending, most recent 50 entries)."""
     with get_db() as conn:
         result = get_field_history(conn, {"dataset": dataset, "field": field})
     return json.dumps(result, ensure_ascii=False, default=str)
@@ -61,7 +64,7 @@ def lineage_field_history(dataset: str, field: str) -> str:
 
 @mcp.tool()
 def lineage_overview() -> str:
-    """数据资产概览：数据集清单（含字段数）与血缘边统计。"""
+    """Data asset overview: dataset list (with field counts) and lineage-edge statistics."""
     with get_db() as conn:
         datasets = [dict(row) for row in conn.execute(
             "SELECT d.id, COALESCE(d.name, '') AS name,"
@@ -76,4 +79,4 @@ def lineage_overview() -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()  # 默认 stdio 传输
+    mcp.run()  # stdio transport by default

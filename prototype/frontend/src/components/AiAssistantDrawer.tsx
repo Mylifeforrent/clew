@@ -26,19 +26,20 @@ import { Icon } from './Icon';
 interface AiAssistantDrawerProps {
   open: boolean;
   token: string;
-  /** 当前画布聚焦的数据集/字段，作为每轮对话的 focus 上下文 */
+  /** Dataset/field currently focused on the canvas, used as the focus context for each chat round */
   focus: AiFocus | null;
-  /** editor+ 才渲染描述草稿的采纳/拒绝按钮 */
+  /** Only editor+ sees the accept/reject buttons for description drafts */
   canEdit: boolean;
   onClose: () => void;
   /**
-   * 响应联动：graph 存在时把子图交给 Workspace 复用现有画布状态渲染；
-   * highlights（mark_highlight 声明）同时交给 Workspace 驱动画布追踪高亮。
+   * Response linking: when a graph is present, hand the subgraph to Workspace to render
+   * with the existing canvas state; highlights (mark_highlight declarations) are also
+   * handed to Workspace to drive canvas trace highlighting.
    */
   onGraph: (graph: LineageGraph | null, highlights?: AiHighlightItem[]) => void;
-  /** suggest_lineage 落库候选后由 Workspace 刷新画布（蓝色虚线候选边） */
+  /** Workspace refreshes the canvas (blue dashed candidate edges) after suggest_lineage persists candidates */
   onSuggested: (count: number) => void;
-  /** 回答内证据锚点点击：把该字段应用为画布追踪焦点 */
+  /** Clicking an evidence anchor in an answer: apply that field as the canvas trace focus */
   onFieldFocus: (dataset: string, field: string) => void;
 }
 
@@ -49,37 +50,37 @@ interface ChatEntry {
   toolTrace?: AiToolTrace[];
   graph?: LineageGraph;
   drafts?: AiDraftItem[];
-  /** SSE 流式进行中：显示打点光标与工具进行态 */
+  /** SSE streaming in progress: show the blinking cursor and in-progress tool state */
   streaming?: boolean;
   error?: boolean;
 }
 
 const TOOL_LABELS: Record<string, string> = {
-  search_fields: '搜索字段',
-  get_field_details: '字段详情',
-  trace_lineage: '追溯血缘',
-  get_field_history: '变更历史',
-  mark_highlight: '标记高亮',
-  suggest_lineage: '建议血缘',
-  analyze_impact: '影响分析',
-  draft_descriptions: '起草描述',
+  search_fields: 'Search fields',
+  get_field_details: 'Field details',
+  trace_lineage: 'Trace lineage',
+  get_field_history: 'Change history',
+  mark_highlight: 'Mark highlight',
+  suggest_lineage: 'Suggest lineage',
+  analyze_impact: 'Impact analysis',
+  draft_descriptions: 'Draft descriptions',
 };
 
 const EXAMPLE_PROMPTS = [
-  '订单表里的 order_no 是从哪来的？',
-  '这个字段的源文件定位在哪里？',
-  '最近改过哪些字段？',
+  'Where does order_no in the orders table come from?',
+  'Where is the source file locator for this field?',
+  'Which fields were changed recently?',
 ];
 
 const NOT_CONFIGURED_TEXT =
-  '未配置 LLM，请在 .env 设置 LLM_*（LLM_BASE_URL / LLM_API_KEY / LLM_MODEL）。';
+  'LLM is not configured. Set LLM_* in .env (LLM_BASE_URL / LLM_API_KEY / LLM_MODEL).';
 
 function focusLabel(focus: AiFocus | null): string {
-  if (!focus) return '未聚焦数据集';
+  if (!focus) return 'No dataset focused';
   return focus.field ? `${focus.dataset}.${focus.field}` : focus.dataset;
 }
 
-/** 常见文件扩展名不作为字段引用（避免 d0_orders.csv 被当成 数据集.字段） */
+/** Common file extensions are not treated as field references (so d0_orders.csv is not read as dataset.field) */
 const NON_FIELD_TOKENS = new Set([
   'csv', 'xlsx', 'xls', 'json', 'md', 'txt', 'png', 'svg', 'db', 'py', 'ts',
 ]);
@@ -87,15 +88,16 @@ const NON_FIELD_TOKENS = new Set([
 const FIELD_REF_PATTERN = /\b([a-zA-Z][\w-]{0,31})\.([a-zA-Z][\w-]{0,63})\b/g;
 
 /**
- * GFM markdown 渲染（演进规划 07：业界聊天 UI 统一做法——表格/代码块/列表
- * 带样式渲染，而非裸文本）。安全：react-markdown 默认不执行内联 HTML。
+ * GFM markdown rendering (evolution plan 07: the common industry chat-UI approach —
+ * tables/code blocks/lists rendered with styles rather than raw text). Security:
+ * react-markdown does not execute inline HTML by default.
  */
 function linkifyFieldRefs(markdown: string): string {
-  /** 把非代码段里的 `数据集.字段` 文本替换为锚点链接，由 a 组件接管为 chip。 */
+  /** Replace `dataset.field` text in non-code segments with anchor links, taken over by the a component as chips. */
   const segments = markdown.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/g);
   return segments
     .map((segment, index) => {
-      if (index % 2 === 1) return segment; // 代码段原样保留
+      if (index % 2 === 1) return segment; // Keep code segments as-is
       return segment.replace(
         FIELD_REF_PATTERN,
         (full, dataset: string, field: string) => {
@@ -121,7 +123,7 @@ function FieldRefChip({
   return (
     <button
       type="button"
-      title={`在画布上追踪 ${dataset}.${field}`}
+      title={`Trace ${dataset}.${field} on the canvas`}
       onClick={() => onFieldFocus(dataset, field)}
       className="mx-0.5 inline-flex items-center rounded border border-ai/25 bg-ai-soft px-1 py-px align-baseline font-mono text-[11px] leading-4 text-ai-deep transition-colors duration-150 hover:border-ai/50 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60"
     >
@@ -156,7 +158,7 @@ function AnswerText({
             );
           }
         } catch {
-          // 解码失败时按普通链接处理
+          // Treat it as a normal link when decoding fails
         }
       }
       return (
@@ -269,7 +271,7 @@ function AnswerText({
   );
 }
 
-/** 描述草稿确认卡：采纳 → 写 annotation；拒绝 → 不再重复生成。 */
+/** Description draft confirmation card: accept → write an annotation; reject → do not generate it again. */
 function DraftCard({
   item,
   token,
@@ -297,7 +299,7 @@ function DraftCard({
         });
       }
     } catch {
-      // 失败保持 pending，卡片可重试
+      // Stay pending on failure so the card can be retried
     } finally {
       setBusy(false);
     }
@@ -311,16 +313,16 @@ function DraftCard({
           {item.dataset}.{item.field}
         </span>
         <span className="shrink-0 font-mono text-[11px] text-ink-faint">
-          描述草稿
+          Description draft
         </span>
         {item.status === 'accepted' && (
           <span className="ml-auto shrink-0 rounded bg-success-soft px-1.5 py-px font-mono text-[11px] text-success-deep">
-            已采纳 · 已写入标注
+            Accepted · Written as annotation
           </span>
         )}
         {item.status === 'rejected' && (
           <span className="ml-auto shrink-0 rounded bg-subtle px-1.5 py-px font-mono text-[11px] text-ink-faint">
-            已拒绝
+            Rejected
           </span>
         )}
       </div>
@@ -333,7 +335,7 @@ function DraftCard({
             onClick={() => decide(true)}
             className="inline-flex h-7 items-center rounded-md bg-blue-600 px-2.5 text-[12px] font-medium text-white transition-colors duration-150 hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 disabled:opacity-50"
           >
-            采纳（写入标注）
+            Accept (write annotation)
           </button>
           <button
             type="button"
@@ -341,16 +343,16 @@ function DraftCard({
             onClick={() => decide(false)}
             className="inline-flex h-7 items-center rounded-md border border-line-strong bg-card px-2.5 text-[12px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 disabled:opacity-50"
           >
-            拒绝
+            Reject
           </button>
           {busy && (
-            <span className="text-[11px] text-ink-faint">处理中…</span>
+            <span className="text-[11px] text-ink-faint">Processing…</span>
           )}
         </div>
       )}
       {item.status === 'pending' && !canEdit && (
         <p className="mt-1.5 text-[11px] text-ink-faint">
-          仅 editor 及以上角色可采纳/拒绝草稿。
+          Only editor and above can accept/reject drafts.
         </p>
       )}
     </div>
@@ -358,7 +360,7 @@ function DraftCard({
 }
 
 function ToolTraceCard({ trace }: { trace: AiToolTrace[] }) {
-  // 纯 UI 折叠态：默认折叠，含失败调用的消息默认展开
+  // Pure UI collapse state: collapsed by default; messages with failed calls start expanded
   const [open, setOpen] = useState(() => trace.some((item) => !item.ok));
   if (trace.length === 0) return null;
   return (
@@ -371,21 +373,21 @@ function ToolTraceCard({ trace }: { trace: AiToolTrace[] }) {
       >
         <Icon name="code" size={12} className="shrink-0 text-ink-faint" />
         <span className="shrink-0 text-[11px] font-medium text-ink-muted">
-          工具调用 · {trace.length} 次
+          Tool calls · {trace.length}
         </span>
         <span className="flex min-w-0 flex-1 flex-wrap gap-1">
           {trace.map((item, index) => (
             <span
               key={`${item.tool}-${index}`}
               className="inline-flex max-w-full items-center gap-1 rounded border border-line bg-card px-1.5 py-px font-mono text-[11px] text-ink-muted"
-              title={`${TOOL_LABELS[item.tool] ?? '工具调用'} ${JSON.stringify(item.args)}`}
+              title={`${TOOL_LABELS[item.tool] ?? 'Tool call'} ${JSON.stringify(item.args)}`}
             >
-              <span className="shrink-0">{TOOL_LABELS[item.tool] ?? '工具调用'}</span>
+              <span className="shrink-0">{TOOL_LABELS[item.tool] ?? 'Tool call'}</span>
               <span
                 className={`shrink-0 font-semibold ${
                   item.ok ? 'text-success' : 'text-danger'
                 }`}
-                aria-label={item.ok ? '调用成功' : '调用失败'}
+                aria-label={item.ok ? 'Call succeeded' : 'Call failed'}
               >
                 {item.ok ? '✓' : '✗'}
               </span>
@@ -419,7 +421,7 @@ function ToolTraceCard({ trace }: { trace: AiToolTrace[] }) {
                       item.ok ? 'text-ink-soft' : 'text-danger-deep'
                     }`}
                   >
-                    {TOOL_LABELS[item.tool] ?? '工具调用'}
+                    {TOOL_LABELS[item.tool] ?? 'Tool call'}
                   </span>
                   <span className="rounded bg-subtle px-1.5 py-px font-mono text-[11px] text-ink-muted">
                     {item.tool}
@@ -474,12 +476,12 @@ export function AiAssistantDrawer({
       })
       .catch((reason: unknown) => {
         if (controller.signal.aborted || isAbortError(reason)) return;
-        // 状态接口失败时保守地视为不可用，输入区展示重试入口而不崩溃。
+        // Treat a status endpoint failure conservatively as unavailable; show a retry entry in the input area instead of crashing.
         setStatus(null);
         setStatusError(
           reason instanceof ApiError
             ? reason.message
-            : '无法读取 AI 状态，请稍后重试。',
+            : 'Unable to read the AI status. Please try again later.',
         );
       })
       .finally(() => {
@@ -545,7 +547,7 @@ export function AiAssistantDrawer({
     setInput('');
     setSending(true);
 
-    // 只回传有内容的 user/assistant 文本；system 提示由后端固定。
+    // Send back only user/assistant text with content; system prompts are fixed by the backend.
     const history: AiChatMessage[] = [
       ...entries,
       userEntry,
@@ -609,8 +611,8 @@ export function AiAssistantDrawer({
                     : entry.drafts,
                 streaming: false,
               }));
-              // 每轮回答都通知 Workspace：无 graph 则只更新高亮焦点
-              //（未声明 highlights 时为显式清除上一轮追踪态）
+              // Notify Workspace on every answer round: without a graph only the highlight focus
+              // is updated (no declared highlights means explicitly clearing the previous trace state)
               onGraph(event.graph ?? null, event.highlights);
               break;
             case 'error':
@@ -618,7 +620,7 @@ export function AiAssistantDrawer({
                 ...entry,
                 streaming: false,
                 error: true,
-                content: `AI 服务返回 ${event.status}：${event.detail}`,
+                content: `AI service returned ${event.status}: ${event.detail}`,
               }));
               break;
           }
@@ -634,7 +636,7 @@ export function AiAssistantDrawer({
         updateEntry(assistantId, (entry) => ({
           ...entry,
           streaming: false,
-          content: entry.content || '（已取消）',
+          content: entry.content || '(Cancelled)',
         }));
       } else {
         updateEntry(assistantId, (entry) => ({
@@ -644,7 +646,7 @@ export function AiAssistantDrawer({
           content:
             reason instanceof ApiError
               ? reason.message
-              : '无法连接 AI 服务，请稍后重试',
+              : 'Cannot reach the AI service. Please try again later.',
         }));
       }
     } finally {
@@ -678,12 +680,12 @@ export function AiAssistantDrawer({
               id="ai-drawer-title"
               className="min-w-0 text-[14px] font-semibold text-ink"
             >
-              AI 助手
+              AI assistant
             </h2>
             {statusLoading ? (
               <span
                 className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-ai/25 border-t-ai"
-                aria-label="正在读取 AI 状态"
+                aria-label="Loading AI status"
               />
             ) : configured && status?.model ? (
               <span
@@ -694,7 +696,7 @@ export function AiAssistantDrawer({
               </span>
             ) : (
               <span className="shrink-0 rounded-full border border-line bg-subtle px-2 py-px font-mono text-[11px] text-ink-muted">
-                {statusError ? '状态未知' : '未配置'}
+                {statusError ? 'Unknown status' : 'Not configured'}
               </span>
             )}
           </div>
@@ -703,8 +705,8 @@ export function AiAssistantDrawer({
               type="button"
               onClick={() => setStatusReloadKey((value) => value + 1)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors duration-150 hover:bg-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-              aria-label="重新检查 LLM 配置"
-              title="重新检查配置"
+              aria-label="Recheck LLM configuration"
+              title="Recheck configuration"
             >
               <Icon name="refresh" size={14} />
             </button>
@@ -712,7 +714,7 @@ export function AiAssistantDrawer({
               type="button"
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors duration-150 hover:bg-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-              aria-label="关闭 AI 助手"
+              aria-label="Close the AI assistant"
             >
               <Icon name="close" size={16} />
             </button>
@@ -721,7 +723,7 @@ export function AiAssistantDrawer({
 
         <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-line-soft bg-page px-4">
           <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
-            当前聚焦
+            Current focus
           </span>
           <span
             className={`min-w-0 truncate font-mono text-[12px] ${
@@ -733,7 +735,7 @@ export function AiAssistantDrawer({
           </span>
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-line bg-card px-1.5 py-px font-mono text-[11px] text-ink-muted">
             <Icon name="lock" size={10} />
-            只读工具
+            Read-only tools
           </span>
         </div>
 
@@ -754,14 +756,14 @@ export function AiAssistantDrawer({
               />
               <div className="min-w-0">
                 <div className="font-medium">
-                  {statusError ? '无法读取 AI 状态' : 'AI 助手暂不可用'}
+                  {statusError ? 'Unable to read AI status' : 'AI assistant unavailable'}
                 </div>
                 <p className="mt-0.5 break-words">
                   {statusError ?? NOT_CONFIGURED_TEXT}
                 </p>
                 {!statusError && (
                   <p className="mt-0.5 break-words">
-                    配置后点右上角刷新重新检测。
+                    After configuring, click refresh in the top-right corner to re-check.
                   </p>
                 )}
                 {statusError && (
@@ -771,7 +773,7 @@ export function AiAssistantDrawer({
                     className="mt-1.5 inline-flex h-7 items-center gap-1 rounded-md border border-danger/25 bg-card px-2 font-mono text-[11px] text-danger-deep transition-colors duration-150 hover:border-danger/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
                   >
                     <Icon name="refresh" size={11} />
-                    重试
+                    Retry
                   </button>
                 )}
               </div>
@@ -784,7 +786,7 @@ export function AiAssistantDrawer({
           className="min-h-0 flex-1 overflow-y-auto bg-page px-4 py-4 pb-6"
           role="log"
           aria-live="polite"
-          aria-label="AI 对话消息"
+          aria-label="AI chat messages"
         >
           {entries.length === 0 && !sending ? (
             <div className="flex min-h-full flex-col items-center justify-center px-3 py-8 text-center">
@@ -792,11 +794,12 @@ export function AiAssistantDrawer({
                 <Icon name="sparkles" size={24} />
               </div>
               <h3 className="mt-4 text-xl font-medium text-ink">
-                用自然语言查血缘
+                Query lineage in natural language
               </h3>
               <p className="mt-2 max-w-[300px] text-[13px] leading-6 text-ink-muted">
-                AI 会调用工具查询字段、上下游子图与变更历史；回答里的字段引用
-                可点击回画布追踪，还能补血缘建议、起草字段描述（确认后才生效）。
+                The AI calls tools to query fields, upstream/downstream subgraphs and change history.
+                Field references in answers can be clicked to trace on the canvas; it can also suggest
+                lineage edges and draft field descriptions (effective only after confirmation).
               </p>
               <div className="mt-5 grid w-full max-w-[300px] gap-1.5">
                 {EXAMPLE_PROMPTS.map((prompt) => (
@@ -821,7 +824,7 @@ export function AiAssistantDrawer({
                 entry.role === 'user' ? (
                   <div key={entry.id} className="flex flex-col items-end">
                     <div className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
-                      你
+                      You
                     </div>
                     <div className="max-w-[88%] whitespace-pre-wrap break-words rounded-xl rounded-tr-md border border-blue-100 bg-blue-50 px-3 py-2 text-[13px] leading-5 text-ink">
                       {entry.content}
@@ -831,7 +834,7 @@ export function AiAssistantDrawer({
                   <div key={entry.id}>
                     <div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-faint">
                       <Icon name="sparkles" size={10} className="text-ai" />
-                      AI 助手
+                      AI assistant
                     </div>
                     <div
                       className={`rounded-xl rounded-tl-md border px-3 py-2.5 ${
@@ -855,11 +858,11 @@ export function AiAssistantDrawer({
                             className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-ai/25 border-t-ai"
                             aria-hidden="true"
                           />
-                          正在调用工具并组织回答…
+                          Calling tools and composing the answer…
                         </p>
                       ) : (
                         <p className="text-[12px] italic leading-5 text-ink-faint">
-                          模型未返回文字回答。
+                          The model returned no text answer.
                         </p>
                       )}
                       {(entry.drafts ?? []).length > 0 && (
@@ -884,17 +887,17 @@ export function AiAssistantDrawer({
                       {entry.graph && (
                         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-success/25 bg-success-soft px-2.5 py-2 text-[12px] text-success-deep">
                           <Icon name="network" size={12} className="shrink-0" />
-                          <span className="font-medium">画布已更新</span>
+                          <span className="font-medium">Canvas updated</span>
                           <span className="font-mono text-[11px] tabular-nums">
-                            {entry.graph.datasets.length} 个数据集 ·{' '}
-                            {entry.graph.edges.length} 条连线
+                            {entry.graph.datasets.length} datasets ·{' '}
+                            {entry.graph.edges.length} links
                           </span>
                           <button
                             type="button"
                             onClick={onClose}
                             className="ml-auto rounded px-1.5 py-0.5 font-medium text-success-deep transition-colors duration-150 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
                           >
-                            关闭并查看
+                            Close and view
                           </button>
                         </div>
                       )}
@@ -912,7 +915,7 @@ export function AiAssistantDrawer({
         >
           <div className="flex items-end gap-2">
             <label htmlFor="ai-chat-input" className="sr-only">
-              向 AI 助手提问
+              Ask the AI assistant
             </label>
             <textarea
               ref={inputRef}
@@ -930,12 +933,12 @@ export function AiAssistantDrawer({
               disabled={inputDisabled}
               placeholder={
                 statusLoading
-                  ? '正在检查 LLM 配置…'
+                  ? 'Checking LLM configuration…'
                   : statusError
-                    ? '无法读取 AI 状态，请先重试'
+                    ? 'Cannot read AI status; retry first'
                     : configured
-                      ? '问点什么…（工具调用仅只读，AI 建议需人工确认）'
-                      : '配置 LLM 后即可提问'
+                      ? 'Ask something… (tool calls are read-only; AI suggestions need manual confirmation)'
+                      : 'Ask questions after configuring an LLM'
               }
               className="field-input min-h-[56px] flex-1 resize-none py-2 text-[13px] leading-5 disabled:cursor-not-allowed"
             />
@@ -949,11 +952,11 @@ export function AiAssistantDrawer({
               ) : (
                 <Icon name="send" size={14} />
               )}
-              {sending ? '发送中' : '发送'}
+              {sending ? 'Sending' : 'Send'}
             </button>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 font-mono text-[11px] text-ink-faint">
-            <span>Enter 发送 · Shift + Enter 换行 · 仅回传最近 50 条</span>
+            <span>Enter to send · Shift + Enter for a new line · only the latest 50 messages are sent</span>
             <span className="tabular-nums">
               {input.length >= 8000 ? (
                 <span className="text-danger-deep">{input.length}/8000</span>

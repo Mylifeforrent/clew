@@ -97,7 +97,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
     event.preventDefault();
     if (submitting) return;
     const name = username.trim();
-    // 分字段空值校验（评审 R18）：两者皆空报用户名（第一个字段），不啰嗦
+    // Per-field empty validation (review R18): when both are empty, report the username (first field) to keep it concise
     if (!name) {
       setError(t('login.validationUsername'));
       return;

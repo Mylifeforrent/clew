@@ -1,22 +1,25 @@
-"""LLM 接入层（M5：LangChain 化，演进规划 07 §4.2）。
+"""LLM access layer (M5: LangChain-based, evolution plan 07 §4.2).
 
-M4 期为手写 urllib 客户端；M5 起统一走 LangChain：
+In M4 this was a hand-written urllib client; from M5 it uniformly goes through LangChain:
 
-- ``get_chat_model()``：``ChatOpenAI``（OpenAI / 阿里云 DashScope 兼容模式 /
-  DeepSeek 等 OpenAI 兼容供应商，`base_url` 即可切换）；
-- ``complete()``：**保留 M4 的 OpenAI dict 签名与返回形态**（``chat.py`` 编排
-  与测试 monkeypatch 均依赖它），内部经 LangChain ``invoke`` 完成转换；
-- ``stream_complete()``：流式聚合（SSE 用），逐 token 回调 + 返回聚合后的
-  OpenAI dict 形态；
-- ``get_embeddings()``：``OpenAIEmbeddings``（EMBEDDING_* 配置齐全才返回，
-  否则 None——语义建议降级为纯启发式）。
+- ``get_chat_model()``: ``ChatOpenAI`` (OpenAI / Alibaba DashScope compatible
+  mode / DeepSeek and other OpenAI-compatible providers, switched via `base_url`);
+- ``complete()``: **keeps M4's OpenAI dict signature and return shape**
+  (``chat.py`` orchestration and tests' monkeypatching depend on it); internally
+  the conversion is done via LangChain ``invoke``;
+- ``stream_complete()``: streaming aggregation (used by SSE), with a per-token
+  callback + returning the aggregated OpenAI dict shape;
+- ``get_embeddings()``: ``OpenAIEmbeddings`` (returned only when EMBEDDING_*
+  configuration is complete, otherwise None — semantic suggestions degrade to
+  pure heuristics).
 
-供应商矩阵见 docs/03_dev/07_AI模块演进规划.md §4.1：
-DeepSeek（chat 专用）/ 阿里云 DashScope / OpenAI。
+Provider matrix: see the AI module evolution plan (doc 07) §4.1:
+DeepSeek (chat only) / Alibaba DashScope / OpenAI.
 
-测试约定：``chat.py`` 通过模块属性 ``llm.complete`` 调用，测试用
-``monkeypatch.setattr("clew.ai.llm.complete", fake)`` 完全避免真实联网；
-流式测试同理 monkeypatch ``llm.stream_complete``。
+Testing convention: ``chat.py`` calls through the module attribute
+``llm.complete``, and tests use ``monkeypatch.setattr("clew.ai.llm.complete",
+fake)`` to completely avoid real network access; streaming tests likewise
+monkeypatch ``llm.stream_complete``.
 """
 
 from __future__ import annotations
@@ -38,33 +41,34 @@ from ..config import Settings, get_settings
 REQUEST_TIMEOUT_SECONDS = 60
 
 NOT_CONFIGURED_MESSAGE = (
-    "未配置 LLM：请在仓库根 .env 中设置 LLM_BASE_URL / LLM_MODEL"
-    "（LLM_API_KEY 视供应商要求填写）"
+    "LLM not configured: set LLM_BASE_URL / LLM_MODEL in the repository-root .env"
+    " (set LLM_API_KEY if your provider requires it)"
 )
 
 _EMBEDDING_NOT_CONFIGURED_MESSAGE = (
-    "未配置 embedding：请在 .env 设置 EMBEDDING_BASE_URL / EMBEDDING_MODEL"
-    "（EMBEDDING_API_KEY 视供应商要求填写）"
+    "Embedding not configured: set EMBEDDING_BASE_URL / EMBEDDING_MODEL in .env"
+    " (set EMBEDDING_API_KEY if your provider requires it)"
 )
 
 
 class LLMNotConfigured(RuntimeError):
-    """缺少必要的 LLM 配置（路由层转 503）。"""
+    """Required LLM configuration is missing (route layer turns it into 503)."""
 
 
 class LLMError(RuntimeError):
-    """LLM 服务不可达、返回非 200 或响应结构不合法（路由层转 502）。"""
+    """LLM service unreachable, non-200 response, or invalid response structure (route layer turns it into 502)."""
 
 
 def is_configured(settings: Settings | None = None) -> bool:
-    """base_url 与 model 均非空即视为已配置；API Key 对本地服务可省略。"""
+    """Configured when both base_url and model are non-empty; the API key may be omitted for local services."""
     s = settings or get_settings()
     return bool(s.llm_base_url.strip() and s.llm_model.strip())
 
 
 def endpoint_url(base_url: str) -> str:
-    """兼容保留：把 base_url 归一化为 chat/completions 端点（LangChain 不需要，
-    供日志与外部脚本定位端点使用）。"""
+    """Compatibility helper: normalize base_url into a chat/completions endpoint
+    (LangChain does not need this; used for logging and external scripts to
+    locate the endpoint)."""
     base = base_url.strip().rstrip("/")
     if base.endswith("/chat/completions"):
         return base
@@ -77,7 +81,7 @@ def _require_configured(settings: Settings) -> None:
 
 
 def get_chat_model(settings: Settings | None = None) -> ChatOpenAI:
-    """按配置构造 ChatOpenAI（每次调用新建，模型实例非线程安全不缓存）。"""
+    """Build a ChatOpenAI from configuration (created per call; model instances are not thread-safe and are not cached)."""
     s = settings or get_settings()
     _require_configured(s)
     return ChatOpenAI(
@@ -91,7 +95,7 @@ def get_chat_model(settings: Settings | None = None) -> ChatOpenAI:
 
 
 def get_embeddings(settings: Settings | None = None) -> OpenAIEmbeddings | None:
-    """embedding 未配置时返回 None（语义建议降级为纯启发式）。"""
+    """Return None when embeddings are not configured (semantic suggestions degrade to pure heuristics)."""
     s = settings or get_settings()
     if not (s.embedding_base_url.strip() and s.embedding_model.strip()):
         return None
@@ -99,8 +103,9 @@ def get_embeddings(settings: Settings | None = None) -> OpenAIEmbeddings | None:
         model=s.embedding_model.strip(),
         api_key=s.embedding_api_key.strip() or None,
         base_url=s.embedding_base_url.strip(),
-        # 非 OpenAI 供应商（如 DashScope）不支持其本地分词器的
-        # 上下文长度预检，关闭后按整段直发
+        # Non-OpenAI providers (e.g. DashScope) do not support its local
+        # tokenizer's context-length pre-check; disable it and send the full
+        # segment directly
         check_embedding_ctx_length=False,
         chunk_size=16,
         max_retries=1,
@@ -108,7 +113,7 @@ def get_embeddings(settings: Settings | None = None) -> OpenAIEmbeddings | None:
     )
 
 
-# ---------- 消息与工具格式转换（OpenAI dict ↔ LangChain） ----------
+# ---------- Message and tool format conversion (OpenAI dict ↔ LangChain) ----------
 
 
 def _to_lc_messages(messages: list[dict]) -> list:
@@ -143,10 +148,10 @@ def _to_lc_messages(messages: list[dict]) -> list:
 
 
 def _to_openai_message(message: AIMessage) -> dict:
-    """把 LangChain AIMessage 转回 chat.py 期望的 OpenAI message dict。"""
+    """Convert a LangChain AIMessage back into the OpenAI message dict chat.py expects."""
     content = message.content
     if not isinstance(content, str):
-        # 兼容分段数组形态，拼接为纯文本
+        # Support the segmented-array shape by concatenating into plain text
         content = "".join(
             part if isinstance(part, str)
             else (part.get("text") or "") if isinstance(part, dict) else str(part)
@@ -173,15 +178,16 @@ def _openai_response(message: AIMessage) -> dict:
 def _bind_tools(model: ChatOpenAI, tools: list[dict] | None):
     if not tools:
         return model
-    # bind_tools 直接接受 OpenAI function calling JSON Schema
+    # bind_tools directly accepts OpenAI function-calling JSON Schema
     return model.bind_tools(tools)
 
 
 def complete(messages: list[dict], tools: list[dict] | None = None) -> dict:
-    """非流式调用：保留 M4 的 OpenAI dict 签名（chat.py 编排与测试依赖）。
+    """Non-streaming call: keeps M4's OpenAI dict signature (chat.py orchestration and tests depend on it).
 
-    ``tools`` 为空（None 或空列表）时不发送 tools/tool_choice，用于收口回答。
-    配置缺失抛 :class:`LLMNotConfigured`；供应商错误抛 :class:`LLMError`。
+    When ``tools`` is empty (None or an empty list), tools/tool_choice are not
+    sent, used to force a final answer. Missing configuration raises
+    :class:`LLMNotConfigured`; provider errors raise :class:`LLMError`.
     """
     settings = get_settings()
     _require_configured(settings)
@@ -190,10 +196,10 @@ def complete(messages: list[dict], tools: list[dict] | None = None) -> dict:
         result = model.invoke(_to_lc_messages(messages))
     except LLMNotConfigured:
         raise
-    except Exception as exc:  # LangChain 统一抛 Exception 子类，收敛为 LLMError
-        raise LLMError(f"LLM 调用失败：{exc}") from None
+    except Exception as exc:  # LangChain uniformly raises Exception subclasses; converge to LLMError
+        raise LLMError(f"LLM call failed: {exc}") from None
     if not isinstance(result, AIMessage):
-        raise LLMError("LLM 返回的消息类型异常")
+        raise LLMError("LLM returned an unexpected message type")
     return _openai_response(result)
 
 
@@ -202,10 +208,10 @@ def stream_complete(
     tools: list[dict] | None,
     on_delta: Callable[[str], None] | None = None,
 ) -> dict:
-    """流式调用：逐 token 回调内容增量，返回与 :func:`complete` 同形态的 dict。
+    """Streaming call: invoke ``on_delta`` per content token and return a dict shaped like :func:`complete`.
 
-    含 ``tool_call_chunks`` 的 chunk 属于工具调用轮，不外发文本；
-    仅最终回答轮的 content 会触发 ``on_delta``。
+    Chunks containing ``tool_call_chunks`` belong to a tool-call round and emit
+    no text; only the final answer round's content triggers ``on_delta``.
     """
     settings = get_settings()
     _require_configured(settings)
@@ -222,18 +228,18 @@ def stream_complete(
     except LLMNotConfigured:
         raise
     except Exception as exc:
-        raise LLMError(f"LLM 流式调用失败：{exc}") from None
+        raise LLMError(f"LLM streaming call failed: {exc}") from None
     if aggregated is None or not isinstance(aggregated, AIMessage):
-        raise LLMError("LLM 流式响应为空")
+        raise LLMError("LLM streaming response is empty")
     return _openai_response(aggregated)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    """批量向量化；embedding 未配置抛 :class:`LLMNotConfigured`。"""
+    """Batch-vectorize texts; raises :class:`LLMNotConfigured` when embeddings are not configured."""
     model = get_embeddings()
     if model is None:
         raise LLMNotConfigured(_EMBEDDING_NOT_CONFIGURED_MESSAGE)
     try:
         return model.embed_documents(texts)
     except Exception as exc:
-        raise LLMError(f"embedding 调用失败：{exc}") from None
+        raise LLMError(f"embedding call failed: {exc}") from None

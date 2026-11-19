@@ -1,8 +1,10 @@
 /**
- * 前端角色可见性工具（UI 层）。
+ * Frontend role visibility helpers (UI layer).
  *
- * 注意：这里只决定「是否展示写操作入口」，真正的权限校验始终在后端。
- * viewer 隐藏全部写入口；editor 可编辑/标注/打标签；admin 额外可回滚与管用户。
+ * Note: this only decides whether write-action entry points are shown; the real
+ * permission check always lives in the backend.
+ * viewer hides all write entry points; editor can edit / annotate / tag; admin can
+ * additionally roll back and manage users.
  */
 import type { TranslateFn } from '../i18n';
 

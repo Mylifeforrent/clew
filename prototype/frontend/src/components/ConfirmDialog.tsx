@@ -14,13 +14,13 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-/** 通用二次确认弹窗（删除边、回滚标签等破坏性操作）。 */
+/** Generic confirmation dialog (destructive actions such as deleting an edge or rolling back a tag). */
 export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = '确认',
-  cancelLabel = '取消',
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
   danger = false,
   busy = false,
   onConfirm,
@@ -107,7 +107,7 @@ export function ConfirmDialog({
             {busy && (
               <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-white/40 border-t-white" />
             )}
-            {busy ? '处理中…' : confirmLabel}
+            {busy ? 'Processing…' : confirmLabel}
           </button>
         </div>
       </div>

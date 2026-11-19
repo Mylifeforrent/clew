@@ -58,11 +58,12 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [hops, setHops] = useState(3);
 
   const [graph, setGraph] = useState<LineageGraph | null>(null);
-  // AI 对话返回的子图：优先于按选中数据集拉取的 graph 显示；
-  // 数据集/跳数/刷新变化时清空，回到常规子图逻辑。
+  // Subgraph returned by the AI chat: shown in preference to the graph fetched for the
+  // selected dataset; cleared when the dataset/hops/refresh change, returning to the normal subgraph logic.
   const [aiGraph, setAiGraph] = useState<LineageGraph | null>(null);
-  // AI 回答声明的高亮字段（mark_highlight）：seq 区分每一轮回答，
-  // fields 为空数组表示新一轮回答未声明高亮（画布应清除追踪态）。
+  // Highlight fields declared by AI answers (mark_highlight): seq distinguishes each
+  // answer round; an empty fields array means the new answer declared no highlights
+  // (the canvas should clear the trace state).
   const [aiFieldFocus, setAiFieldFocus] = useState<{
     seq: number;
     fields: AiHighlightItem[];
@@ -78,7 +79,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [fieldsExpandedIds, setFieldsExpandedIds] = useState<Set<string>>(
     () => new Set(),
   );
-  // 画布过滤条件（设计方案 §5.1：置信度 / 编辑来源）
+  // Canvas filter conditions (design doc §5.1: confidence / edit source)
   const [minConfidence, setMinConfidence] = useState(0);
   const [hideAiEdges, setHideAiEdges] = useState(false);
   const [confirmedOnly, setConfirmedOnly] = useState(false);
@@ -90,7 +91,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [previewSelection, setPreviewSelection] =
     useState<FieldSelection | null>(null);
 
-  // M3：新增边草稿、删除确认、版本抽屉、用户管理
+  // M3: new-edge draft, delete confirmation, versions drawer, user management
   const [edgeDraft, setEdgeDraft] = useState<EdgeDraft | null>(null);
   const [pendingDeleteEdge, setPendingDeleteEdge] = useState<LineageEdge | null>(
     null,
@@ -119,7 +120,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     };
   }, []);
 
-  /** 统一应用一份 GraphPayload：常规子图与 AI 出图共用同一套画布状态清理。 */
+  /** Apply a GraphPayload uniformly: the regular subgraph and AI graphs share the same canvas state cleanup. */
   const applyGraph = useCallback((payload: LineageGraph) => {
     setGraph(payload);
     setCollapsedIds((current) => {
@@ -174,7 +175,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       .catch((reason: unknown) => {
         if (controller.signal.aborted || isAbortError(reason)) return;
         setDatasetsError(
-          errorMessage(reason, '无法读取数据集列表，请检查后端服务是否已启动'),
+          errorMessage(reason, 'Unable to load the dataset list; check whether the backend service is running'),
         );
       })
       .finally(() => {
@@ -185,7 +186,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   }, [session.access_token, datasetsReloadKey]);
 
   useEffect(() => {
-    // 数据集、跳数或刷新变化时退出 AI 出图覆盖，回到常规子图逻辑。
+    // Leave the AI graph override when the dataset, hops or refresh change, returning to the normal subgraph logic.
     setAiGraph(null);
     if (!selectedDatasetId) {
       setGraph(null);
@@ -210,7 +211,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       .catch((reason: unknown) => {
         if (controller.signal.aborted || isAbortError(reason)) return;
         setGraphError(
-          errorMessage(reason, '无法读取血缘子图，请稍后重试'),
+          errorMessage(reason, 'Unable to load the lineage subgraph. Please try again later'),
         );
       })
       .finally(() => {
@@ -220,7 +221,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     return () => controller.abort();
   }, [applyGraph, session.access_token, selectedDatasetId, hops, graphReloadKey]);
 
-  /** 画布最终展示的图：AI 返回的子图优先，直到用户改变数据集/跳数或刷新。 */
+  /** The graph the canvas finally shows: the AI subgraph wins until the user changes the dataset/hops or refreshes. */
   const displayGraph = aiGraph ?? graph;
 
   const visibleDatasets = useMemo(() => {
@@ -236,7 +237,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     );
   }, [datasets, search]);
 
-  // 过滤只影响画布/边列表，不改动后端返回的子图数据
+  // Filters only affect the canvas/edge list and never modify the subgraph data returned by the backend
   const filteredGraph = useMemo(() => {
     if (!displayGraph) return null;
     if (!minConfidence && !hideAiEdges && !confirmedOnly) return displayGraph;
@@ -252,7 +253,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       : { ...displayGraph, edges };
   }, [displayGraph, minConfidence, hideAiEdges, confirmedOnly]);
 
-  // 边详情使用未过滤的原始子图，避免画布过滤把正在查看的边藏掉
+  // Edge details use the unfiltered original subgraph so canvas filters do not hide the edge being viewed
   const selectedEdge = useMemo(
     () => displayGraph?.edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [displayGraph, selectedEdgeId],
@@ -331,7 +332,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     return null;
   }, [selectedField, selectedDatasetId]);
 
-  /** AI 回答联动：切换子图并把 mark_highlight 声明交给画布做追踪高亮。 */
+  /** AI answer linking: switch the subgraph and hand the mark_highlight declarations to the canvas for trace highlighting. */
   const handleAiGraph = useCallback(
     (payload: LineageGraph | null, highlights?: AiHighlightItem[]) => {
       aiFocusSeq.current += 1;
@@ -344,7 +345,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       applyGraph(payload);
       setGraphError(null);
       showToast(
-        `画布已更新：${payload.datasets.length} 个数据集 · ${payload.edges.length} 条连线`,
+        `Canvas updated: ${payload.datasets.length} datasets · ${payload.edges.length} links`,
         'success',
       );
     },
@@ -390,7 +391,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     setDeletingEdge(true);
     try {
       await deleteEdge(session.access_token, pendingDeleteEdge.id);
-      showToast(`已删除血缘边 #${pendingDeleteEdge.id}`, 'success');
+      showToast(`Deleted lineage edge #${pendingDeleteEdge.id}`, 'success');
       if (selectedEdgeId === pendingDeleteEdge.id) {
         setSelectedEdgeId(null);
         setEdgeStartEditing(false);
@@ -400,7 +401,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       showToast(
         reason instanceof ApiError
           ? reason.message
-          : '删除血缘边失败，请稍后重试。',
+          : 'Failed to delete the lineage edge. Please try again later.',
         'error',
       );
     } finally {
@@ -426,7 +427,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       setSelectedField(null);
       setSelectedEdgeId(edge.id);
       setEdgeStartEditing(false);
-      showToast(`已新增血缘边 #${edge.id}（人工补边）`, 'success');
+      showToast(`Added lineage edge #${edge.id} (manual edge)`, 'success');
       refreshGraph();
     },
     [refreshGraph, showToast],
@@ -437,16 +438,16 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     [showToast],
   );
 
-  /** 对话内 suggest_lineage 落库候选后：刷新画布（蓝色虚线候选边）并提示。 */
+  /** After suggest_lineage persists candidates in the chat: refresh the canvas (blue dashed candidate edges) and notify. */
   const handleAiSuggested = useCallback(
     (count: number) => {
       refreshGraph();
-      showToast(`AI 已落库 ${count} 条血缘候选边，请在画布上人工确认`, 'info');
+      showToast(`AI stored ${count} lineage candidate edges; confirm them manually on the canvas`, 'info');
     },
     [refreshGraph, showToast],
   );
 
-  /** 回答内证据锚点点击：把该字段应用为画布追踪焦点（seq 递增触发应用）。 */
+  /** Clicking an evidence anchor in an answer: apply that field as the canvas trace focus (incrementing seq triggers application). */
   const handleAiFieldFocus = useCallback((dataset: string, field: string) => {
     aiFocusSeq.current += 1;
     setAiFieldFocus({
@@ -466,7 +467,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     setGraphReloadKey((value) => value + 1);
   }, []);
 
-  /** AI 出图时若原选中数据集不在子图内，用子图内节点作为画布种子。 */
+  /** When the originally selected dataset is not in the AI graph, use a node from that graph as the canvas seed. */
   const canvasSeedId = useMemo(() => {
     if (!aiGraph) return selectedDatasetId;
     const preferred = aiFocus?.dataset;
@@ -477,7 +478,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   }, [aiFocus, aiGraph, selectedDatasetId]);
 
   const deleteDescription = pendingDeleteEdge
-    ? `${edgeEntityKey(pendingDeleteEdge)}（来源 ${pendingDeleteEdge.source}）`
+    ? `${edgeEntityKey(pendingDeleteEdge)} (source ${pendingDeleteEdge.source})`
     : '';
 
   return (
@@ -592,16 +593,16 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
 
       <ConfirmDialog
         open={Boolean(pendingDeleteEdge)}
-        title="删除血缘边"
+        title="Delete lineage edge"
         danger
         busy={deletingEdge}
-        confirmLabel="确认删除"
+        confirmLabel="Confirm delete"
         message={
           <div className="space-y-1.5">
             <p className="break-all font-mono text-[11px] text-ink-soft">
               {deleteDescription}
             </p>
-            <p>删除会写入变更日志；如需恢复，可由管理员回滚到之前的版本标签。</p>
+            <p>Deletion is written to the change log; to restore it, an administrator can roll back to an earlier version tag.</p>
           </div>
         }
         onConfirm={handleConfirmDeleteEdge}

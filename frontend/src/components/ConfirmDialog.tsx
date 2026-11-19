@@ -16,7 +16,7 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-/** 通用二次确认弹窗（删除边、回滚标签等破坏性操作）。 */
+/** Generic confirmation dialog (destructive actions such as deleting an edge or rolling back a tag). */
 export function ConfirmDialog({
   open,
   title,
@@ -44,7 +44,7 @@ export function ConfirmDialog({
       dismissable={!busy}
       overlayClassName="p-4"
       className="max-w-[400px]"
-      // alertdialog 的「徽章+标题+正文同块、无关闭钮」布局整体接管 header（视觉零变化）
+      // The alertdialog's "badge + title + body in one block, no close button" layout takes over the whole header (zero visual change)
       header={
         <div className="flex items-start gap-3 px-4 py-4">
           <span

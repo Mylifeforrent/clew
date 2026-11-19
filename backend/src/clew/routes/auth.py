@@ -1,4 +1,4 @@
-"""认证与用户管理：登录、当前用户、admin 管理用户。"""
+"""Authentication and user management: login, current user, admin user management."""
 
 from datetime import UTC, datetime
 
@@ -26,7 +26,7 @@ def login(body: LoginIn):
         row = conn.execute("SELECT * FROM user WHERE username=?",
                            (body.username,)).fetchone()
     if row is None or not verify_password(body.password, row["password_hash"]):
-        raise HTTPException(401, "用户名或密码错误")
+        raise HTTPException(401, "Incorrect username or password")
     return TokenOut(access_token=create_token(row["username"], row["role"]),
                     username=row["username"], role=row["role"])
 
@@ -41,7 +41,7 @@ def create_user(body: UserCreate, admin: dict = Depends(require_role("admin"))):
     with get_db() as conn:
         if conn.execute("SELECT 1 FROM user WHERE username=?",
                         (body.username,)).fetchone():
-            raise HTTPException(409, f"用户「{body.username}」已存在")
+            raise HTTPException(409, f"User \"{body.username}\" already exists")
         conn.execute(
             "INSERT INTO user(username, password_hash, display_name, role, created_at)"
             " VALUES (?,?,?,?,?)",

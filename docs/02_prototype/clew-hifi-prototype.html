@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clew · 高保真可点击原型（SQLite + Kùzu 双库方案）</title>
+<title>Clew · Hi-fi clickable prototype (SQLite + Kùzu dual-database design)</title>
 <style>
-  /* ===== Clew Design Tokens（docs/04_hifi/00_设计总览与DesignToken.md）===== */
+  /* ===== Clew design tokens (docs/04_hifi/00_design-overview-and-tokens.md) ===== */
   :root {
     --page: #F8FAFC; --card: #FFFFFF; --subtle: #F1F5F9;
     --ink: #0F172A; --ink-soft: #334155; --ink-muted: #475569; --ink-faint: #64748B;
@@ -41,7 +41,7 @@
   }
   [hidden] { display: none !important; }
 
-  /* ===== 通用组件 ===== */
+  /* ===== Common components ===== */
   .btn {
     appearance: none; display: inline-flex; align-items: center; gap: 5px;
     padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line);
@@ -90,7 +90,7 @@
   .muted { color: var(--ink-muted); } .faint { color: var(--ink-faint); }
   .sep { height: 1px; background: var(--line-soft); margin: 10px 0; }
 
-  /* ===== 应用框架 ===== */
+  /* ===== App shell ===== */
   #app { height: 100%; display: flex; flex-direction: column; }
   .topbar {
     display: flex; align-items: center; gap: 12px; padding: 8px 14px;
@@ -123,7 +123,7 @@
   .main { flex: 1; min-height: 0; display: flex; }
   .screen { flex: 1; min-width: 0; overflow: auto; padding: 16px; }
 
-  /* ===== 画布 ===== */
+  /* ===== Canvas ===== */
   .canvas-screen { display: flex; flex-direction: column; height: 100%; flex: 1; min-width: 0; }
   .canvas-toolbar {
     display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 8px 14px;
@@ -223,7 +223,7 @@
   .updown .hop { color: var(--ink-faint); font-size: 10.5px; }
   .sec-t { font-size: 11px; font-weight: 600; color: var(--ink-muted); margin: 12px 0 5px; display: flex; align-items: center; justify-content: space-between; }
 
-  /* ===== 弹层 ===== */
+  /* ===== Overlays ===== */
   .overlay { position: fixed; inset: 0; background: rgba(15,23,42,.42); display: flex;
     align-items: center; justify-content: center; z-index: 60; padding: 24px; }
   .modal { background: var(--card); border-radius: 14px; box-shadow: var(--shadow-pop);
@@ -233,7 +233,7 @@
   .modal-body { padding: 14px 16px; overflow: auto; }
   .modal-foot { padding: 10px 16px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
 
-  /* 预览表格 */
+  /* Preview table */
   .pv-wrap { border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 420px; }
   .pv-table { border-collapse: collapse; font-size: 11.5px; width: max-content; min-width: 100%; }
   .pv-table th, .pv-table td { border: 1px solid var(--line-soft); padding: 4px 10px; white-space: nowrap; }
@@ -245,7 +245,7 @@
   .crumb { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-muted); margin-bottom: 10px; flex-wrap: wrap; }
   .crumb b { color: var(--brand-700); }
 
-  /* ===== 导入向导 ===== */
+  /* ===== Import wizard ===== */
   .steps { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
   .step { display: flex; align-items: center; gap: 8px; color: var(--ink-faint); font-size: 12.5px; }
   .step .n { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line-strong);
@@ -266,7 +266,7 @@
   .sum-card .num { font-size: 22px; font-weight: 700; }
   .stat-ok .num { color: var(--success-deep); } .stat-merge .num { color: var(--info-deep); } .stat-bad .num { color: var(--danger-deep); }
 
-  /* ===== AI 对话 ===== */
+  /* ===== AI chat ===== */
   .chat-layout { display: flex; gap: 14px; height: 100%; }
   .chat-side { width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
   .chat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--line);
@@ -301,7 +301,7 @@
   .edge-anim { animation: dashmove 1.1s linear infinite; }
   @keyframes dashmove { to { stroke-dashoffset: -11; } }
 
-  /* ===== 表格/页面 ===== */
+  /* ===== Tables / pages ===== */
   .tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .tbl th { text-align: left; color: var(--ink-muted); font-size: 11.5px; font-weight: 600;
     padding: 7px 10px; background: var(--subtle); border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -328,7 +328,7 @@
   .toast.warn::before { content: "!"; color: #FCD34D; font-weight: 700; }
   @keyframes slidein { from { transform: translateX(20px); opacity: 0; } }
 
-  /* ===== 架构页 ===== */
+  /* ===== Architecture page ===== */
   .arch-grid { display: flex; gap: 14px; align-items: stretch; }
   .arch-box { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 12px 14px; }
   .arch-box h4 { margin: 0 0 8px; font-size: 12.5px; display: flex; align-items: center; gap: 7px; }
@@ -342,7 +342,7 @@
   .principle .pn { width: 20px; height: 20px; border-radius: 6px; color: #fff; display: inline-flex;
     align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
 
-  /* ===== 登录 ===== */
+  /* ===== Login ===== */
   .login-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background:
     linear-gradient(0deg, rgba(255,247,237,.6), rgba(255,247,237,.6)), var(--page); }
   .login-card { width: 380px; padding: 30px 30px 24px; }
@@ -358,7 +358,7 @@
   .role-pick button.active { border-color: var(--brand-600); background: var(--brand-50); color: var(--brand-800); font-weight: 600; }
   .hint-line { font-size: 11px; color: var(--ink-faint); margin-top: 12px; text-align: center; }
 
-  /* 线团 logo（缠绕线） */
+  /* Yarn-ball logo (wound thread) */
   .yarn { stroke: var(--brand-300); stroke-width: 2.2; fill: none; stroke-linecap: round; }
   .yarn2 { stroke: #fff; stroke-width: 2.2; fill: none; stroke-linecap: round; opacity: .9; }
   @media (max-width: 1100px) { .side, .detail { display: none; } }
@@ -371,159 +371,159 @@
 <script>
 "use strict";
 /* ============================================================
-   Clew 高保真可点击原型 · mock 数据（电商订单主题数仓）
-   场景：订单/用户/支付/商品 四个一手源文件 → ods → dwd → dws → ads
-   底层方案：SQLite（事实源）+ Kùzu 0.11.3（血缘图派生层）
+   Clew hi-fi clickable prototype · mock data (e-commerce order-themed warehouse)
+   Scenario: four first-hand source files (orders / users / payments / products) → ods → dwd → dws → ads
+   Underlying design: SQLite (source of truth) + Kùzu 0.11.3 (lineage graph derived layer)
    ============================================================ */
 
-const ROLE_NAME = { admin: "系统管理员", editor: "血缘维护者", viewer: "数据浏览者" };
-const SRC_LABEL = { imported: "导入", manual: "人工", ai: "AI 建议" };
+const ROLE_NAME = { admin: "System administrator", editor: "Lineage maintainer", viewer: "Data viewer" };
+const SRC_LABEL = { imported: "Imported", manual: "Manual", ai: "AI suggested" };
 
 const DATA = {
   users: [
-    { name: "陈明", username: "chenming", role: "admin",  desc: "系统管理员" },
-    { name: "李雪", username: "lixue",   role: "editor", desc: "数据血缘维护" },
-    { name: "王珂", username: "wangke",  role: "viewer", desc: "业务分析（只读）" },
+    { name: "Alex Chen",  username: "alexchen",  role: "admin",  desc: "System administrator" },
+    { name: "Lily Li",    username: "lilyli",    role: "editor", desc: "Data lineage maintenance" },
+    { name: "Kevin Wang", username: "kevinwang", role: "viewer", desc: "Business analysis (read-only)" },
   ],
   files: [
-    { id: "f1", name: "订单明细.xlsx", type: "xlsx", size: "2.4 MB", rows: 15082, sha: "3f9c…a2", uploadedBy: "李雪", at: "2026-09-08" },
-    { id: "f2", name: "用户信息.json", type: "json", size: "860 KB", rows: 53210, sha: "b41e…77", uploadedBy: "李雪", at: "2026-09-08" },
-    { id: "f3", name: "支付流水.csv",  type: "csv",  size: "5.1 MB", rows: 28903, sha: "7d20…c9", uploadedBy: "李雪", at: "2026-09-22" },
-    { id: "f4", name: "商品主数据.csv", type: "csv",  size: "120 KB", rows: 1280,  sha: "e8a3…15", uploadedBy: "李雪", at: "2026-10-11" },
+    { id: "f1", name: "order_details.xlsx", type: "xlsx", size: "2.4 MB", rows: 15082, sha: "3f9c…a2", uploadedBy: "Lily Li", at: "2026-09-08" },
+    { id: "f2", name: "user_info.json", type: "json", size: "860 KB", rows: 53210, sha: "b41e…77", uploadedBy: "Lily Li", at: "2026-09-08" },
+    { id: "f3", name: "payment_transactions.csv",  type: "csv",  size: "5.1 MB", rows: 28903, sha: "7d20…c9", uploadedBy: "Lily Li", at: "2026-09-22" },
+    { id: "f4", name: "product_master.csv", type: "csv",  size: "120 KB", rows: 1280,  sha: "e8a3…15", uploadedBy: "Lily Li", at: "2026-10-11" },
   ],
   datasets: [
-    { id: "ods_raw_order", name: "原始订单明细", layer: "ods", fields: [
-      { name: "order_no",    type: "STRING", desc: "订单号，业务主键", file: "f1", loc: { sheet: "订单明细", headerPath: ["商品信息", "订单号"], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2, anchor: { value: "商品信息", anchor: "B1", range: "B1:F1" } } },
-      { name: "order_date",  type: "DATE",   desc: "下单日期", file: "f1", loc: { sheet: "订单明细", header: "下单日期", column: "B", rowStart: 2, rowEnd: 15083 } },
-      { name: "user_id",     type: "STRING", desc: "下单用户", file: "f1", loc: { sheet: "订单明细", headerPath: ["用户信息", "用户ID"], column: "G", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
-      { name: "sku_id",      type: "STRING", desc: "商品编码", file: "f1", loc: { sheet: "订单明细", headerPath: ["商品信息", "商品编码"], column: "C", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
-      { name: "quantity",    type: "INT",    desc: "购买数量", file: "f1", loc: { sheet: "订单明细", header: "数量", column: "H", rowStart: 2, rowEnd: 15083 } },
-      { name: "unit_price",  type: "DECIMAL",desc: "成交单价（元）", file: "f1", loc: { sheet: "订单明细", header: "单价", column: "I", rowStart: 2, rowEnd: 15083 } },
+    { id: "ods_raw_order", name: "Raw order details", layer: "ods", fields: [
+      { name: "order_no",    type: "STRING", desc: "Order number, business primary key", file: "f1", loc: { sheet: "Order Details", headerPath: ["Product Info", "Order No."], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2, anchor: { value: "Product Info", anchor: "B1", range: "B1:F1" } } },
+      { name: "order_date",  type: "DATE",   desc: "Order date", file: "f1", loc: { sheet: "Order Details", header: "Order Date", column: "B", rowStart: 2, rowEnd: 15083 } },
+      { name: "user_id",     type: "STRING", desc: "Ordering user", file: "f1", loc: { sheet: "Order Details", headerPath: ["User Info", "User ID"], column: "G", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+      { name: "sku_id",      type: "STRING", desc: "SKU code", file: "f1", loc: { sheet: "Order Details", headerPath: ["Product Info", "SKU Code"], column: "C", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+      { name: "quantity",    type: "INT",    desc: "Purchase quantity", file: "f1", loc: { sheet: "Order Details", header: "Quantity", column: "H", rowStart: 2, rowEnd: 15083 } },
+      { name: "unit_price",  type: "DECIMAL",desc: "Unit price (CNY)", file: "f1", loc: { sheet: "Order Details", header: "Unit Price", column: "I", rowStart: 2, rowEnd: 15083 } },
     ]},
-    { id: "ods_raw_user", name: "原始用户信息", layer: "ods", fields: [
-      { name: "user_id",       type: "STRING", desc: "用户唯一标识", file: "f2", loc: { jsonPath: "$.data.items[*].user_id" } },
-      { name: "user_name",     type: "STRING", desc: "昵称", file: "f2", loc: { jsonPath: "$.data.items[*].name" } },
-      { name: "city",          type: "STRING", desc: "常驻城市", file: "f2", loc: { jsonPath: "$.data.items[*].address.city" } },
-      { name: "register_date", type: "DATE",   desc: "注册日期", file: "f2", loc: { jsonPath: "$.data.items[*].register_date" } },
+    { id: "ods_raw_user", name: "Raw user info", layer: "ods", fields: [
+      { name: "user_id",       type: "STRING", desc: "Unique user identifier", file: "f2", loc: { jsonPath: "$.data.items[*].user_id" } },
+      { name: "user_name",     type: "STRING", desc: "Nickname", file: "f2", loc: { jsonPath: "$.data.items[*].name" } },
+      { name: "city",          type: "STRING", desc: "City of residence", file: "f2", loc: { jsonPath: "$.data.items[*].address.city" } },
+      { name: "register_date", type: "DATE",   desc: "Registration date", file: "f2", loc: { jsonPath: "$.data.items[*].register_date" } },
     ]},
-    { id: "ods_raw_pay", name: "原始支付流水", layer: "ods", fields: [
-      { name: "pay_id",      type: "STRING",  desc: "支付单号", file: "f3", loc: { header: "pay_id", column: 1, rowStart: 2 } },
-      { name: "order_no",    type: "STRING",  desc: "关联订单号", file: "f3", loc: { header: "order_no", column: 2, rowStart: 2 } },
-      { name: "pay_amount",  type: "DECIMAL", desc: "实付金额", file: "f3", loc: { header: "pay_amount", column: 3, rowStart: 2 } },
-      { name: "pay_channel", type: "STRING",  desc: "支付渠道", file: "f3", loc: { header: "pay_channel", column: 4, rowStart: 2 } },
-      { name: "pay_time",    type: "TIMESTAMP", desc: "支付时间", file: "f3", loc: { header: "pay_time", column: 5, rowStart: 2 } },
+    { id: "ods_raw_pay", name: "Raw payment transactions", layer: "ods", fields: [
+      { name: "pay_id",      type: "STRING",  desc: "Payment number", file: "f3", loc: { header: "pay_id", column: 1, rowStart: 2 } },
+      { name: "order_no",    type: "STRING",  desc: "Related order number", file: "f3", loc: { header: "order_no", column: 2, rowStart: 2 } },
+      { name: "pay_amount",  type: "DECIMAL", desc: "Actual paid amount", file: "f3", loc: { header: "pay_amount", column: 3, rowStart: 2 } },
+      { name: "pay_channel", type: "STRING",  desc: "Payment channel", file: "f3", loc: { header: "pay_channel", column: 4, rowStart: 2 } },
+      { name: "pay_time",    type: "TIMESTAMP", desc: "Payment time", file: "f3", loc: { header: "pay_time", column: 5, rowStart: 2 } },
     ]},
-    { id: "ods_raw_sku", name: "原始商品主数据", layer: "ods", fields: [
-      { name: "sku_id",    type: "STRING", desc: "商品编码", file: "f4", loc: { header: "sku_id", column: 1, rowStart: 2 } },
-      { name: "sku_name",  type: "STRING", desc: "商品名称", file: "f4", loc: { header: "sku_name", column: 2, rowStart: 2 } },
-      { name: "category",  type: "STRING", desc: "类目", file: "f4", loc: { header: "category", column: 3, rowStart: 2 } },
+    { id: "ods_raw_sku", name: "Raw product master data", layer: "ods", fields: [
+      { name: "sku_id",    type: "STRING", desc: "SKU code", file: "f4", loc: { header: "sku_id", column: 1, rowStart: 2 } },
+      { name: "sku_name",  type: "STRING", desc: "Product name", file: "f4", loc: { header: "sku_name", column: 2, rowStart: 2 } },
+      { name: "category",  type: "STRING", desc: "Category", file: "f4", loc: { header: "category", column: 3, rowStart: 2 } },
     ]},
-    { id: "dwd_order", name: "订单明细宽表", layer: "dwd", fields: [
-      { name: "order_no",     type: "STRING",  desc: "订单号（口径与订单主表一致）", file: "f1", loc: { sheet: "订单明细", headerPath: ["商品信息", "订单号"], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
-      { name: "order_amount", type: "DECIMAL", desc: "订单金额 = 数量 × 单价", file: "f1", loc: { sheet: "订单明细", header: "单价", column: "I", rowStart: 2, rowEnd: 15083 } },
-      { name: "pay_amount",   type: "DECIMAL", desc: "实付金额（ROUND 2 位）", file: "f3", loc: { header: "pay_amount", column: 3, rowStart: 2 } },
-      { name: "order_status", type: "STRING",  desc: "订单状态", file: "f1", loc: { sheet: "订单明细", header: "状态", column: "J", rowStart: 2, rowEnd: 15083 } },
-      { name: "user_id",      type: "STRING",  desc: "下单用户", file: "f1", loc: { sheet: "订单明细", headerPath: ["用户信息", "用户ID"], column: "G", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
-      { name: "city",         type: "STRING",  desc: "用户城市（JOIN 用户表取回）", file: "f2", loc: { jsonPath: "$.data.items[*].address.city" } },
+    { id: "dwd_order", name: "Order detail wide table", layer: "dwd", fields: [
+      { name: "order_no",     type: "STRING",  desc: "Order number (same definition as the order master table)", file: "f1", loc: { sheet: "Order Details", headerPath: ["Product Info", "Order No."], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+      { name: "order_amount", type: "DECIMAL", desc: "Order amount = quantity × unit price", file: "f1", loc: { sheet: "Order Details", header: "Unit Price", column: "I", rowStart: 2, rowEnd: 15083 } },
+      { name: "pay_amount",   type: "DECIMAL", desc: "Actual paid amount (ROUND 2)", file: "f3", loc: { header: "pay_amount", column: 3, rowStart: 2 } },
+      { name: "order_status", type: "STRING",  desc: "Order status", file: "f1", loc: { sheet: "Order Details", header: "Status", column: "J", rowStart: 2, rowEnd: 15083 } },
+      { name: "user_id",      type: "STRING",  desc: "Ordering user", file: "f1", loc: { sheet: "Order Details", headerPath: ["User Info", "User ID"], column: "G", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+      { name: "city",         type: "STRING",  desc: "User city (retrieved via JOIN with the user table)", file: "f2", loc: { jsonPath: "$.data.items[*].address.city" } },
     ]},
-    { id: "dwd_user", name: "用户维度表", layer: "dwd", fields: [
-      { name: "user_id",       type: "STRING", desc: "用户标识", file: "f2", loc: { jsonPath: "$.data.items[*].user_id" } },
-      { name: "user_name",     type: "STRING", desc: "昵称", file: "f2", loc: { jsonPath: "$.data.items[*].name" } },
-      { name: "register_date", type: "DATE",   desc: "注册日期", file: "f2", loc: { jsonPath: "$.data.items[*].register_date" } },
+    { id: "dwd_user", name: "User dimension table", layer: "dwd", fields: [
+      { name: "user_id",       type: "STRING", desc: "User identifier", file: "f2", loc: { jsonPath: "$.data.items[*].user_id" } },
+      { name: "user_name",     type: "STRING", desc: "Nickname", file: "f2", loc: { jsonPath: "$.data.items[*].name" } },
+      { name: "register_date", type: "DATE",   desc: "Registration date", file: "f2", loc: { jsonPath: "$.data.items[*].register_date" } },
     ]},
-    { id: "dws_order_daily", name: "订单日汇总", layer: "dws", fields: [
-      { name: "stat_date",    type: "DATE",    desc: "统计日期", file: "f1", loc: { sheet: "订单明细", header: "下单日期", column: "B", rowStart: 2, rowEnd: 15083 } },
-      { name: "order_cnt",    type: "INT",     desc: "订单数（去重）", file: "f1", loc: { sheet: "订单明细", headerPath: ["商品信息", "订单号"], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
-      { name: "gmv",          type: "DECIMAL", desc: "成交额（SUM 金额）", file: "f1", loc: { sheet: "订单明细", header: "单价", column: "I", rowStart: 2, rowEnd: 15083 } },
-      { name: "pay_user_cnt", type: "INT",     desc: "支付用户数（去重）", file: "f2", loc: { jsonPath: "$.data.items[*].user_id" } },
+    { id: "dws_order_daily", name: "Daily order summary", layer: "dws", fields: [
+      { name: "stat_date",    type: "DATE",    desc: "Statistics date", file: "f1", loc: { sheet: "Order Details", header: "Order Date", column: "B", rowStart: 2, rowEnd: 15083 } },
+      { name: "order_cnt",    type: "INT",     desc: "Order count (distinct)", file: "f1", loc: { sheet: "Order Details", headerPath: ["Product Info", "Order No."], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+      { name: "gmv",          type: "DECIMAL", desc: "GMV (SUM of amount)", file: "f1", loc: { sheet: "Order Details", header: "Unit Price", column: "I", rowStart: 2, rowEnd: 15083 } },
+      { name: "pay_user_cnt", type: "INT",     desc: "Paying users (distinct)", file: "f2", loc: { jsonPath: "$.data.items[*].user_id" } },
     ]},
-    { id: "ads_gmv_dashboard", name: "GMV 经营看板", layer: "ads", fields: [
-      { name: "gmv_daily",       type: "DECIMAL", desc: "当日 GMV 指标", file: "f1", loc: { sheet: "订单明细", header: "单价", column: "I", rowStart: 2, rowEnd: 15083 } },
-      { name: "order_cnt_daily", type: "INT",     desc: "当日订单数指标", file: "f1", loc: { sheet: "订单明细", headerPath: ["商品信息", "订单号"], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
-      { name: "pay_rate",        type: "DECIMAL", desc: "支付转化率", file: "f1", loc: { sheet: "订单明细", headerPath: ["商品信息", "订单号"], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+    { id: "ads_gmv_dashboard", name: "GMV business dashboard", layer: "ads", fields: [
+      { name: "gmv_daily",       type: "DECIMAL", desc: "Daily GMV metric", file: "f1", loc: { sheet: "Order Details", header: "Unit Price", column: "I", rowStart: 2, rowEnd: 15083 } },
+      { name: "order_cnt_daily", type: "INT",     desc: "Daily order count metric", file: "f1", loc: { sheet: "Order Details", headerPath: ["Product Info", "Order No."], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
+      { name: "pay_rate",        type: "DECIMAL", desc: "Payment conversion rate", file: "f1", loc: { sheet: "Order Details", headerPath: ["Product Info", "Order No."], column: "D", rowStart: 3, rowEnd: 15083, headerRows: 2 } },
     ]},
   ],
   edges: [
-    { id: 1,  fd: "ods_raw_order", ff: "order_no",    td: "dwd_order", tf: "order_no",     src: "imported", conf: 1.0,  transform: "trim / cast，直传" },
+    { id: 1,  fd: "ods_raw_order", ff: "order_no",    td: "dwd_order", tf: "order_no",     src: "imported", conf: 1.0,  transform: "trim / cast, pass-through" },
     { id: 2,  fd: "ods_raw_order", ff: "quantity",    td: "dwd_order", tf: "order_amount", src: "imported", conf: 1.0,  transform: "quantity × unit_price" },
-    { id: 3,  fd: "ods_raw_order", ff: "unit_price",  td: "dwd_order", tf: "order_amount", src: "ai",       conf: 0.72, transform: "AI 建议参与金额计算【待确认】" },
-    { id: 4,  fd: "ods_raw_pay",   ff: "pay_amount",  td: "dwd_order", tf: "pay_amount",   src: "imported", conf: 1.0,  transform: "ROUND(x, 2) 精度对齐" },
-    { id: 5,  fd: "ods_raw_order", ff: "user_id",     td: "dwd_order", tf: "user_id",      src: "imported", conf: 1.0,  transform: "直传" },
-    { id: 6,  fd: "ods_raw_user",  ff: "city",        td: "dwd_order", tf: "city",         src: "imported", conf: 1.0,  transform: "JOIN ods_raw_user ON user_id 取回" },
-    { id: 7,  fd: "ods_raw_user",  ff: "user_id",     td: "dwd_user",  tf: "user_id",      src: "imported", conf: 1.0,  transform: "直传" },
-    { id: 8,  fd: "ods_raw_user",  ff: "user_name",   td: "dwd_user",  tf: "user_name",    src: "imported", conf: 1.0,  transform: "直传" },
-    { id: 9,  fd: "ods_raw_user",  ff: "register_date", td: "dwd_user", tf: "register_date", src: "ai",    conf: 0.68, transform: "同名同源字段匹配【待确认】" },
+    { id: 3,  fd: "ods_raw_order", ff: "unit_price",  td: "dwd_order", tf: "order_amount", src: "ai",       conf: 0.72, transform: "AI suggestion involved in amount calculation [pending confirmation]" },
+    { id: 4,  fd: "ods_raw_pay",   ff: "pay_amount",  td: "dwd_order", tf: "pay_amount",   src: "imported", conf: 1.0,  transform: "ROUND(x, 2) precision alignment" },
+    { id: 5,  fd: "ods_raw_order", ff: "user_id",     td: "dwd_order", tf: "user_id",      src: "imported", conf: 1.0,  transform: "pass-through" },
+    { id: 6,  fd: "ods_raw_user",  ff: "city",        td: "dwd_order", tf: "city",         src: "imported", conf: 1.0,  transform: "JOIN ods_raw_user ON user_id to retrieve" },
+    { id: 7,  fd: "ods_raw_user",  ff: "user_id",     td: "dwd_user",  tf: "user_id",      src: "imported", conf: 1.0,  transform: "pass-through" },
+    { id: 8,  fd: "ods_raw_user",  ff: "user_name",   td: "dwd_user",  tf: "user_name",    src: "imported", conf: 1.0,  transform: "pass-through" },
+    { id: 9,  fd: "ods_raw_user",  ff: "register_date", td: "dwd_user", tf: "register_date", src: "ai",    conf: 0.68, transform: "same-name, same-source field match [pending confirmation]" },
     { id: 10, fd: "dwd_order",     ff: "order_no",    td: "dws_order_daily", tf: "order_cnt", src: "imported", conf: 1.0, transform: "COUNT(DISTINCT order_no)" },
     { id: 11, fd: "dwd_order",     ff: "order_amount", td: "dws_order_daily", tf: "gmv",   src: "imported", conf: 1.0, transform: "SUM(order_amount)" },
     { id: 12, fd: "dwd_order",     ff: "pay_amount",  td: "dws_order_daily", tf: "gmv",   src: "imported", conf: 1.0, transform: "SUM(pay_amount)" },
-    { id: 13, fd: "dwd_user",      ff: "user_id",     td: "dws_order_daily", tf: "pay_user_cnt", src: "manual", conf: 0.9, transform: "COUNT(DISTINCT user_id)（人工修正口径：原误挂订单表）" },
-    { id: 14, fd: "dws_order_daily", ff: "gmv",       td: "ads_gmv_dashboard", tf: "gmv_daily", src: "imported", conf: 1.0, transform: "直传" },
-    { id: 15, fd: "dws_order_daily", ff: "order_cnt", td: "ads_gmv_dashboard", tf: "order_cnt_daily", src: "imported", conf: 1.0, transform: "直传" },
+    { id: 13, fd: "dwd_user",      ff: "user_id",     td: "dws_order_daily", tf: "pay_user_cnt", src: "manual", conf: 0.9, transform: "COUNT(DISTINCT user_id) (manual metric fix: previously attached to the order table by mistake)" },
+    { id: 14, fd: "dws_order_daily", ff: "gmv",       td: "ads_gmv_dashboard", tf: "gmv_daily", src: "imported", conf: 1.0, transform: "pass-through" },
+    { id: 15, fd: "dws_order_daily", ff: "order_cnt", td: "ads_gmv_dashboard", tf: "order_cnt_daily", src: "imported", conf: 1.0, transform: "pass-through" },
     { id: 16, fd: "dws_order_daily", ff: "pay_user_cnt", td: "ads_gmv_dashboard", tf: "pay_rate", src: "manual", conf: 1.0, transform: "pay_user_cnt / order_cnt" },
-    { id: 17, fd: "ods_raw_pay",   ff: null,          td: "dwd_order", tf: null,           src: "imported", conf: 1.0, transform: "表级：支付流水整体接入宽表" },
+    { id: 17, fd: "ods_raw_pay",   ff: null,          td: "dwd_order", tf: null,           src: "imported", conf: 1.0, transform: "Table-level: payment transactions loaded into the wide table as a whole" },
   ],
   annotations: [
-    { target: "field:dwd_order.order_no", body: "口径与订单主表 order_no 完全一致；2026-09 由 AI 建议边确认转正后维护。", author: "李雪", at: "2026-09-10 14:20" },
-    { target: "field:dwd_order.order_no", body: "注意：2026-08 之前老订单号带 'ORD-' 前缀，导入时已 trim，核对旧数据时留意。", author: "陈明", at: "2026-09-12 09:05" },
-    { target: "dataset:dwd_order", body: "本表为订单域核心宽表，每日 02:00 由手工脚本刷新（非调度）。", author: "陈明", at: "2026-09-08 10:00" },
+    { target: "field:dwd_order.order_no", body: "Definition is fully consistent with order_no in the order master table; maintained after the AI suggested edge was confirmed in 2026-09.", author: "Lily Li", at: "2026-09-10 14:20" },
+    { target: "field:dwd_order.order_no", body: "Note: legacy order numbers before 2026-08 carried an 'ORD-' prefix and were trimmed on import; keep this in mind when checking old data.", author: "Alex Chen", at: "2026-09-12 09:05" },
+    { target: "dataset:dwd_order", body: "This table is the core wide table of the order domain; refreshed daily at 02:00 by a manual script (not scheduled).", author: "Alex Chen", at: "2026-09-08 10:00" },
   ],
   batches: [
-    { v: 1, files: "订单明细.xlsx + 用户信息.json", manifest: "datasets.xlsx（双 sheet）", format: "xlsx", report: { total: 12, ok: 10, merged: 1, rejected: 1 }, by: "李雪", at: "2026-09-08 09:30" },
-    { v: 2, files: "支付流水.csv", manifest: "lineage.json", format: "json", report: { total: 8, ok: 6, merged: 0, rejected: 2 }, by: "李雪", at: "2026-09-22 16:10" },
-    { v: 3, files: "商品主数据.csv", manifest: "datasets.csv", format: "csv", report: { total: 4, ok: 3, merged: 0, rejected: 1 }, by: "李雪", at: "2026-10-11 10:04" },
+    { v: 1, files: "order_details.xlsx + user_info.json", manifest: "datasets.xlsx (two sheets)", format: "xlsx", report: { total: 12, ok: 10, merged: 1, rejected: 1 }, by: "Lily Li", at: "2026-09-08 09:30" },
+    { v: 2, files: "payment_transactions.csv", manifest: "lineage.json", format: "json", report: { total: 8, ok: 6, merged: 0, rejected: 2 }, by: "Lily Li", at: "2026-09-22 16:10" },
+    { v: 3, files: "product_master.csv", manifest: "datasets.csv", format: "csv", report: { total: 4, ok: 3, merged: 0, rejected: 1 }, by: "Lily Li", at: "2026-10-11 10:04" },
   ],
   tags: [
-    { name: "v2.0-r1", note: "商品主数据接入 + 支付转化率口径修正", seq: 178, batch: 3, by: "陈明", at: "2026-10-11 10:30" },
-    { name: "v1.1-r1", note: "接入支付流水域", seq: 121, batch: 2, by: "李雪", at: "2026-09-22 16:40" },
-    { name: "v1.0-r1", note: "首发版本：订单 + 用户域", seq: 54,  batch: 1, by: "李雪", at: "2026-09-08 10:00" },
+    { name: "v2.0-r1", note: "Product master data onboarding + payment conversion rate metric fix", seq: 178, batch: 3, by: "Alex Chen", at: "2026-10-11 10:30" },
+    { name: "v1.1-r1", note: "Payment transaction domain onboarding", seq: 121, batch: 2, by: "Lily Li", at: "2026-09-22 16:40" },
+    { name: "v1.0-r1", note: "Initial release: order + user domains", seq: 54,  batch: 1, by: "Lily Li", at: "2026-09-08 10:00" },
   ],
   diffSample: {
     from: "v1.1-r1", to: "v2.0-r1",
     summary: { added: 4, updated: 3, deleted: 1 },
     items: [
-      { op: "added",   kind: "field", key: "ods_raw_sku.sku_id",     detail: "v3 批次导入" },
-      { op: "added",   kind: "field", key: "ods_raw_sku.sku_name",   detail: "v3 批次导入" },
-      { op: "added",   kind: "edge",  key: "ods_raw_order.unit_price-->dwd_order.order_amount", detail: "AI 建议落库（conf 0.6）" },
-      { op: "added",   kind: "edge",  key: "ods_raw_pay.*-->dwd_order.*", detail: "表级接入" },
-      { op: "updated", kind: "field", key: "dwd_order.city",         detail: "定位器重解析（多级表头）" },
-      { op: "updated", kind: "edge",  key: "ods_raw_order.unit_price-->dwd_order.order_amount", detail: "AI 重估置信度 0.6 → 0.72" },
-      { op: "updated", kind: "edge",  key: "dwd_user.user_id-->dws_order_daily.pay_user_cnt", detail: "人工修正口径（manual）" },
-      { op: "deleted", kind: "edge",  key: "dwd_order.quantity-->dws_order_daily.gmv", detail: "口径修正：GMV 只取金额" },
+      { op: "added",   kind: "field", key: "ods_raw_sku.sku_id",     detail: "v3 batch import" },
+      { op: "added",   kind: "field", key: "ods_raw_sku.sku_name",   detail: "v3 batch import" },
+      { op: "added",   kind: "edge",  key: "ods_raw_order.unit_price-->dwd_order.order_amount", detail: "AI suggestion persisted (conf 0.6)" },
+      { op: "added",   kind: "edge",  key: "ods_raw_pay.*-->dwd_order.*", detail: "Table-level onboarding" },
+      { op: "updated", kind: "field", key: "dwd_order.city",         detail: "Locator re-resolved (multi-level header)" },
+      { op: "updated", kind: "edge",  key: "ods_raw_order.unit_price-->dwd_order.order_amount", detail: "AI re-estimated confidence 0.6 → 0.72" },
+      { op: "updated", kind: "edge",  key: "dwd_user.user_id-->dws_order_daily.pay_user_cnt", detail: "Manual metric correction (manual)" },
+      { op: "deleted", kind: "edge",  key: "dwd_order.quantity-->dws_order_daily.gmv", detail: "Metric fix: GMV uses amount only" },
     ],
   },
   logs: [
-    { seq: 178, batch: null, kind: "edge",   key: "ods_raw_order.unit_price-->dwd_order.order_amount", op: "updated", actor: "李雪", at: "2026-10-11 14:22", detail: "confidence 0.6 → 0.72（AI 重估）" },
-    { seq: 177, batch: null, kind: "edge",   key: "ods_raw_pay.*-->dwd_order.*", op: "added", actor: "李雪", at: "2026-10-11 10:06", detail: "表级血缘（支付流水接入）" },
-    { seq: 176, batch: 3,    kind: "field",  key: "ods_raw_sku.category", op: "added", actor: "李雪", at: "2026-10-11 10:04", detail: "v3 批次" },
-    { seq: 175, batch: 3,    kind: "field",  key: "ods_raw_sku.sku_name", op: "added", actor: "李雪", at: "2026-10-11 10:04", detail: "v3 批次" },
-    { seq: 174, batch: 3,    kind: "field",  key: "ods_raw_sku.sku_id",   op: "added", actor: "李雪", at: "2026-10-11 10:04", detail: "v3 批次" },
-    { seq: 173, batch: null, kind: "field",  key: "dwd_order.city", op: "updated", actor: "李雪", at: "2026-10-10 17:45", detail: "定位器修正：多级表头重新实文件核查" },
-    { seq: 172, batch: null, kind: "edge",   key: "ods_raw_user.register_date-->dwd_user.register_date", op: "added", actor: "AI", at: "2026-10-09 15:40", detail: "suggest_lineage 落库（conf 0.68，待确认）" },
-    { seq: 171, batch: null, kind: "edge",   key: "dwd_user.user_id-->dws_order_daily.pay_user_cnt", op: "added", actor: "李雪", at: "2026-10-09 15:12", detail: "人工修正口径（manual，conf 0.9）" },
-    { seq: 170, batch: null, kind: "edge",   key: "ods_raw_order.unit_price-->dwd_order.order_amount", op: "added", actor: "AI", at: "2026-10-09 14:02", detail: "suggest_lineage 落库（conf 0.6，待确认）" },
-    { seq: 169, batch: 2,    kind: "edge",   key: "ods_raw_pay.pay_amount-->dwd_order.pay_amount", op: "added", actor: "李雪", at: "2026-09-22 16:08", detail: "v2 批次（支付流水 5 条边）" },
+    { seq: 178, batch: null, kind: "edge",   key: "ods_raw_order.unit_price-->dwd_order.order_amount", op: "updated", actor: "Lily Li", at: "2026-10-11 14:22", detail: "confidence 0.6 → 0.72 (AI re-estimated)" },
+    { seq: 177, batch: null, kind: "edge",   key: "ods_raw_pay.*-->dwd_order.*", op: "added", actor: "Lily Li", at: "2026-10-11 10:06", detail: "Table-level lineage (payment transactions onboarding)" },
+    { seq: 176, batch: 3,    kind: "field",  key: "ods_raw_sku.category", op: "added", actor: "Lily Li", at: "2026-10-11 10:04", detail: "v3 batch" },
+    { seq: 175, batch: 3,    kind: "field",  key: "ods_raw_sku.sku_name", op: "added", actor: "Lily Li", at: "2026-10-11 10:04", detail: "v3 batch" },
+    { seq: 174, batch: 3,    kind: "field",  key: "ods_raw_sku.sku_id",   op: "added", actor: "Lily Li", at: "2026-10-11 10:04", detail: "v3 batch" },
+    { seq: 173, batch: null, kind: "field",  key: "dwd_order.city", op: "updated", actor: "Lily Li", at: "2026-10-10 17:45", detail: "Locator fix: multi-level header re-verified against source file" },
+    { seq: 172, batch: null, kind: "edge",   key: "ods_raw_user.register_date-->dwd_user.register_date", op: "added", actor: "AI", at: "2026-10-09 15:40", detail: "suggest_lineage persisted (conf 0.68, pending confirmation)" },
+    { seq: 171, batch: null, kind: "edge",   key: "dwd_user.user_id-->dws_order_daily.pay_user_cnt", op: "added", actor: "Lily Li", at: "2026-10-09 15:12", detail: "Manual metric correction (manual, conf 0.9)" },
+    { seq: 170, batch: null, kind: "edge",   key: "ods_raw_order.unit_price-->dwd_order.order_amount", op: "added", actor: "AI", at: "2026-10-09 14:02", detail: "suggest_lineage persisted (conf 0.6, pending confirmation)" },
+    { seq: 169, batch: 2,    kind: "edge",   key: "ods_raw_pay.pay_amount-->dwd_order.pay_amount", op: "added", actor: "Lily Li", at: "2026-09-22 16:08", detail: "v2 batch (5 payment transaction edges)" },
   ],
   graphState: { state: "clean", nodeCount: 42, relCount: 17, rebuiltAt: "2026-10-11 10:06:12", rebuiltBy: "auto" },
 };
 
-/* ---------------- 状态 ---------------- */
-const LAYER = { ods: "贴源", dwd: "明细", dws: "汇总", ads: "应用" };
+/* ---------------- State ---------------- */
+const LAYER = { ods: "Staging", dwd: "Detail", dws: "Summary", ads: "Application" };
 let S = {
   screen: "login",           // login | canvas | import | ai | version | arch
-  user: { name: "陈明", role: "admin" },
+  user: { name: "Alex Chen", role: "admin" },
   search: "",
   seedDs: "dwd_order",
   hops: 3,
   filters: { imported: true, manual: true, ai: true, minConf: 0 },
   collapsed: {},
   selected: null,            // {ds, f}
-  focus: null,               // {ds, f} 追踪链
+  focus: null,               // {ds, f} trace chain
   zoom: 1, panX: 40, panY: 20,
   importStep: 1, importFiles: [], importFormat: "csv", importDone: false,
   chatLog: [], chatBusy: false,
   verTab: "batch", diffSel: { from: "v1.1-r1", to: "v2.0-r1" },
   graph: { state: "clean" },
-  pendingAi: [],             // 运行时新增的 AI 建议
+  pendingAi: [],             // AI suggestions added at runtime
 };
 
 const NODE_W = 288, ROW_H = 30, HEAD_H = 42;
@@ -558,13 +558,13 @@ function fmtLoc(dsid, fname) {
   const f = fld(dsid, fname); if (!f) return "";
   const l = f.loc, file = DATA.files.find(x => x.id === f.file);
   if (l.sheet) {
-    let s = file.name + " #sheet「" + l.sheet + "」 ";
-    if (l.headerPath) s += "表头路径 " + l.headerPath.join(" ▸ ") + " → ";
-    s += "列 " + l.column + "，行 " + l.rowStart + (l.rowEnd ? "–" + l.rowEnd : " 起");
-    if (l.anchor) s += "（合并锚点 " + l.anchor.anchor + "：" + l.anchor.value + "）";
+    let s = file.name + " #sheet \"" + l.sheet + "\" ";
+    if (l.headerPath) s += "header path " + l.headerPath.join(" ▸ ") + " → ";
+    s += "column " + l.column + ", rows " + l.rowStart + (l.rowEnd ? "–" + l.rowEnd : "+");
+    if (l.anchor) s += " (merged anchor " + l.anchor.anchor + ": " + l.anchor.value + ")";
     return s;
   }
-  if (l.header != null) return file.name + " 第 " + l.column + " 列「" + l.header + "」，行 " + l.rowStart + " 起";
+  if (l.header != null) return file.name + " column " + l.column + " \"" + l.header + "\", from row " + l.rowStart;
   return file.name + " " + l.jsonPath;
 }
 function toast(msg, kind) {
@@ -574,7 +574,7 @@ function toast(msg, kind) {
   setTimeout(() => t.remove(), 3200);
 }
 
-/* ---------------- 血缘邻接（追踪链） ---------------- */
+/* ---------------- Lineage adjacency (trace chain) ---------------- */
 function visibleEdges() {
   return DATA.edges.filter(e =>
     S.filters[e.src] !== false && e.conf >= S.filters.minConf);
@@ -602,7 +602,7 @@ function chainOf(dsid, fname) {
 }
 
 /* ============================================================
-   渲染
+   Rendering
    ============================================================ */
 function render() {
   const app = document.getElementById("app");
@@ -617,27 +617,27 @@ function yarnSvg(cls) {
 }
 function shellHtml() {
   const navs = [
-    ["canvas", "血缘画布", true], ["import", "导入", canWrite()],
-    ["ai", "AI 对话", true], ["version", "版本与用户", true], ["arch", "架构", true],
+    ["canvas", "Lineage canvas", true], ["import", "Import", canWrite()],
+    ["ai", "AI chat", true], ["version", "Versions & users", true], ["arch", "Architecture", true],
   ];
   const gs = S.graph.state;
   const gBadge = gs === "clean"
-    ? '<span class="badge badge-ok graph-badge" onclick="go(\'arch\')" title="Kùzu 血缘图与 SQLite 一致">图 clean · Kùzu</span>'
+    ? '<span class="badge badge-ok graph-badge" onclick="go(\'arch\')" title="Kùzu lineage graph is consistent with SQLite">Graph clean · Kùzu</span>'
     : gs === "dirty"
-    ? '<span class="badge badge-warn graph-badge" onclick="go(\'arch\')">图 dirty · 待重建</span>'
-    : '<span class="badge badge-info graph-badge" onclick="go(\'arch\')">图 rebuilding…</span>';
+    ? '<span class="badge badge-warn graph-badge" onclick="go(\'arch\')">Graph dirty · rebuild pending</span>'
+    : '<span class="badge badge-info graph-badge" onclick="go(\'arch\')">Graph rebuilding…</span>';
   return (
     '<div class="topbar">' +
       '<div class="logo" onclick="go(\'canvas\')"><span class="logo-mark">' + yarnSvg("") + '</span>Clew</div>' +
       '<div class="navpill">' + navs.map(n =>
         '<button class="' + (S.screen === n[0] ? "active" : "") + '" ' + (n[2] ? "" : "disabled") +
-        ' onclick="' + (n[2] ? "go('" + n[0] + "')" : "") + '"' + (n[2] ? "" : ' title="viewer 无写权限"') + '>' + n[1] + '</button>').join("") +
+        ' onclick="' + (n[2] ? "go('" + n[0] + "')" : "") + '"' + (n[2] ? "" : ' title="viewer has no write permission"') + '>' + n[1] + '</button>').join("") +
       '</div>' +
-      '<div class="searchbox"><span class="faint">⌕</span><input placeholder="搜索数据集 / 字段（SQLite LIKE）" value="' + esc(S.search) + '" oninput="onSearch(this.value)"></div>' +
+      '<div class="searchbox"><span class="faint">⌕</span><input placeholder="Search datasets / fields (SQLite LIKE)" value="' + esc(S.search) + '" oninput="onSearch(this.value)"></div>' +
       '<span style="flex:1"></span>' + gBadge +
       '<div class="userchip">' +
-        '<select class="select" style="width:auto" onchange="switchRole(this.value)" title="切换角色视角（演示 RBAC）">' +
-          DATA.users.map(u => '<option value="' + u.role + '" ' + (S.user.role === u.role ? "selected" : "") + '>' + u.name + '（' + ROLE_NAME[u.role] + '）</option>').join("") +
+        '<select class="select" style="width:auto" onchange="switchRole(this.value)" title="Switch role perspective (RBAC demo)">' +
+          DATA.users.map(u => '<option value="' + u.role + '" ' + (S.user.role === u.role ? "selected" : "") + '>' + u.name + ' (' + ROLE_NAME[u.role] + ')</option>').join("") +
         '</select>' +
       '</div>' +
     '</div>' +
@@ -655,33 +655,33 @@ function screenBody() {
   }
 }
 function go(screen) {
-  if (screen === "import" && !canWrite()) { toast("viewer 只能浏览，无导入权限", "warn"); return; }
+  if (screen === "import" && !canWrite()) { toast("viewer can only browse; no import permission", "warn"); return; }
   S.screen = screen; render();
 }
 function onSearch(v) { S.search = v; const el = document.querySelector(".side"); if (el) el.outerHTML = sideHtml(); }
 function switchRole(role) {
   const u = DATA.users.find(x => x.role === role);
   S.user = { name: u.name, role: u.role };
-  toast("已切换视角：" + u.name + "（" + ROLE_NAME[role] + "）");
+  toast("Switched perspective: " + u.name + " (" + ROLE_NAME[role] + ")");
   render();
 }
 
 /* ============================================================
-   登录页
+   Login page
    ============================================================ */
 function loginHtml() {
   return '<div class="login-wrap"><div class="card login-card">' +
     '<div class="login-logo"><div class="big">' + yarnSvg("") + '</div>' +
-      '<h1>Clew</h1><p>字段级 AI 数据血缘 · 顺着线团回源头</p></div>' +
-    '<label class="field-lb">账号</label><input class="input" id="lg-user" value="chenming">' +
-    '<label class="field-lb">密码</label><input class="input" id="lg-pass" type="password" value="••••••••">' +
-    '<div class="field-lb" style="margin-top:14px">选择演示角色（RBAC 视角）</div>' +
+      '<h1>Clew</h1><p>Field-level AI data lineage · follow the thread back to the source</p></div>' +
+    '<label class="field-lb">Account</label><input class="input" id="lg-user" value="alexchen">' +
+    '<label class="field-lb">Password</label><input class="input" id="lg-pass" type="password" value="••••••••">' +
+    '<div class="field-lb" style="margin-top:14px">Choose demo role (RBAC perspective)</div>' +
     '<div class="role-pick" id="role-pick">' +
       ['admin', 'editor', 'viewer'].map(r =>
         '<button class="' + (r === "admin" ? "active" : "") + '" data-r="' + r + '" onclick="pickRole(this)">' + r + '</button>').join("") +
     '</div>' +
-    '<button class="btn btn-primary btn-lg" style="width:100%;margin-top:16px;justify-content:center" onclick="doLogin()">登录工作区</button>' +
-    '<div class="hint-line">登录态为 JWT + 工作区级 RBAC · 原型为 mock 数据，无需真实账号</div>' +
+    '<button class="btn btn-primary btn-lg" style="width:100%;margin-top:16px;justify-content:center" onclick="doLogin()">Sign in to workspace</button>' +
+    '<div class="hint-line">Session uses JWT + workspace-level RBAC · prototype uses mock data, no real account required</div>' +
   '</div></div>';
 }
 let pickedRole = "admin";
@@ -693,12 +693,12 @@ function doLogin() {
   const u = DATA.users.find(x => x.role === pickedRole) || DATA.users[0];
   S.user = { name: u.name, role: u.role };
   S.screen = "canvas";
-  toast("欢迎回来，" + u.name + "（" + ROLE_NAME[u.role] + "）");
+  toast("Welcome back, " + u.name + " (" + ROLE_NAME[u.role] + ")");
   render();
 }
 
 /* ============================================================
-   血缘画布
+   Lineage canvas
    ============================================================ */
 function canvasHtml() {
   return '<div class="canvas-screen">' +
@@ -710,15 +710,15 @@ function canvasHtml() {
           '<svg id="edgeSvg"></svg><div id="nodeLayer"></div>' +
         '</div>' +
         '<div class="legend">' +
-          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported);border-top-style:solid"></span>导入（字段级）</div>' +
-          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported-weak);border-top-style:dashed"></span>导入（表级）</div>' +
-          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>人工（已确认）</div>' +
-          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI 建议（低置信 · 待确认）</div>' +
-          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>追踪链（点亮线索）</div>' +
+          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported);border-top-style:solid"></span>Imported (field-level)</div>' +
+          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-imported-weak);border-top-style:dashed"></span>Imported (table-level)</div>' +
+          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-manual);border-top-style:solid"></span>Manual (confirmed)</div>' +
+          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-ai);border-top-style:dashed"></span>AI suggested (low confidence · pending)</div>' +
+          '<div class="lg-row"><span class="lg-line" style="border-top-color:var(--lineage-focus);border-top-style:solid"></span>Trace chain (highlighted thread)</div>' +
         '</div>' +
         '<div class="zoomctl">' +
-          '<button onclick="zoomBy(1.25)" title="放大">+</button><button onclick="zoomBy(0.8)" title="缩小">−</button>' +
-          '<button onclick="resetView()" title="重置视图" style="font-size:10px">⌂</button>' +
+          '<button onclick="zoomBy(1.25)" title="Zoom in">+</button><button onclick="zoomBy(0.8)" title="Zoom out">−</button>' +
+          '<button onclick="resetView()" title="Reset view" style="font-size:10px">⌂</button>' +
         '</div>' +
       '</div>' +
       detailHtml() +
@@ -729,23 +729,23 @@ function canvasToolbar() {
   const f = S.filters;
   const pend = DATA.edges.filter(e => e.src === "ai").length + S.pendingAi.length;
   return '<div class="canvas-toolbar">' +
-    '<label class="muted">起点</label><select class="select" style="width:190px" onchange="setSeed(this.value)">' +
+    '<label class="muted">Start</label><select class="select" style="width:190px" onchange="setSeed(this.value)">' +
       DATA.datasets.map(d => '<option value="' + d.id + '" ' + (S.seedDs === d.id ? "selected" : "") + '>' + d.id + ' · ' + d.name + '</option>').join("") +
     '</select>' +
-    '<label class="muted">跳数</label><select class="select" style="width:64px" onchange="setHops(this.value)">' +
+    '<label class="muted">Hops</label><select class="select" style="width:64px" onchange="setHops(this.value)">' +
       [1, 2, 3].map(h => '<option value="' + h + '" ' + (S.hops === h ? "selected" : "") + '>' + h + '</option>').join("") +
     '</select>' +
     '<span style="width:1px;height:20px;background:var(--line)"></span>' +
     ['imported', 'manual', 'ai'].map(k =>
       '<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-muted);cursor:pointer">' +
       '<input type="checkbox" ' + (f[k] ? "checked" : "") + ' onchange="toggleSrc(\'' + k + '\', this.checked)">' + SRC_LABEL[k] + '</label>').join("") +
-    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-muted)">置信 ≥ ' +
+    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-muted)">Confidence ≥ ' +
       '<input type="range" min="0" max="1" step="0.05" value="' + f.minConf + '" style="width:90px;accent-color:var(--brand-600)" oninput="setMinConf(this.value)"><span class="mono" id="confv" style="width:30px">' + f.minConf.toFixed(2) + '</span></label>' +
     '<span style="flex:1"></span>' +
-    (pend ? '<span class="badge badge-ai" style="cursor:pointer" onclick="go(\'ai\')"><span class="dot"></span>' + pend + ' 条 AI 建议待确认</span>' : "") +
-    '<button class="btn btn-xs" onclick="S.focus=null;drawGraph();renderDetail()">清除追踪</button>' +
-    '<button class="btn btn-xs" onclick="collapseAll(true)">全部折叠</button>' +
-    '<button class="btn btn-xs" onclick="collapseAll(false)">全部展开</button>' +
+    (pend ? '<span class="badge badge-ai" style="cursor:pointer" onclick="go(\'ai\')"><span class="dot"></span>' + pend + ' AI suggestions pending confirmation</span>' : "") +
+    '<button class="btn btn-xs" onclick="S.focus=null;drawGraph();renderDetail()">Clear trace</button>' +
+    '<button class="btn btn-xs" onclick="collapseAll(true)">Collapse all</button>' +
+    '<button class="btn btn-xs" onclick="collapseAll(false)">Expand all</button>' +
   '</div>';
 }
 function sideHtml() {
@@ -753,23 +753,23 @@ function sideHtml() {
   const matchDs = d => !q || d.id.toLowerCase().includes(q) || (d.name || "").toLowerCase().includes(q) || d.fields.some(f => f.name.toLowerCase().includes(q));
   const list = DATA.datasets.filter(matchDs);
   return '<div class="side">' +
-    '<div><h4>数据集（' + list.length + '）</h4>' + list.map(d =>
+    '<div><h4>Datasets (' + list.length + ')</h4>' + list.map(d =>
       '<div class="ds-item ' + (S.seedDs === d.id ? "active" : "") + '" onclick="setSeed(\'' + d.id + '\')">' +
         '<div class="nm"><span>' + esc(d.name) + '</span><span class="faint">' + d.fields.length + '</span></div>' +
         '<div class="sub">' + d.id + ' · ' + LAYER[d.layer] + '</div>' +
       '</div>').join("") + '</div>' +
-    '<div><h4>源文件库（SQLite 托管）</h4>' + DATA.files.map(f =>
-      '<div class="file-item" onclick="openPreview(\'' + f.id + '\',\'' + (S.selected ? S.selected.ds : "ods_raw_order") + '\',\'' + (S.selected ? S.selected.f : "order_no") + '\')" title="点击预览源文件">' +
+    '<div><h4>Source file library (SQLite-managed)</h4>' + DATA.files.map(f =>
+      '<div class="file-item" onclick="openPreview(\'' + f.id + '\',\'' + (S.selected ? S.selected.ds : "ods_raw_order") + '\',\'' + (S.selected ? S.selected.f : "order_no") + '\')" title="Click to preview source file">' +
         '<span class="ftag">' + f.type.toUpperCase() + '</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + f.name + '</span></div>').join("") +
     '</div>' +
-    '<div class="faint" style="font-size:10.5px;line-height:1.6">画布子图：GET /lineage/subgraph<br>主引擎 Kùzu Cypher · 降级 SQLite CTE</div>' +
+    '<div class="faint" style="font-size:10.5px;line-height:1.6">Canvas subgraph: GET /lineage/subgraph<br>Primary engine Kùzu Cypher · fallback SQLite CTE</div>' +
   '</div>';
 }
 function detailHtml() {
   if (!S.selected) {
-    return '<div class="detail"><h3 style="margin-top:8px">字段详情</h3>' +
-      '<div class="faint" style="font-size:12px;line-height:1.8;margin-top:10px">点击画布中的任意字段行查看详情。<br><br>' +
-      '· 单击字段行：查看定位器 / 标注 / 上下游<br>· 详情面板「点亮追踪链」或双击字段行：高亮完整血缘链路<br>· 点击节点头部：折叠 / 展开字段列表<br>· 拖动画布空白处平移，滚轮缩放</div></div>';
+    return '<div class="detail"><h3 style="margin-top:8px">Field details</h3>' +
+      '<div class="faint" style="font-size:12px;line-height:1.8;margin-top:10px">Click any field row on the canvas to view details.<br><br>' +
+      '· Click a field row: view locator / annotations / upstream & downstream<br>· Detail panel "Highlight trace chain" or double-click a field row: highlight the full lineage chain<br>· Click a node header: collapse / expand the field list<br>· Drag empty canvas to pan, scroll to zoom</div></div>';
   }
   const { ds: dsid, f: fname } = S.selected;
   const field = fld(dsid, fname), d = ds(dsid);
@@ -783,34 +783,34 @@ function detailHtml() {
     '<div class="sub">' + dsid + ' · ' + esc(d.name) + ' · ' + LAYER[d.layer] + '</div>' +
     '<div style="color:var(--ink-soft);font-size:12px;margin-bottom:10px">' + esc(field.desc) + '</div>' +
     '<button class="btn ' + (inChain ? "" : "btn-primary") + '" style="width:100%;justify-content:center" onclick="toggleFocus()">' +
-      (inChain ? "✓ 追踪链已点亮（点击清除）" : "◎ 点亮追踪链（上下游全链）") + '</button>' +
+      (inChain ? "✓ Trace chain highlighted (click to clear)" : "◎ Highlight trace chain (full upstream & downstream)") + '</button>' +
     '<div class="locator-card" style="margin-top:12px">' +
       '<div class="file">📎 ' + esc((DATA.files.find(x => x.id === field.file) || {}).name || "") + '</div>' +
       '<div class="loc">' + esc(fmtLoc(dsid, fname)) + '</div>' +
       '<div style="margin-top:8px;display:flex;gap:6px">' +
-        '<button class="btn btn-xs btn-primary" onclick="openPreview(\'' + field.file + '\',\'' + dsid + '\',\'' + fname + '\')">回源预览</button>' +
-        '<button class="btn btn-xs" onclick="toast(\'定位器已复制到剪贴板\')">复制定位</button>' +
-        (canWrite() ? '<button class="btn btn-xs" onclick="toast(\'原型演示：打开定位器编辑（重新实文件核查）\',\'warn\')">修正定位</button>' : "") +
+        '<button class="btn btn-xs btn-primary" onclick="openPreview(\'' + field.file + '\',\'' + dsid + '\',\'' + fname + '\')">Source preview</button>' +
+        '<button class="btn btn-xs" onclick="toast(\'Locator copied to clipboard\')">Copy locator</button>' +
+        (canWrite() ? '<button class="btn btn-xs" onclick="toast(\'Prototype demo: open locator editor (re-verify against source file)\',\'warn\')">Fix locator</button>' : "") +
       '</div>' +
     '</div>' +
-    '<div class="sec-t">上游（' + ups.length + '）</div><div class="updown">' +
-      (ups.length ? ups.map(e => '<a onclick="selectField(\'' + e.fd + '\',\'' + e.ff + '\')">' + e.fd + '.' + e.ff + ' <span class="hop">← ' + SRC_LABEL[e.src] + ' ' + e.conf.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">源头字段（无上游）</span>') +
+    '<div class="sec-t">Upstream (' + ups.length + ')</div><div class="updown">' +
+      (ups.length ? ups.map(e => '<a onclick="selectField(\'' + e.fd + '\',\'' + e.ff + '\')">' + e.fd + '.' + e.ff + ' <span class="hop">← ' + SRC_LABEL[e.src] + ' ' + e.conf.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Source field (no upstream)</span>') +
     '</div>' +
-    '<div class="sec-t">下游（' + downs.length + '）</div><div class="updown">' +
-      (downs.length ? downs.map(e => '<a onclick="selectField(\'' + e.td + '\',\'' + e.tf + '\')">' + e.td + '.' + e.tf + ' <span class="hop">→ ' + SRC_LABEL[e.src] + ' ' + e.conf.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">叶子字段（无下游）</span>') +
+    '<div class="sec-t">Downstream (' + downs.length + ')</div><div class="updown">' +
+      (downs.length ? downs.map(e => '<a onclick="selectField(\'' + e.td + '\',\'' + e.tf + '\')">' + e.td + '.' + e.tf + ' <span class="hop">→ ' + SRC_LABEL[e.src] + ' ' + e.conf.toFixed(2) + '</span></a>').join("") : '<span class="faint" style="font-size:11px">Leaf field (no downstream)</span>') +
     '</div>' +
-    '<div class="sec-t">标注（' + annos.length + '）<button class="btn btn-xs" onclick="addAnno()">+ 追加</button></div>' +
+    '<div class="sec-t">Annotations (' + annos.length + ')<button class="btn btn-xs" onclick="addAnno()">+ Add</button></div>' +
     annos.map(a => '<div class="anno">' + esc(a.body) + '<div class="meta">' + a.author + ' · ' + a.at + '</div></div>').join("") +
-    '<div class="sec-t">血缘查询（Kùzu Cypher）</div>' +
+    '<div class="sec-t">Lineage query (Kùzu Cypher)</div>' +
     '<div class="codelist">' + esc(cy) + '</div>' +
-    '<div class="faint" style="font-size:10.5px;margin-top:10px;line-height:1.6">命中 edge_id 后回 SQLite hydrate 定位器与标注；Kùzu 不可用时本查询自动降级为递归 CTE。</div>' +
+    '<div class="faint" style="font-size:10.5px;margin-top:10px;line-height:1.6">After an edge_id hit, hydrate the locator and annotations from SQLite; when Kùzu is unavailable this query automatically falls back to a recursive CTE.</div>' +
   '</div>';
 }
 function addAnno() {
-  if (!canWrite()) { toast("viewer 无写权限", "warn"); return; }
+  if (!canWrite()) { toast("viewer has no write permission", "warn"); return; }
   const { ds: dsid, f: fname } = S.selected;
-  DATA.annotations.unshift({ target: "field:" + dsid + "." + fname, body: "（原型演示）新增一条追加式标注，不覆盖导入原始值。", author: S.user.name, at: "2026-11-16 12:00" });
-  toast("标注已追加（change_log 之外，标注永久保留）");
+  DATA.annotations.unshift({ target: "field:" + dsid + "." + fname, body: "(Prototype demo) Append a new annotation; imported original values are not overwritten.", author: S.user.name, at: "2026-11-16 12:00" });
+  toast("Annotation appended (outside change_log; annotations are kept permanently)");
   renderDetail();
 }
 function setSeed(id) {
@@ -818,11 +818,11 @@ function setSeed(id) {
   const L = LAYOUT[id];
   S.panX = 120; S.panY = 20;
   render();
-  toast("子图已切换：Kùzu MATCH … *1.." + S.hops + "，" + id);
+  toast("Subgraph switched: Kùzu MATCH … *1.." + S.hops + ", " + id);
 }
 function setHops(v) {
   S.hops = +v; drawGraph();
-  toast("重新取子图：Kùzu Cypher 变长路径 *1.." + S.hops);
+  toast("Refetching subgraph: Kùzu Cypher variable-length path *1.." + S.hops);
 }
 function selectField(dsid, fname) { S.selected = { ds: dsid, f: fname }; drawGraph(); renderDetail(); }
 function toggleFocus() {
@@ -859,7 +859,7 @@ document.addEventListener("wheel", ev => {
   zoomBy(ev.deltaY < 0 ? 1.08 : 0.92);
 }, { passive: false });
 
-/* 画布渲染：节点 + SVG 边 */
+/* Canvas rendering: nodes + SVG edges */
 function drawGraph() {
   const layer = document.getElementById("nodeLayer");
   const svg = document.getElementById("edgeSvg");
@@ -875,7 +875,7 @@ function drawGraph() {
     });
     chainFields.add(S.focus.ds + "." + S.focus.f);
   }
-  // 节点
+  // Nodes
   layer.innerHTML = DATA.datasets.map(d => {
     const L = LAYOUT[d.id];
     const isSeed = d.id === S.seedDs;
@@ -900,11 +900,11 @@ function drawGraph() {
       (isSeed ? '<div class="node-topbar"></div>' : "") +
       '<div class="node-header" onclick="toggleCollapse(\'' + d.id + '\')">' +
         '<span class="chev">▾</span><div class="node-name">' + esc(d.name) + '<span class="dsid">' + d.id + ' · ' + LAYER[d.layer] + '</span></div>' +
-        '<span class="badge badge-xs ' + (isSeed ? "badge-brand" : "") + '" style="font-size:10px;padding:0 6px">' + (isSeed ? "种子" : d.fields.length + " 字段") + '</span>' +
-      '</div>' + rows + (collapsed ? '<div class="node-collapsed-hint">已折叠 · ' + d.fields.length + ' 个字段（表级边仍显示）</div>' : "") +
+        '<span class="badge badge-xs ' + (isSeed ? "badge-brand" : "") + '" style="font-size:10px;padding:0 6px">' + (isSeed ? "Seed" : d.fields.length + " fields") + '</span>' +
+      '</div>' + rows + (collapsed ? '<div class="node-collapsed-hint">Collapsed · ' + d.fields.length + ' fields (table-level edges still shown)</div>' : "") +
     '</div>';
   }).join("");
-  // 边
+  // Edges
   const W = 1800, H = 950;
   svg.setAttribute("width", W); svg.setAttribute("height", H);
   let markers = ["#475569", "#64748B", "#0D9488", "#4F46E5", "#EA580C"].map(c =>
@@ -915,7 +915,7 @@ function drawGraph() {
     const dim = S.focus && !isChain;
     let style, x1, y1, x2, y2, marker;
     const srcCollapsed = S.collapsed[e.fd], tgtCollapsed = S.collapsed[e.td];
-    if (e.ff == null) { // 表级边：节点边缘中点
+    if (e.ff == null) { // Table-level edge: midpoint of node edge
       x1 = LAYOUT[e.fd].x + NODE_W; y1 = LAYOUT[e.fd].y + nodeH(e.fd) / 2;
       x2 = LAYOUT[e.td].x;          y2 = LAYOUT[e.td].y + nodeH(e.td) / 2;
       style = e.src === "ai" ? { stroke: "#4F46E5", w: 1.8, dash: "6 5" } :
@@ -946,9 +946,9 @@ function drawGraph() {
   svg.innerHTML = "<defs>" + markers + "</defs>" + paths;
 }
 function edgeTitle(e) {
-  const a = e.ff ? e.fd + "." + e.ff : e.fd + "（表级）";
-  const b = e.tf ? e.td + "." + e.tf : e.td + "（表级）";
-  return a + " → " + b + "\n转换: " + e.transform + "\n来源: " + SRC_LABEL[e.src] + " · 置信度 " + e.conf.toFixed(2) + "\nedge_id: " + e.id + "（SQLite edge.id 回链）";
+  const a = e.ff ? e.fd + "." + e.ff : e.fd + " (table-level)";
+  const b = e.tf ? e.td + "." + e.tf : e.td + " (table-level)";
+  return a + " → " + b + "\nTransform: " + e.transform + "\nSource: " + SRC_LABEL[e.src] + " · confidence " + e.conf.toFixed(2) + "\nedge_id: " + e.id + " (links back to SQLite edge.id)";
 }
 function toggleCollapse(id) {
   S.collapsed[id] = !S.collapsed[id];
@@ -965,7 +965,7 @@ function renderDetail() {
 }
 
 /* ============================================================
-   源文件预览弹窗
+   Source file preview modal
    ============================================================ */
 function openPreview(fileId, dsid, fname) {
   const file = DATA.files.find(x => x.id === fileId) || DATA.files[0];
@@ -974,21 +974,21 @@ function openPreview(fileId, dsid, fname) {
     const f = fld(dsid, fname);
     const l = (f && f.loc.sheet) ? f.loc : ds("ods_raw_order").fields[0].loc;
     const hp = l.headerPath || null;
-    // 定位器列字母 → mock 预览表格的 td 索引（td0=#，其后按 A..H 排布）
+    // Locator column letter → td index in the mock preview table (td0 = #, then laid out A..H)
     const colIdxMap = { A: 1, B: 1, C: 3, D: 4, E: 5, F: 6, G: 2, H: 6, I: 5, J: 7 };
     const hlIdx = colIdxMap[l.column] != null ? colIdxMap[l.column] : 4;
     const rowLo = l.rowStart || 2, rowHi = Math.min(8, rowLo + 2);
     body =
-      '<div class="crumb">📄 ' + file.name + ' ▸ <b>sheet「' + l.sheet + '」</b>' +
-      (hp ? ' ▸ 表头路径 <b>' + hp.join(" ▸ ") + '</b>' : "") + ' ▸ <b>列 ' + l.column + '</b> ▸ 行 ' + l.rowStart + '–' + (l.rowEnd || 15083) + '</div>' +
-      (hp ? '<div class="badge badge-brand" style="margin-bottom:8px">合并单元格锚点归一：' + (l.anchor ? l.anchor.value + " → " + l.anchor.anchor + "（" + l.anchor.range + "）展开覆盖 B:F" : "多级表头") + '</div>' : "") +
+      '<div class="crumb">📄 ' + file.name + ' ▸ <b>sheet "' + l.sheet + '"</b>' +
+      (hp ? ' ▸ header path <b>' + hp.join(" ▸ ") + '</b>' : "") + ' ▸ <b>column ' + l.column + '</b> ▸ rows ' + l.rowStart + '–' + (l.rowEnd || 15083) + '</div>' +
+      (hp ? '<div class="badge badge-brand" style="margin-bottom:8px">Merged-cell anchor normalized: ' + (l.anchor ? l.anchor.value + " → " + l.anchor.anchor + " (" + l.anchor.range + ") expands to cover B:F" : "multi-level header") + '</div>' : "") +
       '<div class="pv-wrap"><table class="pv-table"><thead>' +
-        '<tr class="h1"><th></th><th colspan="3" style="border-left:1px solid var(--line)">基本信息</th><th colspan="4" class="hl-col" style="border-left:1px solid var(--brand-200)">商品信息（合并 B1:F1）</th><th colspan="2">其他</th></tr>' +
-        '<tr class="h2"><th>#</th><th>下单日期</th><th>用户信息·用户ID</th><th>商品信息·商品编码</th><th>商品信息·订单号</th><th>商品信息·单价</th><th>商品信息·数量</th><th>状态</th><th>备注</th></tr>' +
+        '<tr class="h1"><th></th><th colspan="3" style="border-left:1px solid var(--line)">Basic Info</th><th colspan="4" class="hl-col" style="border-left:1px solid var(--brand-200)">Product Info (merged B1:F1)</th><th colspan="2">Other</th></tr>' +
+        '<tr class="h2"><th>#</th><th>Order Date</th><th>User Info · User ID</th><th>Product Info · SKU Code</th><th>Product Info · Order No.</th><th>Product Info · Unit Price</th><th>Product Info · Quantity</th><th>Status</th><th>Remarks</th></tr>' +
       '</thead><tbody>' + previewRows(hlIdx, rowLo, rowHi) + '</tbody></table></div>' +
-      '<div class="faint" style="margin-top:8px;font-size:11px">实文件核查（openpyxl）：sheet 存在 ✓ · header_path 解析 ✓ · 合并锚点归一 ✓ · row_start 物化 ✓</div>';
+      '<div class="faint" style="margin-top:8px;font-size:11px">Source-file verification (openpyxl): sheet exists ✓ · header_path resolved ✓ · merged anchor normalized ✓ · row_start materialized ✓</div>';
   } else if (file.type === "csv") {
-    body = '<div class="crumb">📄 ' + file.name + ' ▸ 第 3 列「pay_amount」 ▸ 行 2 起</div>' +
+    body = '<div class="crumb">📄 ' + file.name + ' ▸ column 3 "pay_amount" ▸ from row 2</div>' +
       '<div class="pv-wrap"><pre style="margin:0;padding:10px 12px;font-size:11.5px;line-height:1.7">' +
       ['pay_id,order_no,pay_amount,pay_channel,pay_time',
        'P20260922001,ORD20260922001,129.90,wx,2026-09-22 10:02:11',
@@ -1003,24 +1003,24 @@ function openPreview(fileId, dsid, fname) {
             : (line.split(",")[2] ? esc(cols.slice(0, 2).join(",")) + ',' + '<span style="background:var(--brand-50);color:var(--brand-800);font-weight:600">' + esc(cols[2]) + '</span>,' + esc(cols.slice(3).join(",")) : esc(line)));
         }).join("\n") +
       '</pre></div>' +
-      '<div class="faint" style="margin-top:8px;font-size:11px">实文件核查：header 匹配 ✓ · 列序 3 ✓ · 值可解析为 DECIMAL ✓</div>';
+      '<div class="faint" style="margin-top:8px;font-size:11px">Source-file verification: header matched ✓ · column order 3 ✓ · values parse as DECIMAL ✓</div>';
   } else {
     body = '<div class="crumb">📄 ' + file.name + ' ▸ JSONPath <b>$.data.items[*].address.city</b></div>' +
       '<div class="pv-wrap"><pre style="margin:0;padding:10px 12px;font-size:11.5px;line-height:1.7">' +
-      esc('{\n  "code": 0,\n  "data": {\n    "items": [\n      { "user_id": "U10001", "name": "阿澈", "address": { ')
-      + '<span style="background:var(--brand-50);color:var(--brand-800);font-weight:600">"city": "杭州"</span>' + esc(' } },\n      { "user_id": "U10002", "name": "小满", "address": { ')
-      + '<span style="background:var(--brand-50);color:var(--brand-800);font-weight:600">"city": "成都"</span>' + esc(' } }\n    ]\n  }\n}') +
+      esc('{\n  "code": 0,\n  "data": {\n    "items": [\n      { "user_id": "U10001", "name": "Aiden", "address": { ')
+      + '<span style="background:var(--brand-50);color:var(--brand-800);font-weight:600">"city": "Hangzhou"</span>' + esc(' } },\n      { "user_id": "U10002", "name": "Mia", "address": { ')
+      + '<span style="background:var(--brand-50);color:var(--brand-800);font-weight:600">"city": "Chengdu"</span>' + esc(' } }\n    ]\n  }\n}') +
       '</pre></div>' +
-      '<div class="faint" style="margin-top:8px;font-size:11px">实文件核查：JSONPath 命中 2 处 ✓（resolved.hits = 53210 全量）</div>';
+      '<div class="faint" style="margin-top:8px;font-size:11px">Source-file verification: JSONPath matched 2 occurrences ✓ (resolved.hits = 53210 in full)</div>';
   }
-  const ver = { v: 3, by: "李雪", at: "2026-10-11 10:04" };
+  const ver = { v: 3, by: "Lily Li", at: "2026-10-11 10:04" };
   modal(
-    "回源预览 · " + file.name,
+    "Source preview · " + file.name,
     body,
-    '<span class="badge badge-ok">✓ 最近核查 v' + ver.v + ' · ' + ver.by + ' · ' + ver.at + '</span>' +
+    '<span class="badge badge-ok">✓ Last verified v' + ver.v + ' · ' + ver.by + ' · ' + ver.at + '</span>' +
     '<span class="badge">sha256 ' + file.sha + '</span>' +
-    '<button class="btn" onclick="closeModal()">关闭</button>' +
-    '<button class="btn btn-primary" onclick="toast(\'定位器已复制\')">复制定位器</button>'
+    '<button class="btn" onclick="closeModal()">Close</button>' +
+    '<button class="btn btn-primary" onclick="toast(\'Locator copied\')">Copy locator</button>'
   );
 }
 function previewRows(hlIdx, rowLo, rowHi) {
@@ -1028,7 +1028,7 @@ function previewRows(hlIdx, rowLo, rowHi) {
   for (let i = 2; i <= 8; i++) {
     const inRange = i >= rowLo && i <= rowHi;
     const cells = ['<td>2026-09-' + (20 + i) + '</td>', '<td>U100' + i + '</td>', '<td>SKU00' + i + '</td>',
-      '<td>ORD2026092' + i + '</td>', '<td>' + (i % 2 ? "199.00" : "89.50") + '</td>', '<td>' + i + '</td>', '<td>已支付</td>', '<td></td>'];
+      '<td>ORD2026092' + i + '</td>', '<td>' + (i % 2 ? "199.00" : "89.50") + '</td>', '<td>' + i + '</td>', '<td>Paid</td>', '<td></td>'];
     if (hlIdx >= 1 && hlIdx <= 8) {
       cells[hlIdx - 1] = '<td class="hl-col">' + cells[hlIdx - 1].replace(/<\/?td[^>]*>/g, "") + '</td>';
     }
@@ -1043,18 +1043,18 @@ function modal(title, bodyHtml, footHtml) {
   ov.innerHTML = '<div class="modal"><div class="modal-head"><h3>' + title + '</h3>' +
     '<button class="btn btn-ghost btn-xs" onclick="closeModal()">✕</button></div>' +
     '<div class="modal-body">' + bodyHtml + '</div>' +
-    '<div class="modal-foot">' + (footHtml || '<button class="btn" onclick="closeModal()">关闭</button>') + '</div></div>';
+    '<div class="modal-foot">' + (footHtml || '<button class="btn" onclick="closeModal()">Close</button>') + '</div></div>';
   ov.addEventListener("mousedown", e => { if (e.target === ov) closeModal(); });
   document.body.appendChild(ov);
 }
 function closeModal() { const ov = document.getElementById("modal-ov"); if (ov) ov.remove(); }
 
 /* ============================================================
-   导入向导
+   Import wizard
    ============================================================ */
 function importHtml() {
   const step = S.importStep;
-  const steps = ["① 上传源文件", "② 上传清单", "③ 校验与导入"];
+  const steps = ["① Upload source files", "② Upload manifest", "③ Validate & import"];
   const stepBar = '<div class="steps">' + steps.map((s, i) => {
     const n = i + 1;
     const cls = n < step ? "done" : n === step ? "active" : "";
@@ -1065,125 +1065,125 @@ function importHtml() {
   if (step === 1) {
     body = '<div class="card" style="padding:16px">' +
       '<div class="dropzone" id="dz" onclick="mockUpload()" onmouseenter="this.classList.add(\'hot\')" onmouseleave="this.classList.remove(\'hot\')">' +
-        '<div style="font-size:26px;margin-bottom:6px">🗂️</div>点击或拖拽上传第一手源文件（CSV / XLSX / JSON）<br>' +
-        '<span style="font-size:11px">按 sha256 内容指纹去重：同一文件多次上传引用同一条 source_file 记录</span></div>' +
+        '<div style="font-size:26px;margin-bottom:6px">🗂️</div>Click or drag to upload first-hand source files (CSV / XLSX / JSON)<br>' +
+        '<span style="font-size:11px">Deduplicated by sha256 content fingerprint: uploading the same file again references the same source_file record</span></div>' +
       '<div id="uplist" style="margin-top:12px">' + (S.importFiles.length ? S.importFiles.map(f =>
         '<div class="report-row"><span class="ftag">' + f.type.toUpperCase() + '</span><span>' + f.name + '</span><span class="faint mono">' + f.sha + '</span>' +
-        '<span>' + (f.dup ? '<span class="badge badge-info">与已有文件相同 · 引用原记录</span>' : '<span class="badge badge-ok">新登记</span>') + '</span></div>').join("") : "") + '</div>' +
-      (S.importFiles.length ? '<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="impGo(2)">下一步：上传清单 →</button></div>' : "") +
+        '<span>' + (f.dup ? '<span class="badge badge-info">Same as existing file · reference original record</span>' : '<span class="badge badge-ok">Newly registered</span>') + '</span></div>').join("") : "") + '</div>' +
+      (S.importFiles.length ? '<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="impGo(2)">Next: Upload manifest →</button></div>' : "") +
     '</div>';
   } else if (step === 2) {
     body = '<div class="card" style="padding:16px">' +
-      '<div class="tabs">' + [["csv", "CSV 双文件"], ["xlsx", "XLSX 双 sheet"], ["json", "JSON 单文件"]].map(t =>
+      '<div class="tabs">' + [["csv", "CSV (two files)"], ["xlsx", "XLSX (two sheets)"], ["json", "JSON (single file)"]].map(t =>
         '<button class="' + (S.importFormat === t[0] ? "active" : "") + '" onclick="S.importFormat=\'' + t[0] + '\';render()">' + t[1] + '</button>').join("") + '</div>' +
-      '<div class="kv" style="margin-bottom:8px"><span class="k">引用文件集</span><span class="v">本批上传的 ' + S.importFiles.length + ' 个文件（src_file 引用文件库 ID，导入时实文件核查）</span></div>' +
+      '<div class="kv" style="margin-bottom:8px"><span class="k">Referenced file set</span><span class="v">' + S.importFiles.length + ' files uploaded in this batch (src_file references the file library ID; verified against source at import time)</span></div>' +
       '<div class="codelist" style="font-size:11px">' + manifestSample() + '</div>' +
-      '<div class="faint" style="font-size:11px;margin-top:8px">每个字段必须携带源文件定位器（无定位不入库）；xlsx 支持多级表头路径与合并单元格锚点归一。</div>' +
+      '<div class="faint" style="font-size:11px;margin-top:8px">Every field must carry a source-file locator (no locator, no storage); xlsx supports multi-level header paths and merged-cell anchor normalization.</div>' +
       '<div style="margin-top:14px;display:flex;justify-content:space-between">' +
-        '<button class="btn" onclick="impGo(1)">← 上一步</button>' +
-        '<button class="btn btn-primary" onclick="impGo(3)">开始校验 →</button></div>' +
+        '<button class="btn" onclick="impGo(1)">← Back</button>' +
+        '<button class="btn btn-primary" onclick="impGo(3)">Start validation →</button></div>' +
     '</div>';
   } else {
     body = runReportHtml();
   }
   return '<div class="screen" style="max-width:900px;margin:0 auto">' +
-    '<h2 style="font-size:16px;margin:4px 0 4px">导入向导</h2>' +
-    '<div class="faint" style="margin-bottom:14px;font-size:12px">导入即新版本：校验通过后创建 import_batch v' + (DATA.batches.length + 1) + '，写 change_log，并同步写 Kùzu 血缘图（失败自动标脏重建）</div>' +
+    '<h2 style="font-size:16px;margin:4px 0 4px">Import wizard</h2>' +
+    '<div class="faint" style="margin-bottom:14px;font-size:12px">Import creates a new version: after validation passes, create import_batch v' + (DATA.batches.length + 1) + ', write change_log, and sync the Kùzu lineage graph (on failure, mark dirty and auto-rebuild)</div>' +
     stepBar + body + '</div>';
 }
 function mockUpload() {
-  if (S.importFiles.length) { toast("已模拟上传完成（原型不再重复添加）"); return; }
+  if (S.importFiles.length) { toast("Mock upload already completed (prototype does not add duplicates)"); return; }
   S.importFiles = [
-    { name: "退货明细.xlsx", type: "xlsx", sha: "c441…9e", dup: false },
-    { name: "支付流水.csv", type: "csv", sha: "7d20…c9", dup: true },
+    { name: "return_details.xlsx", type: "xlsx", sha: "c441…9e", dup: false },
+    { name: "payment_transactions.csv", type: "csv", sha: "7d20…c9", dup: true },
   ];
-  toast("2 个文件已登记：支付流水.csv 命中内容指纹，去重引用原记录");
+  toast("2 files registered: payment_transactions.csv matched content fingerprint, deduplicated to original record");
   render();
 }
 function impGo(n) { S.importStep = n; if (n === 3) S.importDone = false; render(); }
 function manifestSample() {
   if (S.importFormat === "csv") {
-    return "# datasets.csv（节选）\ndataset_id,dataset_name,field_name,field_type,src_file,src_type,src_locator,description\n" +
-      "ods_return,原始退货明细,return_no,STRING,退货明细.xlsx,xlsx,\"{sheet:退货明细,header:退货单号,column:C}\",退货主键\n" +
-      "ods_return,原始退货明细,refund_amount,DECIMAL,退货明细.xlsx,xlsx,\"{sheet:退货明细,header:退款金额,column:F}\",实退金额\n\n" +
-      "# lineage.csv（节选）\nfrom_dataset,from_field,to_dataset,to_field,transform,confidence,note\n" +
+    return "# datasets.csv (excerpt)\ndataset_id,dataset_name,field_name,field_type,src_file,src_type,src_locator,description\n" +
+      "ods_return,Raw return details,return_no,STRING,return_details.xlsx,xlsx,\"{sheet:Return Details,header:Return No.,column:C}\",Return primary key\n" +
+      "ods_return,Raw return details,refund_amount,DECIMAL,return_details.xlsx,xlsx,\"{sheet:Return Details,header:Refund Amount,column:F}\",Actual refund amount\n\n" +
+      "# lineage.csv (excerpt)\nfrom_dataset,from_field,to_dataset,to_field,transform,confidence,note\n" +
       "ods_return,return_no,dwd_return,return_no,trim,1.0,\nods_return,refund_amount,dwd_return,refund_amount,ROUND(2),1.0,";
   }
   if (S.importFormat === "xlsx") {
-    return "工作簿 clew_manifest.xlsx\n  sheet「datasets」：字段清单（同 CSV 列）\n  sheet「lineage」：血缘关系（同 CSV 列）\n单元格可加批注，适合业务人员维护";
+    return "Workbook clew_manifest.xlsx\n  sheet \"datasets\": field list (same columns as CSV)\n  sheet \"lineage\": lineage relations (same columns as CSV)\nCells can carry comments; suitable for business users to maintain";
   }
-  return '{\n  "datasets": [\n    { "dataset_id": "ods_return", "field_name": "return_no",\n      "src_file": "退货明细.xlsx", "src_type": "xlsx",\n      "src_locator": { "sheet": "退货明细", "header_path": ["售后", "退货单号"], "header_rows": 2 } },\n    … ],\n  "lineage": [\n    { "from_dataset": "ods_return", "from_field": "return_no",\n      "to_dataset": "dwd_return", "to_field": "return_no", "transform": "trim" } ]\n}';
+  return '{\n  "datasets": [\n    { "dataset_id": "ods_return", "field_name": "return_no",\n      "src_file": "return_details.xlsx", "src_type": "xlsx",\n      "src_locator": { "sheet": "Return Details", "header_path": ["After-sales", "Return No."], "header_rows": 2 } },\n    … ],\n  "lineage": [\n    { "from_dataset": "ods_return", "from_field": "return_no",\n      "to_dataset": "dwd_return", "to_field": "return_no", "transform": "trim" } ]\n}';
 }
 function runReportHtml() {
   if (!S.importDone) {
     return '<div class="card" style="padding:16px;text-align:center">' +
-      '<div class="faint" style="margin-bottom:10px">将执行：结构校验 → 实文件核查（打开第一手文件验证定位器）→ 引用校验 → 冲突合并</div>' +
-      '<button class="btn btn-primary btn-lg" onclick="runImport()">▶ 运行校验并导入</button></div>';
+      '<div class="faint" style="margin-bottom:10px">Will run: schema validation → source-file verification (open first-hand files to validate locators) → reference validation → conflict merge</div>' +
+      '<button class="btn btn-primary btn-lg" onclick="runImport()">▶ Run validation and import</button></div>';
   }
   const items = [
-    { s: "ok", k: "field", ref: "ods_return.return_no", r: "实文件核查通过（sheet 退货明细 · header_path 售后▸退货单号）" },
-    { s: "ok", k: "field", ref: "ods_return.return_date", r: "实文件核查通过" },
-    { s: "ok", k: "field", ref: "ods_return.refund_amount", r: "实文件核查通过（列 F，值可解析）" },
-    { s: "merged", k: "edge", ref: "ods_return.return_no-->dwd_return.return_no", r: "与已有版本同自然键，后到覆盖 transform" },
-    { s: "ok", k: "edge", ref: "ods_return.refund_amount-->dwd_return.refund_amount", r: "新增字段级血缘" },
-    { s: "rejected", k: "field", ref: "ods_return.sku_name", r: "src_locator 与 src_type 不匹配：xlsx 缺少 sheet（清单第 5 行）" },
-    { s: "rejected", k: "field", ref: "ods_return.reason", r: "实文件核查失败：header「原因」在退货明细.xlsx 中不存在（清单第 6 行）" },
+    { s: "ok", k: "field", ref: "ods_return.return_no", r: "Source-file verification passed (sheet Return Details · header_path After-sales▸Return No.)" },
+    { s: "ok", k: "field", ref: "ods_return.return_date", r: "Source-file verification passed" },
+    { s: "ok", k: "field", ref: "ods_return.refund_amount", r: "Source-file verification passed (column F, values parseable)" },
+    { s: "merged", k: "edge", ref: "ods_return.return_no-->dwd_return.return_no", r: "Same natural key as existing version; later arrival overrides transform" },
+    { s: "ok", k: "edge", ref: "ods_return.refund_amount-->dwd_return.refund_amount", r: "New field-level lineage" },
+    { s: "rejected", k: "field", ref: "ods_return.sku_name", r: "src_locator does not match src_type: xlsx is missing sheet (manifest line 5)" },
+    { s: "rejected", k: "field", ref: "ods_return.reason", r: "Source-file verification failed: header \"Reason\" does not exist in return_details.xlsx (manifest line 6)" },
   ];
   const sum = { ok: 3, merged: 1, rejected: 2 };
   return '<div class="card" style="padding:16px">' +
     '<div class="sum-cards">' +
-      '<div class="sum-card stat-ok"><div class="num">' + sum.ok + '</div>校验通过</div>' +
-      '<div class="sum-card stat-merge"><div class="num">' + sum.merged + '</div>合并（后到覆盖）</div>' +
-      '<div class="sum-card stat-bad"><div class="num">' + sum.rejected + '</div>拒绝（附原因）</div>' +
+      '<div class="sum-card stat-ok"><div class="num">' + sum.ok + '</div>Passed validation</div>' +
+      '<div class="sum-card stat-merge"><div class="num">' + sum.merged + '</div>Merged (later wins)</div>' +
+      '<div class="sum-card stat-bad"><div class="num">' + sum.rejected + '</div>Rejected (with reason)</div>' +
     '</div>' +
-    '<div class="tbl-wrap"><div class="report-row head"><span>状态</span><span>对象</span><span>类型</span><span>说明</span></div>' +
+    '<div class="tbl-wrap"><div class="report-row head"><span>Status</span><span>Object</span><span>Type</span><span>Details</span></div>' +
     items.map(i =>
       '<div class="report-row"><span>' +
-        (i.s === "ok" ? '<span class="badge badge-ok">通过</span>' : i.s === "merged" ? '<span class="badge badge-info">合并</span>' : '<span class="badge badge-danger">拒绝</span>') +
+        (i.s === "ok" ? '<span class="badge badge-ok">Passed</span>' : i.s === "merged" ? '<span class="badge badge-info">Merged</span>' : '<span class="badge badge-danger">Rejected</span>') +
       '</span><span class="mono" style="font-size:11.5px">' + i.ref + '</span><span class="faint">' + i.k + '</span><span class="faint" style="font-size:11.5px">' + i.r + '</span></div>').join("") +
     '</div>' +
     '<div style="display:flex;gap:8px;margin-top:14px">' +
-      '<button class="btn" onclick="toast(\'导入报告 JSON 已下载（mock）\')">⬇ 下载导入报告</button>' +
+      '<button class="btn" onclick="toast(\'Import report JSON downloaded (mock)\')">⬇ Download import report</button>' +
       '<span style="flex:1"></span>' +
-      '<button class="btn" onclick="impGo(2)">← 返回修改清单</button>' +
-      '<button class="btn btn-primary" onclick="finishImport()">✓ 完成导入（创建 v' + (DATA.batches.length + 1) + '）</button>' +
+      '<button class="btn" onclick="impGo(2)">← Back to edit manifest</button>' +
+      '<button class="btn btn-primary" onclick="finishImport()">✓ Finish import (create v' + (DATA.batches.length + 1) + ')</button>' +
     '</div></div>';
 }
 function runImport() {
   S.importDone = true; render();
-  toast("实文件核查完成：2 条定位器被拒绝并给出可读原因", "warn");
+  toast("Source-file verification complete: 2 locators rejected with readable reasons", "warn");
 }
 function finishImport() {
   const nv = DATA.batches.length + 1;
-  DATA.batches.push({ v: nv, files: S.importFiles.map(f => f.name).join(" + ") || "退货明细.xlsx", manifest: "datasets.csv", format: "csv", report: { total: 6, ok: 3, merged: 1, rejected: 2 }, by: S.user.name, at: "2026-11-16 12:00" });
+  DATA.batches.push({ v: nv, files: S.importFiles.map(f => f.name).join(" + ") || "return_details.xlsx", manifest: "datasets.csv", format: "csv", report: { total: 6, ok: 3, merged: 1, rejected: 2 }, by: S.user.name, at: "2026-11-16 12:00" });
   DATA.logs.unshift(
-    { seq: 181, batch: nv, kind: "field", key: "ods_return.refund_amount", op: "added", actor: S.user.name, at: "2026-11-16 12:00", detail: "v" + nv + " 批次" },
-    { seq: 180, batch: nv, kind: "field", key: "ods_return.return_no", op: "added", actor: S.user.name, at: "2026-11-16 12:00", detail: "v" + nv + " 批次" });
+    { seq: 181, batch: nv, kind: "field", key: "ods_return.refund_amount", op: "added", actor: S.user.name, at: "2026-11-16 12:00", detail: "v" + nv + " batch" },
+    { seq: 180, batch: nv, kind: "field", key: "ods_return.return_no", op: "added", actor: S.user.name, at: "2026-11-16 12:00", detail: "v" + nv + " batch" });
   S.graph.state = "dirty"; render();
-  toast("导入完成：v" + nv + " 已创建，change_log 已写入；Kùzu 图标脏，自动重建中…");
+  toast("Import complete: v" + nv + " created, change_log written; Kùzu graph marked dirty, auto-rebuilding…");
   setTimeout(() => { S.graph.state = "rebuilding"; DATA.graphState.state = "rebuilding"; render(); }, 900);
   setTimeout(() => {
     S.graph.state = "clean"; DATA.graphState = { state: "clean", nodeCount: 45, relCount: 18, rebuiltAt: "2026-11-16 12:00:03", rebuiltBy: "auto" };
-    render(); toast("Kùzu 血缘图已重建（COPY FROM，全量幂等）· 图状态 clean");
+    render(); toast("Kùzu lineage graph rebuilt (COPY FROM, full idempotent load) · graph state clean");
     go("canvas");
   }, 2300);
 }
 
 /* ============================================================
-   AI 对话
+   AI chat
    ============================================================ */
 function aiHtml() {
   return '<div class="screen" style="display:flex;height:100%;box-sizing:border-box">' +
     '<div class="chat-layout" style="flex:1">' +
       '<div class="chat-side" id="chatSide"></div>' +
       '<div class="chat-main">' +
-        '<div class="modal-head" style="border-bottom:1px solid var(--line)"><h3>AI 血缘助手</h3>' +
-          '<span class="badge badge-ai">function calling · 工具即本系统 REST API 的薄封装</span>' +
-          '<button class="btn btn-xs" onclick="resetChat()">清空</button></div>' +
+        '<div class="modal-head" style="border-bottom:1px solid var(--line)"><h3>AI lineage assistant</h3>' +
+          '<span class="badge badge-ai">function calling · tools are thin wrappers over this system REST API</span>' +
+          '<button class="btn btn-xs" onclick="resetChat()">Clear</button></div>' +
         '<div class="chat-scroll" id="chatScroll"></div>' +
         '<div class="chat-input">' +
-          '<input class="input" id="chatInput" placeholder="问血缘：order_no 从哪来 / 影响面 / 找漏掉的血缘…" onkeydown="if(event.key===\'Enter\')sendChat()">' +
-          '<button class="btn btn-primary" onclick="sendChat()">发送</button>' +
+          '<input class="input" id="chatInput" placeholder="Ask about lineage: where does order_no come from / impact / find missing lineage…" onkeydown="if(event.key===\'Enter\')sendChat()">' +
+          '<button class="btn btn-primary" onclick="sendChat()">Send</button>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -1195,36 +1195,36 @@ function renderChatSide() {
   const pending = DATA.edges.filter(e => e.src === "ai").concat(S.pendingAi);
   el.innerHTML =
     '<div class="card" style="padding:12px">' +
-      '<div class="sec-t" style="margin:0 0 8px">画布上下文</div>' +
-      '<div class="kv"><span class="k">种子</span><span class="v mono" style="font-size:11.5px">' + S.seedDs + '</span></div>' +
-      '<div class="kv"><span class="k">跳数</span><span class="v">' + S.hops + '</span></div>' +
-      '<div class="kv"><span class="k">图状态</span><span class="v"><span class="badge badge-ok" style="font-size:10px">clean · Kùzu</span></span></div>' +
+      '<div class="sec-t" style="margin:0 0 8px">Canvas context</div>' +
+      '<div class="kv"><span class="k">Seed</span><span class="v mono" style="font-size:11.5px">' + S.seedDs + '</span></div>' +
+      '<div class="kv"><span class="k">Hops</span><span class="v">' + S.hops + '</span></div>' +
+      '<div class="kv"><span class="k">Graph state</span><span class="v"><span class="badge badge-ok" style="font-size:10px">clean · Kùzu</span></span></div>' +
       '<div class="sep"></div>' +
-      '<div class="faint" style="font-size:11px;line-height:1.7">工具返回的结构化子图会同步渲染到血缘画布（统一 GraphPayload 协议）。</div>' +
+      '<div class="faint" style="font-size:11px;line-height:1.7">Structured subgraphs returned by tools are rendered to the lineage canvas (unified GraphPayload protocol).</div>' +
     '</div>' +
     '<div class="card" style="padding:12px">' +
-      '<div class="sec-t" style="margin:0 0 8px">试试这些问题</div>' +
+      '<div class="sec-t" style="margin:0 0 8px">Try these questions</div>' +
       '<div class="chip-row" style="flex-direction:column;align-items:stretch">' +
-        [["A", "订单表里的 order_no 是从哪来的？"], ["B", "看板 gmv_daily 指标是从哪来的？"], ["C", "改 unit_price 会影响哪些下游？"], ["D", "帮我找可能漏掉的血缘"]].map(q =>
+        [["A", "Where does order_no in the order table come from?"], ["B", "Where does the dashboard gmv_daily metric come from?"], ["C", "What downstream is affected if I change unit_price?"], ["D", "Find lineage that might be missing"]].map(q =>
           '<button class="qchip" style="text-align:left" onclick="runFlow(\'' + q[0] + '\')">' + q[1] + '</button>').join("") +
       '</div>' +
     '</div>' +
     '<div class="card" style="padding:12px">' +
-      '<div class="sec-t" style="margin:0 0 8px">待确认建议（' + pending.length + '）</div>' +
+      '<div class="sec-t" style="margin:0 0 8px">Pending suggestions (' + pending.length + ')</div>' +
       (pending.length ? pending.map(e =>
         '<div class="suggest-card" style="margin-bottom:7px"><span class="mono" style="font-size:11px">' +
         (e.ff ? e.fd + "." + e.ff : e.fd + ".*") + ' → ' + (e.tf ? e.td + "." + e.tf : e.td + ".*") +
-        '</span><div style="margin:3px 0 6px;color:var(--ink-muted)">' + esc(e.transform) + ' · 置信 ' + e.conf.toFixed(2) + '</div>' +
+        '</span><div style="margin:3px 0 6px;color:var(--ink-muted)">' + esc(e.transform) + ' · confidence ' + e.conf.toFixed(2) + '</div>' +
         '<div style="display:flex;gap:6px">' +
-          '<button class="btn btn-xs btn-primary" ' + (canWrite() ? "" : "disabled") + ' onclick="confirmAi(' + e.id + ')">✓ 确认转正</button>' +
-          '<button class="btn btn-xs btn-danger" ' + (canWrite() ? "" : "disabled") + ' onclick="rejectAi(' + e.id + ')">拒绝</button>' +
-        '</div></div>').join("") : '<div class="faint" style="font-size:11px">没有待确认的建议边。AI 边必须人工确认才转 source=manual。</div>') +
-      '<div class="faint" style="font-size:10.5px;margin-top:6px;line-height:1.6">确认 = 按自然键把 source 从 ai 改为 manual（写 updated 日志）；拒绝 = 删除候选边。</div>' +
+          '<button class="btn btn-xs btn-primary" ' + (canWrite() ? "" : "disabled") + ' onclick="confirmAi(' + e.id + ')">✓ Confirm and promote</button>' +
+          '<button class="btn btn-xs btn-danger" ' + (canWrite() ? "" : "disabled") + ' onclick="rejectAi(' + e.id + ')">Reject</button>' +
+        '</div></div>').join("") : '<div class="faint" style="font-size:11px">No pending suggested edges. AI edges require manual confirmation before they become source=manual.</div>') +
+      '<div class="faint" style="font-size:10.5px;margin-top:6px;line-height:1.6">Confirm = change source from ai to manual by natural key (writes updated log); Reject = delete the candidate edge.</div>' +
     '</div>';
 }
 function seedChatWelcome() {
   S.chatLog = [
-    { who: "ai", text: "你好，我是 Clew 血缘助手。我会通过 function calling 调用本系统的查询工具（search_fields / trace_lineage / analyze_impact / suggest_lineage…），返回的结构化子图会同步渲染到画布。\n\n试试左侧的问题，或直接输入。" },
+    { who: "ai", text: "Hello, I am the Clew lineage assistant. I call this system query tools via function calling (search_fields / trace_lineage / analyze_impact / suggest_lineage…), and the structured subgraphs I return are rendered to the canvas.\n\nTry the questions on the left, or type your own." },
   ];
   renderChat();
 }
@@ -1244,7 +1244,7 @@ function renderChat() {
     return '<div class="msg ai" style="max-width:100%"><div class="avatar">🛠</div>' +
       '<div class="tool-card ' + m.cls + '" style="flex:1"><div class="tool-head" onclick="this.nextElementSibling.toggleAttribute(\'hidden\')">' +
       '<span class="badge badge-ai" style="font-size:10px">tool</span><span class="tn">' + m.name + '(' + esc(m.args) + ')</span>' +
-      '<span class="faint" style="margin-left:auto;font-size:10.5px">点击折叠</span></div>' +
+      '<span class="faint" style="margin-left:auto;font-size:10.5px">Click to collapse</span></div>' +
       '<div class="tool-body">' + m.html + '</div></div></div>';
   }).join("");
   el.scrollTop = el.scrollHeight;
@@ -1258,50 +1258,50 @@ function sendChat() {
 }
 const FLOWS = {
   A: [
-    { t: "me", x: "订单表里的 order_no 是从哪来的？" },
+    { t: "me", x: "Where does order_no in the order table come from?" },
     { t: "tool", n: "search_fields", a: '"order_no"', h:
       '<div class="mini-list">' +
-      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">精确</span><span class="mono">dwd_order.order_no</span><span class="score badge" style="font-size:10px">订单明细宽表</span></div>' +
-      '<div class="mini-hit"><span class="badge" style="font-size:10px">前缀</span><span class="mono">ods_raw_order.order_no</span><span class="score faint">原始订单明细</span></div>' +
-      '<div class="mini-hit"><span class="badge" style="font-size:10px">前缀</span><span class="mono">ods_raw_pay.order_no</span><span class="score faint">原始支付流水</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">Exact</span><span class="mono">dwd_order.order_no</span><span class="score badge" style="font-size:10px">Order detail wide table</span></div>' +
+      '<div class="mini-hit"><span class="badge" style="font-size:10px">Prefix</span><span class="mono">ods_raw_order.order_no</span><span class="score faint">Raw order details</span></div>' +
+      '<div class="mini-hit"><span class="badge" style="font-size:10px">Prefix</span><span class="mono">ods_raw_pay.order_no</span><span class="score faint">Raw payment transactions</span></div>' +
       '</div>' },
     { t: "tool", n: "trace_lineage", a: '"dwd_order.order_no", up, hops=3', h:
       '<div class="mini-list">' +
-      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">ods_raw_order.order_no</span><span class="score faint">导入 · conf 1.0 · trim/cast</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">ods_raw_order.order_no</span><span class="score faint">Imported · conf 1.0 · trim/cast</span></div>' +
       '</div>' +
       '<svg class="chain-svg" width="360" height="46"><path d="M 8 23 C 80 23, 120 23, 190 23" stroke="#EA580C" stroke-width="2.4" fill="none" marker-end="url(#ahEA580C)" class="edge-anim" stroke-dasharray="6 5"/><rect x="4" y="9" width="120" height="28" rx="6" fill="#FFF7ED" stroke="#FED7AA"/><text x="14" y="27" font-size="10.5" fill="#9A3412">ods_raw_order.order_no</text><rect x="196" y="9" width="120" height="28" rx="6" fill="#FFF" stroke="#CBD5E1"/><text x="206" y="27" font-size="10.5" fill="#334155">dwd_order.order_no</text><defs><marker id="ahEA580C" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#EA580C"/></marker></defs></svg>' },
-    { t: "ai", x: "dwd_order.order_no 由 ods_raw_order.order_no 直传得到（1 跳，置信度 1.0，转换：trim / cast）。\n\n源头字段位于托管源文件「订单明细.xlsx」sheet「订单明细」，多级表头「商品信息 ▸ 订单号」→ D 列，行 3–15083（合并单元格已锚点归一到 B1）。\n\n已在画布渲染该子图，可点击字段行回源预览。" },
+    { t: "ai", x: "dwd_order.order_no is produced by a direct pass-through from ods_raw_order.order_no (1 hop, confidence 1.0, transform: trim / cast).\n\nThe source field lives in the managed source file \"order_details.xlsx\", sheet \"Order Details\", multi-level header \"Product Info ▸ Order No.\" → column D, rows 3–15083 (merged cells normalized to anchor B1).\n\nThe subgraph has been rendered on the canvas; click the field row to open the source preview." },
   ],
   B: [
-    { t: "me", x: "看板 gmv_daily 指标是从哪来的？" },
+    { t: "me", x: "Where does the dashboard gmv_daily metric come from?" },
     { t: "tool", n: "trace_lineage", a: '"ads_gmv_dashboard.gmv_daily", up, hops=3', h:
       '<div class="mini-list">' +
-      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 3</span><span class="mono">ods_raw_order.quantity</span><span class="score faint">导入 · conf 1.0</span></div>' +
-      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">dwd_order.order_amount</span><span class="score faint">导入 · conf 1.0</span></div>' +
-      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">dws_order_daily.gmv</span><span class="score faint">导入 · conf 1.0</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 3</span><span class="mono">ods_raw_order.quantity</span><span class="score faint">Imported · conf 1.0</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">dwd_order.order_amount</span><span class="score faint">Imported · conf 1.0</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 1</span><span class="mono">dws_order_daily.gmv</span><span class="score faint">Imported · conf 1.0</span></div>' +
       '</div>' +
       '<svg class="chain-svg" width="430" height="46"><path d="M 8 23 C 60 23, 80 23, 132 23" stroke="#EA580C" stroke-width="2.4" fill="none" marker-end="url(#ahEA580Cb)"/><path d="M 138 23 C 190 23, 210 23, 262 23" stroke="#EA580C" stroke-width="2.4" fill="none" marker-end="url(#ahEA580Cb)"/><path d="M 268 23 C 320 23, 340 23, 392 23" stroke="#EA580C" stroke-width="2.4" fill="none" marker-end="url(#ahEA580Cb)"/><rect x="4" y="9" width="128" height="28" rx="6" fill="#FFF7ED" stroke="#FED7AA"/><text x="12" y="27" font-size="10" fill="#9A3412">ods_raw_order.quantity</text><rect x="134" y="9" width="128" height="28" rx="6" fill="#FFF" stroke="#CBD5E1"/><text x="142" y="27" font-size="10" fill="#334155">dwd_order.order_amount</text><rect x="264" y="9" width="122" height="28" rx="6" fill="#FFF" stroke="#CBD5E1"/><text x="272" y="27" font-size="10" fill="#334155">dws_order_daily.gmv</text><rect x="394" y="9" width="128" height="28" rx="6" fill="#FFF" stroke="#CBD5E1"/><text x="402" y="27" font-size="10" fill="#334155">ads…gmv_daily</text><defs><marker id="ahEA580Cb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#EA580C"/></marker></defs></svg>' },
-    { t: "ai", x: "gmv_daily 是一条 3 跳上游链（Kùzu 变长路径 *1..3 一次查出）：\n\n1. ads_gmv_dashboard.gmv_daily ← dws_order_daily.gmv（SUM 直传）\n2. dws_order_daily.gmv ← dwd_order.order_amount 与 pay_amount 求和\n3. dwd_order.order_amount ← ods_raw_order.quantity × unit_price\n\n末端定位：订单明细.xlsx「商品信息 ▸ 数量 / 单价」列（实文件核查通过，v3 批次）。\n\n提示：该链中 unit_price → order_amount 是一条 AI 建议边（conf 0.72，待确认），会随子图一并渲染。" },
+    { t: "ai", x: "gmv_daily is the end of a 3-hop upstream chain (retrieved in a single query via Kùzu variable-length path *1..3):\n\n1. ads_gmv_dashboard.gmv_daily ← dws_order_daily.gmv (SUM pass-through)\n2. dws_order_daily.gmv ← SUM of dwd_order.order_amount and pay_amount\n3. dwd_order.order_amount ← ods_raw_order.quantity × unit_price\n\nTerminal locator: order_details.xlsx \"Product Info ▸ Quantity / Unit Price\" columns (verified against the source file, v3 batch).\n\nNote: in this chain, unit_price → order_amount is an AI suggested edge (conf 0.72, pending confirmation) and is rendered together with the subgraph." },
   ],
   C: [
-    { t: "me", x: "改 unit_price 会影响哪些下游？" },
+    { t: "me", x: "What downstream is affected if I change unit_price?" },
     { t: "tool", n: "analyze_impact", a: '"ods_raw_order.unit_price", down, hops=5', h:
       '<div class="mini-list">' +
-      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">dwd_order.order_amount</span><span class="score faint">AI 建议 · conf 0.72</span></div>' +
-      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">dws_order_daily.gmv</span><span class="score faint">导入 · conf 1.0</span></div>' +
-      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 3</span><span class="mono">ads_gmv_dashboard.gmv_daily</span><span class="score faint">导入 · conf 1.0</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-ok" style="font-size:10px">hop 1</span><span class="mono">dwd_order.order_amount</span><span class="score faint">AI suggested · conf 0.72</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 2</span><span class="mono">dws_order_daily.gmv</span><span class="score faint">Imported · conf 1.0</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-info" style="font-size:10px">hop 3</span><span class="mono">ads_gmv_dashboard.gmv_daily</span><span class="score faint">Imported · conf 1.0</span></div>' +
       '</div>' },
-    { t: "ai", x: "unit_price 的下游影响面共 3 个字段（2 跳内）：\n\n· dwd_order.order_amount —— 参与金额计算（注意：这条边本身是 AI 建议，conf 0.72，若你确认它不成立可拒绝）\n· dws_order_daily.gmv —— GMV 日汇总\n· ads_gmv_dashboard.gmv_daily —— 经营看板指标\n\n已切到画布并点亮该链路，可以逐层回源核查。" },
+    { t: "ai", x: "unit_price affects 3 downstream fields (within 2 hops):\n\n· dwd_order.order_amount — participates in amount calculation (note: this edge itself is an AI suggestion, conf 0.72; you can reject it if you determine it does not hold)\n· dws_order_daily.gmv — daily GMV summary\n· ads_gmv_dashboard.gmv_daily — business dashboard metric\n\nSwitched to the canvas and highlighted the chain; verify each layer back to the source." },
     { t: "action", x: "focus-unit_price" },
   ],
   D: [
-    { t: "me", x: "帮我找可能漏掉的血缘" },
+    { t: "me", x: "Find lineage that might be missing" },
     { t: "tool", n: "suggest_lineage", a: 'scope=workspace', h:
       '<div class="mini-list">' +
-      '<div class="mini-hit"><span class="badge badge-ai" style="font-size:10px">新候选</span><span class="mono" style="font-size:11px">ods_raw_pay.order_no → dwd_order.order_no</span><span class="score faint">同名字段启发式 · conf 0.55</span></div>' +
+      '<div class="mini-hit"><span class="badge badge-ai" style="font-size:10px">New candidate</span><span class="mono" style="font-size:11px">ods_raw_pay.order_no → dwd_order.order_no</span><span class="score faint">Same-name field heuristic · conf 0.55</span></div>' +
       '</div>' +
-      '<div class="faint" style="font-size:11px;margin-top:5px">已落库为 source=ai 候选边（写 added 日志），在左侧「待确认建议」中出现；确认前不参与正式血缘统计。</div>' },
-    { t: "ai", x: "扫描了全工作区的同名字段与描述相似度，新增 1 条候选：ods_raw_pay.order_no → dwd_order.order_no（conf 0.55）。\n\n现有待确认 3 条：这条新的 + unit_price→order_amount（0.72）+ register_date→register_date（0.68）。请在左侧卡片逐一确认或拒绝——确认后转 manual 并写 updated 日志，拒绝则删除候选。" },
+      '<div class="faint" style="font-size:11px;margin-top:5px">Persisted as a source=ai candidate edge (writes added log); appears under "Pending suggestions" on the left; excluded from official lineage statistics until confirmed.</div>' },
+    { t: "ai", x: "Scanned same-name fields and description similarity across the workspace and added 1 candidate: ods_raw_pay.order_no → dwd_order.order_no (conf 0.55).\n\nThere are now 3 pending items: this new one + unit_price→order_amount (0.72) + register_date→register_date (0.68). Please confirm or reject each in the left-hand cards — confirming switches it to manual and writes an updated log; rejecting deletes the candidate." },
   ],
 };
 function runFlow(key, freeText) {
@@ -1310,8 +1310,8 @@ function runFlow(key, freeText) {
   const steps = key ? FLOWS[key].slice() : [
     { t: "me", x: freeText },
     { t: "typing" },
-    { t: "tool", n: "search_fields", a: JSON.stringify(freeText.slice(0, 12)), h: '<div class="faint" style="font-size:11.5px">（通用兜底流程）在数据集 id / 名称 / 字段名 / 描述 / 标注中 LIKE 检索…</div>' },
-    { t: "ai", x: "这个问题我用通用流程处理：检索 → 追溯 → 出图。想看固定演示脚本，请点左侧的问题卡片（A/B/C/D）。" },
+    { t: "tool", n: "search_fields", a: JSON.stringify(freeText.slice(0, 12)), h: '<div class="faint" style="font-size:11.5px">(Generic fallback flow) LIKE search across dataset id / name / field name / description / annotations…</div>' },
+    { t: "ai", x: "I will handle this with the generic flow: search → trace → render graph. To see a scripted demo, click a question card (A/B/C/D) on the left." },
     { t: "action", x: "canvas" },
   ];
   let delay = 0;
@@ -1330,7 +1330,7 @@ function runFlow(key, freeText) {
   });
 }
 function confirmAi(id) {
-  if (!canWrite()) { toast("viewer 无写权限（editor 以上可确认）", "warn"); return; }
+  if (!canWrite()) { toast("viewer has no write permission (editor or above can confirm)", "warn"); return; }
   const inData = DATA.edges.find(e => e.id === id);
   const inPending = S.pendingAi.find(e => e.id === id);
   const e = inData || inPending;
@@ -1340,22 +1340,22 @@ function confirmAi(id) {
     S.pendingAi = S.pendingAi.filter(x => x.id !== id);
     DATA.edges.push(e);
   }
-  DATA.logs.unshift({ seq: ++LOG_SEQ, batch: null, kind: "edge", key: aiKey(e), op: "updated", actor: S.user.name, at: "2026-11-16 12:00", detail: "AI 建议确认转正：source ai → manual" });
+  DATA.logs.unshift({ seq: ++LOG_SEQ, batch: null, kind: "edge", key: aiKey(e), op: "updated", actor: S.user.name, at: "2026-11-16 12:00", detail: "AI suggestion confirmed and promoted: source ai → manual" });
   S.graph.state = "dirty";
   setTimeout(() => { S.graph.state = "clean"; render(); }, 1200);
-  toast("已确认转正（manual）· change_log +1 · Kùzu 图同步 source 属性");
+  toast("Confirmed and promoted (manual) · change_log +1 · Kùzu graph synced source property");
   renderChatSide(); renderChat();
   if (S.screen === "canvas") drawGraph();
 }
 function rejectAi(id) {
-  if (!canWrite()) { toast("viewer 无写权限", "warn"); return; }
+  if (!canWrite()) { toast("viewer has no write permission", "warn"); return; }
   const inData = DATA.edges.findIndex(e => e.id === id);
   if (inData >= 0) {
     const e = DATA.edges[inData];
     DATA.edges.splice(inData, 1);
-    DATA.logs.unshift({ seq: ++LOG_SEQ, batch: null, kind: "edge", key: aiKey(e), op: "deleted", actor: S.user.name, at: "2026-11-16 12:00", detail: "AI 建议被拒绝，候选边删除" });
+    DATA.logs.unshift({ seq: ++LOG_SEQ, batch: null, kind: "edge", key: aiKey(e), op: "deleted", actor: S.user.name, at: "2026-11-16 12:00", detail: "AI suggestion rejected; candidate edge deleted" });
   } else S.pendingAi = S.pendingAi.filter(x => x.id !== id);
-  toast("已拒绝并删除候选边（写 deleted 日志）");
+  toast("Rejected and deleted candidate edge (writes deleted log)");
   renderChatSide(); renderChat();
   if (S.screen === "canvas") drawGraph();
 }
@@ -1363,49 +1363,49 @@ let LOG_SEQ = 181;
 function aiKey(e) { return (e.fd + "." + (e.ff || "*")) + "-->" + (e.td + "." + (e.tf || "*")); }
 
 /* ============================================================
-   版本与用户
+   Versions & users
    ============================================================ */
 function versionHtml() {
   return '<div class="screen" style="max-width:1000px;margin:0 auto">' +
-    '<h2 style="font-size:16px;margin:4px 0 14px">版本与用户</h2>' +
+    '<h2 style="font-size:16px;margin:4px 0 14px">Versions & users</h2>' +
     '<div class="tabs">' +
-      [["batch", "导入批次（= 版本）"], ["tag", "版本标签"], ["log", "变更日志"], ["users", "用户与权限"]].map(t =>
+      [["batch", "Import batches (= versions)"], ["tag", "Version tags"], ["log", "Change log"], ["users", "Users & permissions"]].map(t =>
         '<button class="' + (S.verTab === t[0] ? "active" : "") + '" onclick="S.verTab=\'' + t[0] + '\';render()">' + t[1] + '</button>').join("") +
     '</div>' + verBody() + '</div>';
 }
 function verBody() {
   if (S.verTab === "batch") {
     return '<div class="card" style="padding:0;overflow:hidden"><table class="tbl"><thead><tr>' +
-      '<th>版本</th><th>源文件</th><th>清单格式</th><th>导入报告</th><th>操作者</th><th>时间</th><th style="text-align:right">操作</th></tr></thead><tbody>' +
+      '<th>Version</th><th>Source files</th><th>Manifest format</th><th>Import report</th><th>Operator</th><th>Time</th><th style="text-align:right">Actions</th></tr></thead><tbody>' +
       DATA.batches.slice().reverse().map(b => '<tr>' +
-        '<td><b>v' + b.v + '</b>' + (b.rolledBack ? ' <span class="badge badge-warn" style="font-size:10px">已回滚</span>' : "") + '</td><td>' + esc(b.files) + '</td><td><span class="ftag">' + b.format.toUpperCase() + '</span> <span class="faint">' + esc(b.manifest) + '</span></td>' +
-        '<td><span class="badge badge-ok">成功 ' + b.report.ok + '</span> ' + (b.report.merged ? '<span class="badge badge-info">合并 ' + b.report.merged + '</span> ' : "") + (b.report.rejected ? '<span class="badge badge-danger">拒绝 ' + b.report.rejected + '</span>' : "") + '</td>' +
+        '<td><b>v' + b.v + '</b>' + (b.rolledBack ? ' <span class="badge badge-warn" style="font-size:10px">Rolled back</span>' : "") + '</td><td>' + esc(b.files) + '</td><td><span class="ftag">' + b.format.toUpperCase() + '</span> <span class="faint">' + esc(b.manifest) + '</span></td>' +
+        '<td><span class="badge badge-ok">Succeeded ' + b.report.ok + '</span> ' + (b.report.merged ? '<span class="badge badge-info">Merged ' + b.report.merged + '</span> ' : "") + (b.report.rejected ? '<span class="badge badge-danger">Rejected ' + b.report.rejected + '</span>' : "") + '</td>' +
         '<td>' + b.by + '</td><td class="faint">' + b.at + '</td>' +
-        '<td style="text-align:right"><button class="btn btn-xs btn-danger" ' + (isAdmin() ? "" : "disabled title='仅 admin 可回滚'") + ' onclick="rollbackBatch(' + b.v + ')">回滚</button>' +
-        ' <button class="btn btn-xs" onclick="toast(\'导入报告 JSON 已下载（mock）\')">报告</button></td></tr>').join("") +
+        '<td style="text-align:right"><button class="btn btn-xs btn-danger" ' + (isAdmin() ? "" : "disabled title='admin only'") + ' onclick="rollbackBatch(' + b.v + ')">Roll back</button>' +
+        ' <button class="btn btn-xs" onclick="toast(\'Import report JSON downloaded (mock)\')">Report</button></td></tr>').join("") +
     '</tbody></table></div>' +
-    '<div class="faint" style="font-size:11px;margin-top:8px">回滚 = 反做该批次全部 change_log（added→删除、updated→恢复 before）；回滚后 Kùzu 图标脏自动重建，幂等可重复执行。</div>';
+    '<div class="faint" style="font-size:11px;margin-top:8px">Rollback = revert all change_log entries of the batch (added→delete, updated→restore before); after rollback the Kùzu graph is marked dirty and rebuilt automatically; idempotent and repeatable.</div>';
   }
   if (S.verTab === "tag") {
     const tags = DATA.tags.slice().sort((a, b) => b.seq - a.seq);
     return '<div style="display:flex;gap:14px;flex-wrap:wrap">' +
       '<div class="card" style="flex:1;min-width:320px;padding:14px">' +
-        '<div class="sec-t" style="margin:0 0 10px">标签列表（锚定 change_log 位置）</div>' +
+        '<div class="sec-t" style="margin:0 0 10px">Tag list (anchored at change_log position)</div>' +
         tags.map(t => '<div class="log-item" style="cursor:pointer" onclick="S.diffSel={from:\'' + (S.diffSel.to || "v1.1-r1") + '\',to:\'' + t.name + '\'};render()">' +
-          '<span class="badge badge-brand">' + t.name + '</span><span style="flex:1">' + esc(t.note) + '<div class="faint" style="font-size:10.5px">@seq ' + t.seq + ' · v' + t.batch + ' 后 · ' + t.by + ' · ' + t.at + '</div></span>' +
-          '<button class="btn btn-xs btn-danger" ' + (isAdmin() ? "" : "disabled title='仅 admin'") + ' onclick="event.stopPropagation();rollbackTag(\'' + t.name + '\')">回滚到此</button></div>').join("") +
+          '<span class="badge badge-brand">' + t.name + '</span><span style="flex:1">' + esc(t.note) + '<div class="faint" style="font-size:10.5px">@seq ' + t.seq + ' · after v' + t.batch + ' · ' + t.by + ' · ' + t.at + '</div></span>' +
+          '<button class="btn btn-xs btn-danger" ' + (isAdmin() ? "" : "disabled title='admin only'") + ' onclick="event.stopPropagation();rollbackTag(\'' + t.name + '\')">Roll back to here</button></div>').join("") +
         '<div style="margin-top:10px;display:flex;gap:8px">' +
           '<select class="select" id="diff-from" style="flex:1">' + tags.map(t => '<option ' + (S.diffSel.from === t.name ? "selected" : "") + '>' + t.name + '</option>').join("") + '</select>' +
           '<span class="faint" style="align-self:center">→</span>' +
           '<select class="select" id="diff-to" style="flex:1">' + tags.map(t => '<option ' + (S.diffSel.to === t.name ? "selected" : "") + '>' + t.name + '</option>').join("") + '</select>' +
-          '<button class="btn btn-primary" onclick="doDiff()">对比</button></div>' +
+          '<button class="btn btn-primary" onclick="doDiff()">Compare</button></div>' +
       '</div>' +
       '<div class="card" style="flex:1.2;min-width:380px;padding:14px">' + diffHtml() + '</div>' +
     '</div>';
   }
   if (S.verTab === "log") {
     return '<div class="card" style="padding:6px 14px;max-height:70vh;overflow:auto">' +
-      '<div class="faint" style="font-size:11px;padding:6px 0">change_log 是回滚与 diff 的唯一依据；标签创建与回滚审计不写此表（防止被反做），分别留痕于 version_tag 与 rollback_record。</div>' +
+      '<div class="faint" style="font-size:11px;padding:6px 0">change_log is the sole basis for rollback and diff; tag creation and rollback audits are not written to this table (to avoid being reverted) and are recorded in version_tag and rollback_record respectively.</div>' +
       DATA.logs.map(l =>
         '<div class="log-item"><span class="seq">#' + l.seq + '</span>' +
         '<span class="opb op-' + l.op + '">' + { added: "added", updated: "updated", deleted: "deleted" }[l.op] + '</span>' +
@@ -1419,7 +1419,7 @@ function verBody() {
 function diffHtml() {
   const d = DATA.diffSample;
   const active = S.diffSel.from === d.from && S.diffSel.to === d.to;
-  return '<div class="sec-t" style="margin:0 0 10px">标签 diff（净变更，按实体归并）</div>' +
+  return '<div class="sec-t" style="margin:0 0 10px">Tag diff (net changes, merged by entity)</div>' +
     (active ?
       '<div class="sum-cards" style="margin:0 0 10px">' +
         '<div class="sum-card stat-ok"><div class="num">' + d.summary.added + '</div>added</div>' +
@@ -1431,120 +1431,120 @@ function diffHtml() {
         '<td style="width:52px" class="faint">' + i.kind + '</td>' +
         '<td class="mono" style="font-size:11.5px">' + esc(i.key) + '<div class="faint" style="font-size:10.5px;font-family:inherit">' + esc(i.detail) + '</div></td></tr>').join("") +
       '</tbody></table></div>' +
-      '<div class="faint" style="font-size:11px;margin-top:8px">' + d.from + ' → ' + d.to + ' 区间 change_log 归并结果；区间内先增后删的实体不计入净变更。</div>'
-      : '<div class="faint" style="padding:40px 0;text-align:center">选择两个标签后点击「对比」<br>（原型内置示例：v1.1-r1 → v2.0-r1）</div>');
+      '<div class="faint" style="font-size:11px;margin-top:8px">' + d.from + ' → ' + d.to + ' change_log merged result for the range; entities added then deleted within the range are excluded from net changes.</div>'
+      : '<div class="faint" style="padding:40px 0;text-align:center">Select two tags and click "Compare"<br>(built-in example: v1.1-r1 → v2.0-r1)</div>');
 }
 function doDiff() {
   S.diffSel = { from: document.getElementById("diff-from").value, to: document.getElementById("diff-to").value };
   render();
 }
 function rollbackBatch(v) {
-  confirmModal("回滚批次 v" + v, "将反做该批次产生的全部变更（change_log 逆向），并触发 Kùzu 图重建。回滚幂等，可重复执行。", () => {
+  confirmModal("Roll back batch v" + v, "All changes produced by this batch will be reverted (change_log reversed) and a Kùzu graph rebuild triggered. Rollback is idempotent and repeatable.", () => {
     DATA.batches.find(b => b.v === v).rolledBack = true;
     DATA.graphState.state = "dirty"; S.graph.state = "dirty"; render();
-    toast("批次 v" + v + " 已回滚 · Kùzu 标脏 → 自动重建", "warn");
+    toast("Batch v" + v + " rolled back · Kùzu marked dirty → auto rebuild", "warn");
     setTimeout(() => { S.graph.state = "clean"; DATA.graphState = { ...DATA.graphState, state: "clean", rebuiltAt: "2026-11-16 12:05", rebuiltBy: S.user.name }; render(); }, 1600);
-    setTimeout(() => toast("图已重建 · 状态 clean（rollback_record 已审计）"), 1700);
+    setTimeout(() => toast("Graph rebuilt · state clean (rollback_record audited)"), 1700);
   });
 }
 function rollbackTag(name) {
-  confirmModal("回滚到标签 " + name, "将反做该标签 change_seq 之后的全部日志（含人工编辑与批次），标注保留、标签永久保留。", () => {
+  confirmModal("Roll back to tag " + name, "All logs after this tag change_seq will be reverted (including manual edits and batches); annotations and tags are kept permanently.", () => {
     DATA.graphState.state = "dirty"; S.graph.state = "dirty"; render();
-    toast("已回滚到 " + name + " · Kùzu 标脏重建中", "warn");
+    toast("Rolled back to " + name + " · Kùzu marked dirty, rebuilding", "warn");
     setTimeout(() => { S.graph.state = "clean"; DATA.graphState = { ...DATA.graphState, state: "clean", rebuiltAt: "2026-11-16 12:06", rebuiltBy: S.user.name }; render(); }, 1600);
   });
 }
 function confirmModal(title, text, onOk) {
   modal(title, '<div style="font-size:13px;color:var(--ink-soft);padding:4px 0">' + esc(text) + '</div>' +
     '<div class="codelist" style="margin-top:8px">graph_state.state: clean → dirty → rebuilding → clean</div>',
-    '<button class="btn" onclick="closeModal()">取消</button><button class="btn btn-danger" id="cf-ok">确认回滚</button>');
+    '<button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-danger" id="cf-ok">Confirm rollback</button>');
   document.getElementById("cf-ok").onclick = () => { closeModal(); onOk(); };
 }
 function usersHtml() {
   const u = DATA.users;
   return '<div style="display:flex;gap:14px;flex-wrap:wrap">' +
     '<div class="card" style="flex:1;min-width:320px;padding:0;overflow:hidden">' +
-      '<div class="sec-t" style="padding:12px 14px 0;margin:0">用户（JWT 认证 · 密码加盐哈希）</div>' +
-      '<table class="tbl" style="margin-top:8px"><thead><tr><th>用户</th><th>账号</th><th>角色</th><th>说明</th></tr></thead><tbody>' +
+      '<div class="sec-t" style="padding:12px 14px 0;margin:0">Users (JWT auth · salted password hash)</div>' +
+      '<table class="tbl" style="margin-top:8px"><thead><tr><th>User</th><th>Account</th><th>Role</th><th>Description</th></tr></thead><tbody>' +
       u.map(x => '<tr><td><span class="avatar" style="display:inline-flex;vertical-align:-6px;margin-right:6px">' + x.name[0] + '</span>' + x.name + '</td><td class="mono">' + x.username + '</td>' +
         '<td><span class="badge ' + (x.role === "admin" ? "badge-brand" : x.role === "editor" ? "badge-ok" : "") + '">' + x.role + '</span></td><td class="faint">' + x.desc + '</td></tr>').join("") +
       '</tbody></table></div>' +
     '<div class="card" style="flex:1.3;min-width:420px;padding:0;overflow:hidden">' +
-      '<div class="sec-t" style="padding:12px 14px 0;margin:0">RBAC 能力矩阵（工作区级，不做对象级 ACL）</div>' +
-      '<table class="tbl matrix" style="margin-top:8px"><thead><tr><th>能力</th><th>viewer</th><th>editor</th><th>admin</th></tr></thead><tbody>' +
-      [["浏览血缘图 / 回源预览", 1, 1, 1], ["AI 只读问答（trace/search）", 1, 1, 1], ["上传源文件 / 导入清单", 0, 1, 1], ["画布纠错编辑 / 拖线建边", 0, 1, 1], ["追加标注", 0, 1, 1], ["确认 / 拒绝 AI 建议边", 0, 1, 1], ["创建版本标签", 0, 1, 1], ["按批次 / 标签回滚", 0, 0, 1], ["用户与角色管理", 0, 0, 1], ["删除数据集", 0, 0, 1]].map(r =>
+      '<div class="sec-t" style="padding:12px 14px 0;margin:0">RBAC capability matrix (workspace-level, no object-level ACL)</div>' +
+      '<table class="tbl matrix" style="margin-top:8px"><thead><tr><th>Capability</th><th>viewer</th><th>editor</th><th>admin</th></tr></thead><tbody>' +
+      [["Browse lineage graph / source preview", 1, 1, 1], ["AI read-only Q&A (trace/search)", 1, 1, 1], ["Upload source files / import manifests", 0, 1, 1], ["Canvas correction / draw edges by dragging", 0, 1, 1], ["Append annotations", 0, 1, 1], ["Confirm / reject AI suggested edges", 0, 1, 1], ["Create version tags", 0, 1, 1], ["Roll back by batch / tag", 0, 0, 1], ["User and role management", 0, 0, 1], ["Delete datasets", 0, 0, 1]].map(r =>
         '<tr><td>' + r[0] + '</td>' + [1, 2, 3].map(i => '<td>' + (r[i] ? '<span class="yes">✓</span>' : '<span class="no">—</span>') + '</td>').join("") + '</tr>').join("") +
       '</tbody></table>' +
-      '<div class="faint" style="padding:10px 14px;font-size:11px">所有写操作记录操作者（created_by / actor 取自 JWT）；文件存储路径不对外暴露，预览与下载受权限控制。</div>' +
+      '<div class="faint" style="padding:10px 14px;font-size:11px">All write operations record the operator (created_by / actor taken from JWT); file storage paths are not exposed; preview and download are permission-controlled.</div>' +
     '</div></div>';
 }
 
 /* ============================================================
-   架构总览（SQLite + Kùzu 双库方案）
+   Architecture overview (SQLite + Kùzu dual-database design)
    ============================================================ */
 function archHtml() {
   return '<div class="screen" style="max-width:1080px;margin:0 auto">' +
-    '<h2 style="font-size:16px;margin:4px 0 4px">存储架构：SQLite（事实源）+ Kùzu 0.11.3（血缘图）</h2>' +
-    '<div class="faint" style="margin-bottom:14px;font-size:12px">2026-11 存储重设计 · 单进程、双嵌入式库、无消息队列、无搜索集群 · REST 契约不变，前端无感</div>' +
+    '<h2 style="font-size:16px;margin:4px 0 4px">Storage architecture: SQLite (source of truth) + Kùzu 0.11.3 (lineage graph)</h2>' +
+    '<div class="faint" style="margin-bottom:14px;font-size:12px">2026-11 storage redesign · single process, dual embedded databases, no message queue, no search cluster · REST contract unchanged, frontend unaffected</div>' +
 
     '<div class="arch-grid" style="margin-bottom:14px">' +
       '<div class="arch-box" style="flex:1.1">' +
-        '<h4>📄 SQLite <span class="arch-tag badge-ok badge">唯一事实源</span></h4>' +
-        '<ul><li>user / source_file（sha256 去重）</li><li>dataset / field（src_locator JSON）</li>' +
-        '<li>edge —— 血缘边 + transform/confidence/source</li><li>import_batch / version_tag / change_log / rollback_record</li>' +
-        '<li>annotation / description_draft / <b>graph_state</b>（双库协调）</li>' +
-        '<li>FTS5/LIKE 搜索 · 详情/历史/审计全部走主库</li></ul>' +
+        '<h4>📄 SQLite <span class="arch-tag badge-ok badge">Single source of truth</span></h4>' +
+        '<ul><li>user / source_file (sha256 dedup)</li><li>dataset / field (src_locator JSON)</li>' +
+        '<li>edge — lineage edges + transform/confidence/source</li><li>import_batch / version_tag / change_log / rollback_record</li>' +
+        '<li>annotation / description_draft / <b>graph_state</b> (dual-database coordination)</li>' +
+        '<li>FTS5/LIKE search · details/history/audit all served by the primary DB</li></ul>' +
       '</div>' +
       '<div class="arch-box" style="flex:1.1;border-color:var(--ai)">' +
-        '<h4>🕸 Kùzu 0.11.3 <span class="badge badge-ai arch-tag">血缘图派生层</span></h4>' +
-        '<ul><li>NODE：Dataset / Field（仅 id+name）</li>' +
-        '<li>REL：<span class="mono">LINEAGE_FIELD</span> / <span class="mono">LINEAGE_TABLE</span>（edge_id, source, confidence）</li>' +
-        '<li>Cypher 变长路径：trace / subgraph / impact</li><li>0.11.3 = 归档终版（MIT · cp38–cp314 wheel）</li>' +
-        '<li>进程内启动，无服务端口；可随时从 SQLite 全量重建</li></ul>' +
+        '<h4>🕸 Kùzu 0.11.3 <span class="badge badge-ai arch-tag">Lineage graph derived layer</span></h4>' +
+        '<ul><li>NODE: Dataset / Field (id+name only)</li>' +
+        '<li>REL: <span class="mono">LINEAGE_FIELD</span> / <span class="mono">LINEAGE_TABLE</span> (edge_id, source, confidence)</li>' +
+        '<li>Cypher variable-length paths: trace / subgraph / impact</li><li>0.11.3 = final archived release (MIT · cp38–cp314 wheels)</li>' +
+        '<li>Starts in-process with no service port; can be fully rebuilt from SQLite at any time</li></ul>' +
       '</div>' +
       '<div class="arch-box" style="flex:0.9">' +
-        '<h4>🗂 文件托管</h4><ul><li>data/files/ 本地目录</li>' +
-        '<li>sha256 去重：同内容一份</li><li>受控预览（回源核查弹窗）</li>' +
-        '<li>导入时 openpyxl 实文件核查定位器</li></ul>' +
+        '<h4>🗂 File storage</h4><ul><li>data/files/ local directory</li>' +
+        '<li>sha256 dedup: one copy per identical content</li><li>Controlled preview (source verification modal)</li>' +
+        '<li>openpyxl source-file verification of locators at import time</li></ul>' +
       '</div>' +
     '</div>' +
 
     '<div class="card" style="padding:14px;margin-bottom:14px">' +
-      '<div class="sec-t" style="margin:0 0 4px">写路径（先主库、后图库、失败标脏）</div>' +
-      '<div class="flowrow"><span>导入 / 画布编辑 / AI 确认 → <b>① SQLite 事务</b>（edge + change_log，业务承诺在此） → <b>② Kùzu 事务</b>（CREATE/DELETE Rel） → 成功：<span class="badge badge-ok" style="font-size:10px">clean</span> / 失败：<span class="badge badge-warn" style="font-size:10px">dirty</span>（仍响应 2xx）</span></div>' +
-      '<div class="sec-t" style="margin:12px 0 4px">读路径（查询主入口 = SQLite，拓扑 = Kùzu）</div>' +
-      '<div class="flowrow"><span>搜索 / 详情 / 历史 / 审计 → <b>SQLite</b>；血缘 trace / subgraph / impact → <b>Kùzu Cypher</b>（命中 edge_id → 回 SQLite hydrate）；graph_state=dirty → 自动全量重建 → 失败 → <b>降级递归 CTE</b>（契约不变）</span></div>' +
+      '<div class="sec-t" style="margin:0 0 4px">Write path (primary DB first, then graph DB, mark dirty on failure)</div>' +
+      '<div class="flowrow"><span>Import / canvas edit / AI confirmation → <b>① SQLite transaction</b> (edge + change_log; the business commitment lives here) → <b>② Kùzu transaction</b> (CREATE/DELETE Rel) → success: <span class="badge badge-ok" style="font-size:10px">clean</span> / failure: <span class="badge badge-warn" style="font-size:10px">dirty</span> (still returns 2xx)</span></div>' +
+      '<div class="sec-t" style="margin:12px 0 4px">Read path (query entry = SQLite, topology = Kùzu)</div>' +
+      '<div class="flowrow"><span>Search / details / history / audit → <b>SQLite</b>; lineage trace / subgraph / impact → <b>Kùzu Cypher</b> (edge_id hit → hydrate from SQLite); graph_state=dirty → automatic full rebuild → on failure → <b>fallback recursive CTE</b> (contract unchanged)</span></div>' +
       '<div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">' +
-        '<div class="principle" style="background:var(--success-soft)"><div class="pt"><span class="pn" style="background:var(--success)">1</span>SQLite 是唯一事实源</div>Kùzu 数据永远可从主库推导；写操作的真实性由主库 + change_log 承诺。</div>' +
-        '<div class="principle" style="background:var(--ai-soft)"><div class="pt"><span class="pn" style="background:var(--ai)">2</span>Kùzu 是可移除的派生层</div>重建 = 导出 CSV → COPY FROM，秒级幂等；最坏情况整体退回 CTE 单库，零数据丢失。</div>' +
-        '<div class="principle" style="background:var(--brand-50)"><div class="pt"><span class="pn" style="background:var(--brand-700)">3</span>REST 契约不变</div>前端与 AI 工具无感切换引擎；CTE 实现永久保留为降级路径。</div>' +
+        '<div class="principle" style="background:var(--success-soft)"><div class="pt"><span class="pn" style="background:var(--success)">1</span>SQLite is the single source of truth</div>Kùzu data can always be derived from the primary DB; the truth of writes is guaranteed by the primary DB + change_log.</div>' +
+        '<div class="principle" style="background:var(--ai-soft)"><div class="pt"><span class="pn" style="background:var(--ai)">2</span>Kùzu is a removable derived layer</div>Rebuild = export CSV → COPY FROM, idempotent in seconds; worst case, fall back entirely to the single-DB CTE with zero data loss.</div>' +
+        '<div class="principle" style="background:var(--brand-50)"><div class="pt"><span class="pn" style="background:var(--brand-700)">3</span>REST contract unchanged</div>Frontend and AI tools switch engines transparently; the CTE implementation is permanently retained as the fallback path.</div>' +
       '</div>' +
     '</div>' +
 
     '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">' +
       '<div class="card" style="flex:1;min-width:420px;padding:14px">' +
-        '<div class="sec-t" style="margin:0 0 8px">Kùzu 图模型（DDL）</div>' +
+        '<div class="sec-t" style="margin:0 0 8px">Kùzu graph model (DDL)</div>' +
         '<div class="codelist">CREATE NODE TABLE Dataset (id STRING, name STRING, PRIMARY KEY(id));\nCREATE NODE TABLE Field   (id STRING, name STRING, PRIMARY KEY(id));\n\nCREATE REL TABLE LINEAGE_FIELD (FROM Field TO Field,\n    edge_id INT64, source STRING, confidence DOUBLE);\nCREATE REL TABLE LINEAGE_TABLE (FROM Dataset TO Dataset,\n    edge_id INT64, source STRING, confidence DOUBLE);</div>' +
-        '<div class="faint" style="font-size:10.5px;margin-top:6px">Field.id = "&lt;dataset_id&gt;.&lt;field_name&gt;"；edge_id 回链 SQLite edge.id；transform/note 等业务属性不进图。</div>' +
+        '<div class="faint" style="font-size:10.5px;margin-top:6px">Field.id = "&lt;dataset_id&gt;.&lt;field_name&gt;"; edge_id links back to SQLite edge.id; business attributes such as transform/note do not enter the graph.</div>' +
       '</div>' +
       '<div class="card" style="flex:1;min-width:420px;padding:14px">' +
-        '<div class="sec-t" style="margin:0 0 8px">核心 Cypher（trace / impact）</div>' +
-        '<div class="codelist">-- N 跳上游（变长路径，一次查出）\nMATCH p = (src:Field)&lt;-[:LINEAGE_FIELD*1..3]-(f:Field {id: $fid})\nRETURN src.id, r.edge_id, length(p) AS hop ORDER BY hop;\n\n-- 下游影响面\nMATCH p = (f:Field {id: $fid})-[:LINEAGE_FIELD*1..5]-&gt;(down)\nRETURN down.id, length(p) AS hop;</div>' +
-        '<div class="faint" style="font-size:10.5px;margin-top:6px">跳数上限由服务端白名单注入；结果组装为统一 GraphPayload 返回。</div>' +
+        '<div class="sec-t" style="margin:0 0 8px">Core Cypher (trace / impact)</div>' +
+        '<div class="codelist">-- N-hop upstream (variable-length path, single query)\nMATCH p = (src:Field)&lt;-[:LINEAGE_FIELD*1..3]-(f:Field {id: $fid})\nRETURN src.id, r.edge_id, length(p) AS hop ORDER BY hop;\n\n-- Downstream impact\nMATCH p = (f:Field {id: $fid})-[:LINEAGE_FIELD*1..5]-&gt;(down)\nRETURN down.id, length(p) AS hop;</div>' +
+        '<div class="faint" style="font-size:10.5px;margin-top:6px">The hop limit is injected server-side from an allowlist; results are assembled into a unified GraphPayload.</div>' +
       '</div>' +
     '</div>' +
 
     '<div class="card" style="padding:14px">' +
-      '<div class="sec-t" style="margin:0 0 8px">当前图状态（graph_state 表）与运维命令</div>' +
+      '<div class="sec-t" style="margin:0 0 8px">Current graph state (graph_state table) and ops commands</div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">' +
         '<span class="badge ' + (DATA.graphState.state === "clean" ? "badge-ok" : "badge-warn") + '">state = ' + DATA.graphState.state + '</span>' +
         '<span class="badge">node_count = ' + DATA.graphState.nodeCount + '</span>' +
-        '<span class="badge">rel_count = ' + DATA.graphState.relCount + '（与 SQLite edge 表对账）</span>' +
+        '<span class="badge">rel_count = ' + DATA.graphState.relCount + ' (reconciled with SQLite edge table)</span>' +
         '<span class="badge">rebuilt_at = ' + DATA.graphState.rebuiltAt + '</span>' +
         '<span class="badge">by = ' + DATA.graphState.rebuiltBy + '</span>' +
       '</div>' +
-      '<div class="codelist">clew graph audit     # edge_id 全集比对（多/少/异常混合边）→ 不一致标脏\nclew graph rebuild   # 全量重建：SQLite 导出 CSV → Kùzu COPY FROM → 状态 clean</div>' +
-      '<div class="faint" style="font-size:11px;margin-top:8px;line-height:1.7"><b>归档风险与对策（决策 #8）</b>：Kùzu 仓库 2025-10 起归档只读，最终版 0.11.3 功能冻结但完全可用（MIT、PyPI wheel 覆盖 cp38–cp314 含 macOS arm64、文档迁至 kuzudb.github.io）。本方案把 Kùzu 严格限定为「可整体移除的派生层」：SQLite 永远是唯一事实源，图可随时重建；若未来需要更换引擎，仅替换 graph.py 一个模块，主库与契约零改动。</div>' +
+      '<div class="codelist">clew graph audit     # full edge_id set comparison (extra/missing/abnormal mixed edges) → mark dirty if inconsistent\nclew graph rebuild   # full rebuild: export CSV from SQLite → Kùzu COPY FROM → state clean</div>' +
+      '<div class="faint" style="font-size:11px;margin-top:8px;line-height:1.7"><b>Archive risk and mitigation (decision #8)</b>: The Kùzu repository has been archived read-only since 2025-10; the final release 0.11.3 is feature-frozen but fully usable (MIT, PyPI wheels cover cp38–cp314 including macOS arm64, docs moved to kuzudb.github.io). This design strictly limits Kùzu to a "fully removable derived layer": SQLite remains the single source of truth and the graph can be rebuilt at any time; if the engine must be replaced in the future, only the graph.py module changes, with zero changes to the primary DB or the contract.</div>' +
     '</div>' +
   '</div>';
 }

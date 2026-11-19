@@ -1,7 +1,7 @@
-"""评审修复回归（R1-R18）：边唯一约束、混合字段边、回滚外键冲突、角色即时生效、
-清单行级解析错误、同上下游合并与重导入幂等、上传加固（R1-R7，2026-10-24 轮）；
-AI 写类工具角色护栏、SSE 心跳与断开即停、上下文预算、AI 路由限流、草稿语言
-（R8-R12，2026-10-26 轮，见 docs/03_dev/08_评审修复批次2026-10-26.md）。"""
+"""Review-fix regression tests (R1-R18): edge uniqueness constraints, mixed-field edges, rollback FK conflicts, immediate role changes,
+manifest row-level parse errors, same-pair merging and re-import idempotence, upload hardening (R1-R7, 2026-10-24 round);
+AI write-tool role guards, SSE heartbeat and disconnect-stops, context budget, AI route rate limiting, draft language
+(R8-R12, 2026-10-26 round, see the review-fix batch doc for 2026-10-26, doc 08)."""
 
 import copy
 import json
@@ -22,10 +22,10 @@ from tests.test_m4_api import (_call, _configure_llm, _final_answer, _seed,
 
 def _seed_sources(client, headers) -> None:
     upload(client, headers, [
-        ("订单明细.xlsx", order_xlsx_bytes(),
+        ("orders.xlsx", order_xlsx_bytes(),
          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        ("用户表.csv", user_csv_bytes(), "text/csv"),
-        ("源.json", source_json_bytes(), "application/json"),
+        ("users.csv", user_csv_bytes(), "text/csv"),
+        ("source.json", source_json_bytes(), "application/json"),
     ])
 
 
@@ -53,11 +53,11 @@ def _db() -> sqlite3.Connection:
 def _ods_user_manifest(transform: str = "trim") -> dict:
     return {
         "datasets": [
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_id",
-             "field_type": "INTEGER", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_id",
+             "field_type": "INTEGER", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"header": "user_id"}},
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_name",
-             "field_type": "STRING", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_name",
+             "field_type": "STRING", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"column": 2}},
         ],
         "lineage": [
@@ -67,15 +67,15 @@ def _ods_user_manifest(transform: str = "trim") -> dict:
     }
 
 
-# ---------- R1：表级/字段级边的唯一约束（部分唯一索引） ----------
+# ---------- R1: uniqueness constraints for table-level/field-level edges (partial unique indexes) ----------
 
 def test_r1_duplicate_edges_blocked_by_partial_unique_index(client):
-    login(client)  # 触发 init_db 建库建索引
+    login(client)  # triggers init_db to create the database and indexes
     ins = ("INSERT INTO edge(from_dataset, from_field, to_dataset, to_field,"
            " source, created_at, updated_at) VALUES (?,?,?,?,?,?,?)")
     ts = "2026-01-01T00:00:00+00:00"
-    for key in [("A", None, "B", None),  # 表级边：UNIQUE 列含 NULL，靠 uq_edge_table 拦截
-                ("A", "f", "B", "g")]:   # 字段级边：靠 uq_edge_field 拦截
+    for key in [("A", None, "B", None),  # table-level edge: UNIQUE columns contain NULL, caught by uq_edge_table
+                ("A", "f", "B", "g")]:   # field-level edge: caught by uq_edge_field
         conn = _db()
         conn.execute(ins, (*key, "manual", ts, ts))
         try:
@@ -85,10 +85,10 @@ def test_r1_duplicate_edges_blocked_by_partial_unique_index(client):
             dup_ok = False
         finally:
             conn.close()
-        assert not dup_ok, f"自然键 {key} 的重复边未被拦截"
+        assert not dup_ok, f"duplicate edge for natural key {key} was not blocked"
 
 
-# ---------- R2：混合字段边整行拒绝 ----------
+# ---------- R2: mixed-field edges are rejected as a whole row ----------
 
 def test_r2_mixed_field_edge_rejected(client):
     headers = login(client)
@@ -96,18 +96,18 @@ def test_r2_mixed_field_edge_rejected(client):
     ds_rows = [
         ["dataset_id", "dataset_name", "field_name", "field_type", "src_file",
          "src_type", "src_locator", "description"],
-        ["ods_raw", "订单明细", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "header_path": ["商品信息", "订单号"],
-                     "header_rows": 2, "row_start": 3}), "订单号"],
-        ["dwd_order", "订单宽表", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "column": "C", "row_start": 3}), "订单号宽表"],
+        ["ods_raw", "Order Details", "order_no", "STRING", "orders.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Order No"],
+                     "header_rows": 2, "row_start": 3}), "Order number"],
+        ["dwd_order", "Order Wide Table", "order_no", "STRING", "orders.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "column": "C", "row_start": 3}), "Wide-table order number"],
     ]
     edge_rows = [
         ["from_dataset", "from_field", "to_dataset", "to_field", "transform",
          "confidence", "note"],
-        ["ods_raw", "order_no", "dwd_order", "", "", "", ""],   # 只有上游字段：拒绝
-        ["ods_raw", "", "dwd_order", "order_no", "", "", ""],   # 只有下游字段：拒绝
-        ["ods_raw", "", "dwd_order", "", "", "", ""],           # 表级边：合法
+        ["ods_raw", "order_no", "dwd_order", "", "", "", ""],   # upstream field only: rejected
+        ["ods_raw", "", "dwd_order", "order_no", "", "", ""],   # downstream field only: rejected
+        ["ods_raw", "", "dwd_order", "", "", "", ""],           # table-level edge: valid
         ["ods_raw", "order_no", "dwd_order", "order_no", "trim/cast", "1.0", ""],
     ]
     r = _import_csv(client, headers, ds_rows, edge_rows)
@@ -117,7 +117,8 @@ def test_r2_mixed_field_edge_rejected(client):
     rejected = [i for i in report["items"] if i["status"] == "rejected"]
     for item in rejected:
         assert item["kind"] == "edge"
-        assert item["reason"] == "血缘边必须同时提供上下游字段（字段级）或都不提供（表级）"
+        assert item["reason"] == ("Lineage edges must provide both upstream and"
+                                  " downstream fields (field-level) or neither (table-level)")
 
     conn = _db()
     n_mixed = conn.execute(
@@ -131,18 +132,18 @@ def test_r2_mixed_field_edge_rejected(client):
     assert n_table == 1
 
 
-# ---------- R3：按批次回滚遇外键引用 → 409 ----------
+# ---------- R3: batch rollback hitting a foreign-key reference → 409 ----------
 
 def test_r3_rollback_blocked_by_later_batch_fk(client):
     headers = login(client)
     _seed_sources(client, headers)
 
-    # batch1：建 ods_user 两个字段
+    # batch1: create two ods_user fields
     r1 = _import_json(client, headers, {**_ods_user_manifest(), "lineage": []})
     assert r1.status_code == 201, r1.text
     batch1 = r1.json()["batch_id"]
 
-    # batch2：边引用 batch1 新增的字段
+    # batch2: an edge references a field added by batch1
     manifest2 = {
         "datasets": [],
         "lineage": [
@@ -154,12 +155,12 @@ def test_r3_rollback_blocked_by_later_batch_fk(client):
     assert r2.status_code == 201, r2.text
     batch2 = r2.json()["batch_id"]
 
-    # 直接回滚 batch1：字段被 batch2 的边引用 → 409
+    # Roll back batch1 directly: its fields are referenced by batch2's edge → 409
     r = client.post(f"/import/batches/{batch1}/rollback", headers=headers)
     assert r.status_code == 409, r.text
-    assert "请先回滚更晚的批次" in r.json()["detail"]
+    assert "roll back the later batches first" in r.json()["detail"]
 
-    # 先回滚 batch2（删边）再回滚 batch1 → 均成功，库中清理干净
+    # Roll back batch2 first (deleting the edge) then batch1 → both succeed and the DB is clean
     assert client.post(f"/import/batches/{batch2}/rollback",
                        headers=headers).status_code == 200
     assert client.post(f"/import/batches/{batch1}/rollback",
@@ -169,41 +170,42 @@ def test_r3_rollback_blocked_by_later_batch_fk(client):
     assert snap["datasets"] == []
 
 
-# ---------- R4：角色变更即时生效 ----------
+# ---------- R4: role changes take effect immediately ----------
 
 def test_r4_role_change_takes_effect_immediately(client):
     admin_headers = login(client)
     editor_headers = create_user(client, admin_headers, "lisi", "editor")
-    # 降级前 editor 可上传
-    upload(client, editor_headers, [("用户表.csv", user_csv_bytes(), "text/csv")])
+    # Before the downgrade the editor can upload
+    upload(client, editor_headers, [("users.csv", user_csv_bytes(), "text/csv")])
 
-    # M1 暂无角色变更接口，直接改库模拟管理员把 lisi 降为 viewer
+    # M1 has no role-change endpoint yet; modify the database directly to simulate an
+    # admin downgrading lisi to viewer
     conn = _db()
     conn.execute("UPDATE user SET role='viewer' WHERE username='lisi'")
     conn.commit()
     conn.close()
 
-    # 旧 token（JWT 内仍声明 editor）再上传 → 以库中角色为准，403
+    # The old token (still declaring editor in the JWT) uploads again → the DB role wins, 403
     r = client.post("/files", headers=editor_headers,
                     files=[("files", ("x.csv", b"a,b\n1,2\n", "text/csv"))])
     assert r.status_code == 403, r.text
 
 
-# ---------- R5：清单行级解析错误只拒绝该行 ----------
+# ---------- R5: manifest row-level parse errors reject only that row ----------
 
 def test_r5_row_parse_error_rejects_row_not_batch(client):
     headers = login(client)
     _seed_sources(client, headers)
     manifest = {
         "datasets": [
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_id",
-             "field_type": "INTEGER", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_id",
+             "field_type": "INTEGER", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"header": "user_id"}},
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "bad_loc",
-             "field_type": "STRING", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "bad_loc",
+             "field_type": "STRING", "src_file": "users.csv", "src_type": "csv",
              "src_locator": "not-json"},
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_name",
-             "field_type": "STRING", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_name",
+             "field_type": "STRING", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"column": 2}},
         ],
         "lineage": [
@@ -216,7 +218,7 @@ def test_r5_row_parse_error_rejects_row_not_batch(client):
         ],
     }
     r = _import_json(client, headers, manifest)
-    assert r.status_code == 201, r.text  # 行级错误不整批 400
+    assert r.status_code == 201, r.text  # row-level errors do not fail the whole batch with 400
     report = r.json()["report"]
     assert report["summary"] == {"total": 5, "ok": 3, "merged": 0, "rejected": 2}
     bad_loc = next(i for i in report["items"] if i["ref"] == "ods_user.bad_loc")
@@ -225,12 +227,12 @@ def test_r5_row_parse_error_rejects_row_not_batch(client):
                     if i["kind"] == "edge" and i["status"] == "rejected")
     assert "confidence" in bad_edge["reason"]
 
-    # 合法行正常入库
+    # Valid rows are persisted normally
     ods = client.get("/datasets/ods_user", headers=headers).json()
     assert [f["name"] for f in ods["fields"]] == ["user_id", "user_name"]
 
 
-# ---------- R6：同上下游合并 / 重导入幂等 ----------
+# ---------- R6: same-pair merging / re-import idempotence ----------
 
 def test_r6_same_pair_different_transform_merged(client):
     headers = login(client)
@@ -252,7 +254,7 @@ def test_r6_same_pair_different_transform_merged(client):
         " AND from_field='user_id' AND to_dataset='ods_user' AND to_field='user_name'"
     ).fetchone()
     conn.close()
-    assert row[0] == "t2"  # 库中为后到值
+    assert row[0] == "t2"  # the database holds the later value
 
 
 def test_r6_reimport_idempotent_no_change_log(client):
@@ -269,35 +271,35 @@ def test_r6_reimport_idempotent_no_change_log(client):
     r2 = _import_json(client, headers, manifest)
     assert r2.status_code == 201, r2.text
     report2 = r2.json()["report"]
-    assert report2["items"]  # 非空且全部 ok + unchanged
+    assert report2["items"]  # non-empty and all ok + unchanged
     assert all(i["status"] == "ok" and i["reason"] == "unchanged"
                for i in report2["items"])
 
     conn = _db()
     after = conn.execute("SELECT COUNT(*) FROM change_log").fetchone()[0]
     conn.close()
-    assert after == before  # 第二次导入未新增 change_log
+    assert after == before  # the second import added no change_log rows
 
 
-# ---------- R7：上传加固 ----------
+# ---------- R7: upload hardening ----------
 
 def test_r7_upload_empty_file_list_400(client):
     headers = login(client)
     r = client.post("/files", headers=headers)
     assert r.status_code == 400, r.text
-    assert "至少上传一个文件" in r.json()["detail"]
+    assert "Upload at least one file" in r.json()["detail"]
 
 
 def test_r7_upload_oversize_413(client, monkeypatch):
     monkeypatch.setenv("MAX_UPLOAD_MB", "1")
     headers = login(client)
-    big = b"a,b\n" + b"1,2\n" * 300_000  # ≈1.4MB，超过 1MB 上限
+    big = b"a,b\n" + b"1,2\n" * 300_000  # ≈1.4MB, over the 1MB limit
     r = client.post("/files", headers=headers,
                     files=[("files", ("big.csv", big, "text/csv"))])
     assert r.status_code == 413, r.text
 
 
-# ---------- R8：写类工具的 editor 角色护栏（08 号） ----------
+# ---------- R8: editor role guard on write-type tools (doc 08) ----------
 
 def test_r8_suggest_lineage_denied_for_viewer_via_chat(client, monkeypatch):
     admin_headers = login(client)
@@ -312,13 +314,13 @@ def test_r8_suggest_lineage_denied_for_viewer_via_chat(client, monkeypatch):
             return _tool_round(
                 [_call("call_suggest", "suggest_lineage",
                        {"dataset": "ods_order"})])
-        return _final_answer("已请求血缘建议。")
+        return _final_answer("Lineage suggestions requested.")
 
     monkeypatch.setattr("clew.ai.llm.complete", fake_complete)
 
-    # viewer：写类工具被角色护栏拒绝且不落库
+    # viewer: the write-type tool is rejected by the role guard and nothing is persisted
     r = client.post("/ai/chat", headers=viewer_headers, json={
-        "messages": [{"role": "user", "content": "帮我补充血缘"}]})
+        "messages": [{"role": "user", "content": "Help me add lineage"}]})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["tool_trace"][0]["tool"] == "suggest_lineage"
@@ -328,9 +330,9 @@ def test_r8_suggest_lineage_denied_for_viewer_via_chat(client, monkeypatch):
         .fetchone()[0] == 0
     conn.close()
 
-    # editor：同一输入正常落库（有同名字段 dim_user.user_name 可供建议）
+    # editor: the same input is persisted normally (same-named dim_user.user_name is available for suggestion)
     r2 = client.post("/ai/chat", headers=editor_headers, json={
-        "messages": [{"role": "user", "content": "帮我补充血缘"}]})
+        "messages": [{"role": "user", "content": "Help me add lineage"}]})
     assert r2.status_code == 200, r2.text
     body2 = r2.json()
     assert body2["tool_trace"][0]["ok"] is True
@@ -352,12 +354,12 @@ def test_r8_draft_descriptions_denied_for_viewer_via_chat(client, monkeypatch):
             return _tool_round(
                 [_call("call_draft", "draft_descriptions",
                        {"dataset": "ods_order"})])
-        return _final_answer("草稿需要更高权限。")
+        return _final_answer("Drafts require higher permission.")
 
     monkeypatch.setattr("clew.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=viewer_headers, json={
-        "messages": [{"role": "user", "content": "帮我生成描述"}]})
+        "messages": [{"role": "user", "content": "Help me generate descriptions"}]})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["tool_trace"][0]["tool"] == "draft_descriptions"
@@ -369,11 +371,11 @@ def test_r8_draft_descriptions_denied_for_viewer_via_chat(client, monkeypatch):
     conn.close()
 
 
-# ---------- R9：断开即停 + SSE 心跳（08 号） ----------
+# ---------- R9: disconnect-stops + SSE heartbeat (doc 08) ----------
 
 def test_r9_cancel_stops_further_rounds(client):
-    """should_interrupt 置位后：不再发起下一次 LLM 调用并抛 ChatInterrupted。"""
-    client_fixture_guards_tmp_db = client  # noqa: F841——client 让 DATA_DIR 指向临时目录
+    """After should_interrupt is set: no further LLM call is made and ChatInterrupted is raised."""
+    client_fixture_guards_tmp_db = client  # noqa: F841 — the client fixture points DATA_DIR at a temp dir
     calls: list[list] = []
 
     def fake_complete(messages, tools=None):
@@ -383,11 +385,11 @@ def test_r9_cancel_stops_further_rounds(client):
 
     with pytest.raises(chat_mod.ChatInterrupted):
         chat_mod._drive(
-            [{"role": "user", "content": "持续给我查"}], None, "actor",
+            [{"role": "user", "content": "Keep querying for me"}], None, "actor",
             "viewer", fake_complete, None,
             should_interrupt=lambda: len(calls) >= 1)
 
-    assert len(calls) == 1, "中断后仍发起了后续 LLM 调用"
+    assert len(calls) == 1, "a further LLM call was made after the interruption"
 
 
 def test_r9_sse_ping_heartbeat(client, monkeypatch):
@@ -398,8 +400,8 @@ def test_r9_sse_ping_heartbeat(client, monkeypatch):
     ai_routes.ai_chat_limiter.reset()
 
     def fake_stream(messages, tools=None, on_delta=None):
-        time.sleep(0.3)  # 期间事件队列为空，应出现心跳注释帧
-        return _final_answer("流式回答完成。")
+        time.sleep(0.3)  # the event queue is empty during this time; a heartbeat comment frame should appear
+        return _final_answer("Streaming answer complete.")
 
     monkeypatch.setattr("clew.ai.llm.stream_complete", fake_stream)
 
@@ -412,7 +414,7 @@ def test_r9_sse_ping_heartbeat(client, monkeypatch):
     assert b"event: done" in body, body
 
 
-# ---------- R10：工具结果截断 + 上下文预算（08 号） ----------
+# ---------- R10: tool result truncation + context budget (doc 08) ----------
 
 def test_r10_tool_result_truncated_before_feeding(client, monkeypatch):
     admin_headers = login(client)
@@ -429,24 +431,24 @@ def test_r10_tool_result_truncated_before_feeding(client, monkeypatch):
             return _tool_round([_call("call_details", "get_field_details",
                                       {"dataset": "ods_order",
                                        "field": "order_no"})])
-        return _final_answer("已截断返回。")
+        return _final_answer("Returned truncated.")
 
     monkeypatch.setattr("clew.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=admin_headers, json={
-        "messages": [{"role": "user", "content": "看看 order_no 的详情"}]})
+        "messages": [{"role": "user", "content": "Show me the details of order_no"}]})
     assert r.status_code == 200, r.text
     assert r.json()["tool_trace"][0]["ok"] is True
 
     tool_messages = [m for m in captured[1] if m.get("role") == "tool"]
     assert tool_messages, captured[1]
     content = tool_messages[0]["content"]
-    assert "已截断" in content, content
-    assert len(content) < 500, content  # 原始结果含 50 行预览，必然更长
+    assert "truncated" in content, content
+    assert len(content) < 500, content  # the original result contains a 50-row preview and is necessarily longer
 
 
 def test_r10_context_budget_prunes_oldest_block(client, monkeypatch):
-    monkeypatch.setenv("LLM_CONTEXT_TOKEN_BUDGET", "10")  # 极小，强制修剪
+    monkeypatch.setenv("LLM_CONTEXT_TOKEN_BUDGET", "10")  # extremely small, forcing trimming
     admin_headers = login(client)
     _configure_llm(monkeypatch)
     ai_routes.ai_chat_limiter.reset()
@@ -459,45 +461,47 @@ def test_r10_context_budget_prunes_oldest_block(client, monkeypatch):
             return _tool_round([_call("call_mark", "mark_highlight",
                                       {"fields": [{"dataset": "zz",
                                                    "field": "yy"}]})])
-        return _final_answer("已修剪历史。")
+        return _final_answer("Trimmed the history.")
 
     monkeypatch.setattr("clew.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=admin_headers, json={
         "messages": [
-            {"role": "user", "content": "旧问题AAA这是一段足够长的旧上下文"},
-            {"role": "assistant", "content": "旧回答BBB"},
-            {"role": "user", "content": "新问题CCC"},
+            {"role": "user", "content": "old question AAA this is a sufficiently long old context"},
+            {"role": "assistant", "content": "old answer BBB"},
+            {"role": "user", "content": "new question CCC"},
         ]})
     assert r.status_code == 200, r.text
 
-    # 第二次调用时：system + 新问题块（含本轮 assistant/tool），旧块已整块删除
+    # On the second call: system + the new question block (including this round's
+    # assistant/tool); the old block has been deleted as a whole
     second = captured[1]
     serialized = json.dumps(second, ensure_ascii=False)
-    assert "旧问题AAA" not in serialized, serialized
-    assert "新问题CCC" in serialized, serialized
+    assert "old question AAA" not in serialized, serialized
+    assert "new question CCC" in serialized, serialized
     assert [m["role"] for m in second][0] == "system"
     assert second[1]["role"] == "user"
 
 
-# ---------- R11：AI 路由限流（08 号） ----------
+# ---------- R11: AI route rate limiting (doc 08) ----------
 
 def test_r11_chat_rate_limit_429(client, monkeypatch):
     limiter_headers = create_user(client, login(client), "limit_user", "viewer")
     ai_routes.ai_chat_limiter.reset()
-    # 限流依赖先于处理器执行：Handler 返回 503（未配置）的请求同样计数
+    # The rate-limit dependency runs before the handler: requests whose handler
+    # returns 503 (not configured) still count
     monkeypatch.setattr("clew.ai.llm.is_configured", lambda settings: False)
 
     for i in range(10):
         r = client.post("/ai/chat", headers=limiter_headers,
                         json={"messages": [{"role": "user",
-                                            "content": f"第{i}问"}]})
-        assert r.status_code == 503, (i, r.status_code, r.text)  # 未配置 LLM 优先于 429
+                                            "content": f"question {i}"}]})
+        assert r.status_code == 503, (i, r.status_code, r.text)  # not-configured LLM takes precedence over 429
 
     r_extra = client.post("/ai/chat", headers=limiter_headers,
-                          json={"messages": [{"role": "user", "content": "第10问"}]})
+                          json={"messages": [{"role": "user", "content": "question 10"}]})
     assert r_extra.status_code == 429, r_extra.text
-    assert "频繁" in r_extra.json()["detail"]
+    assert "too frequent" in r_extra.json()["detail"]
     assert int(r_extra.headers["Retry-After"]) >= 1
 
 
@@ -508,14 +512,14 @@ def test_r11_suggest_rate_limit_429(client):
     for i in range(6):
         r = client.post("/ai/suggest", headers=editor_headers,
                         json={"dataset": "no_such_ds"})
-        assert r.status_code == 404, (i, r.status_code, r.text)  # 数据集不存在 → 404
+        assert r.status_code == 404, (i, r.status_code, r.text)  # dataset does not exist → 404
 
     r_extra = client.post("/ai/suggest", headers=editor_headers,
                           json={"dataset": "no_such_ds"})
     assert r_extra.status_code == 429, r_extra.text
 
 
-# ---------- R12：描述草稿 prompt 语言参数（08 号） ----------
+# ---------- R12: description draft prompt language parameter (doc 08) ----------
 
 def test_r12_draft_prompt_follows_lang(client, monkeypatch):
     admin_headers = login(client)
@@ -528,14 +532,14 @@ def test_r12_draft_prompt_follows_lang(client, monkeypatch):
 
     def fake_complete(messages, tools=None):
         if len(messages) == 1 and messages[0].get("role") == "user":
-            prompts.append(messages[0]["content"])  # 草稿生成调用（单条 user）
+            prompts.append(messages[0]["content"])  # draft generation call (single user message)
             return _final_answer("User id, first column of the CSV source.")
         if not any(m.get("role") == "tool" for m in messages):
             return _tool_round([_call("call_draft", "draft_descriptions",
                                       {"dataset": "ods_order",
                                        "fields": ["order_no"],
                                        "lang": "en"})])
-        return _final_answer("草稿已生成。")
+        return _final_answer("Draft generated.")
 
     monkeypatch.setattr("clew.ai.llm.complete", fake_complete)
 

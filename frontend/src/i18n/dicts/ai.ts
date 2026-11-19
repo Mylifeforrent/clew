@@ -1,12 +1,12 @@
-/** ai.* 字典：AI 助手抽屉（AiAssistantDrawer）。 */
+/** ai.* dictionary: AI assistant drawer (AiAssistantDrawer). */
 export const zhAi = {
-  // 头部：标题与操作
+  // Header: title and actions
   'ai.title': 'AI 助手',
   'ai.reloadAria': '重新检查 LLM 配置',
   'ai.reloadTitle': '重新检查配置',
   'ai.closeAria': '关闭 AI 助手',
 
-  // 工具标签（组件内 TOOL_LABEL_KEYS：工具名 → 本节键）
+  // Tool labels (component TOOL_LABEL_KEYS: tool name → key in this section)
   'ai.tool.searchFields': '搜索字段',
   'ai.tool.getFieldDetails': '字段详情',
   'ai.tool.traceLineage': '追溯血缘',
@@ -16,18 +16,18 @@ export const zhAi = {
   'ai.tool.analyzeImpact': '影响分析',
   'ai.tool.draftDescriptions': '起草描述',
 
-  // 工具调用追踪卡
+  // Tool call trace card
   'ai.toolCall': '工具调用',
   'ai.toolTraceCount': '工具调用 · {count} 次',
   'ai.toolOk': '调用成功',
   'ai.toolFail': '调用失败',
 
-  // 聚焦栏
+  // Focus bar
   'ai.focusCurrent': '当前聚焦',
   'ai.readonlyTools': '查询实时可用；建议/草稿等写操作需 editor',
   'ai.noFocus': '未聚焦数据集',
 
-  // 状态条与告警横幅
+  // Status strip and warning banner
   'ai.statusLoadingAria': '正在读取 AI 状态',
   'ai.statusUnknown': '状态未知',
   'ai.notConfigured': '未配置',
@@ -38,7 +38,7 @@ export const zhAi = {
     '未配置 LLM，请在 .env 设置 LLM_*（LLM_BASE_URL / LLM_API_KEY / LLM_MODEL）。',
   'ai.notConfiguredAction': '配置后点右上角刷新重新检测。',
 
-  // 空态与示例提问
+  // Empty state and example questions
   'ai.logAria': 'AI 对话消息',
   'ai.emptyTitle': '用自然语言查血缘',
   'ai.emptyBody':
@@ -47,7 +47,7 @@ export const zhAi = {
   'ai.exampleFieldLocator': '这个字段的源文件定位在哪里？',
   'ai.exampleRecentChanges': '最近改过哪些字段？',
 
-  // 消息流
+  // Message stream
   'ai.you': '你',
   'ai.thinking': '正在调用工具并组织回答…',
   'ai.noAnswer': '模型未返回文字回答。',
@@ -60,17 +60,17 @@ export const zhAi = {
   'ai.cancelled': '（已取消）',
   'ai.connectFailed': '无法连接 AI 服务，请稍后重试',
 
-  // 证据锚点 chip
+  // Evidence anchor chip
   'ai.traceOnCanvas': '在画布上追踪 {dataset}.{field}',
 
-  // 停止与清空对话（评审 R17）
+  // Stop and clear conversation (review R17)
   'ai.stop': '停止',
   'ai.clearChat': '清空对话',
   'ai.clearConfirmTitle': '清空对话？',
   'ai.clearConfirmMessage':
     '将清空当前会话的全部消息、工具轨迹与候选卡；已落库的建议边与描述草稿不受影响。',
 
-  // 内联候选确认卡（评审 R17，hi-fi 04 §3.6）
+  // Inline candidate confirmation card (review R17, hi-fi 04 §3.6)
   'ai.suggestConfidence': '置信 {value}',
   'ai.suggestConfirming': '处理中…',
   'ai.suggestReject': '拒绝',
@@ -81,7 +81,7 @@ export const zhAi = {
   'ai.suggestCardHint': '确认后边来源改写为 manual · 需 editor 及以上角色 · 全程写入 change_log',
   'ai.suggestActionFailed': '操作失败，请重试',
 
-  // 描述草稿卡
+  // Description draft card
   'ai.draftBadge': '描述草稿',
   'ai.draftAccepted': '已采纳 · 已写入标注',
   'ai.draftRejected': '已拒绝',
@@ -90,7 +90,7 @@ export const zhAi = {
   'ai.draftProcessing': '处理中…',
   'ai.draftViewerHint': '仅 editor 及以上角色可采纳/拒绝草稿。',
 
-  // 输入区
+  // Input area
   'ai.inputLabel': '向 AI 助手提问',
   'ai.placeholderChecking': '正在检查 LLM 配置…',
   'ai.placeholderStatusError': '无法读取 AI 状态，请先重试',
@@ -103,13 +103,13 @@ export const zhAi = {
 export type AiKey = keyof typeof zhAi;
 
 export const enAi: Record<AiKey, string> = {
-  // 头部：标题与操作
+  // Header: title and actions
   'ai.title': 'AI Assistant',
   'ai.reloadAria': 'Re-check LLM configuration',
   'ai.reloadTitle': 'Re-check configuration',
   'ai.closeAria': 'Close AI assistant',
 
-  // 工具标签
+  // Tool labels
   'ai.tool.searchFields': 'Search fields',
   'ai.tool.getFieldDetails': 'Field details',
   'ai.tool.traceLineage': 'Trace lineage',
@@ -119,18 +119,18 @@ export const enAi: Record<AiKey, string> = {
   'ai.tool.analyzeImpact': 'Impact analysis',
   'ai.tool.draftDescriptions': 'Draft descriptions',
 
-  // 工具调用追踪卡
+  // Tool call trace card
   'ai.toolCall': 'Tool call',
   'ai.toolTraceCount': 'Tool calls · {count}',
   'ai.toolOk': 'Call succeeded',
   'ai.toolFail': 'Call failed',
 
-  // 聚焦栏
+  // Focus bar
   'ai.focusCurrent': 'Current focus',
   'ai.readonlyTools': 'Queries run live; suggests/drafts need an editor',
   'ai.noFocus': 'No focused dataset',
 
-  // 状态条与告警横幅
+  // Status strip and warning banner
   'ai.statusLoadingAria': 'Reading AI status',
   'ai.statusUnknown': 'Status unknown',
   'ai.notConfigured': 'Not configured',
@@ -142,7 +142,7 @@ export const enAi: Record<AiKey, string> = {
   'ai.notConfiguredAction':
     'After configuring, click the refresh button at the top right to re-check.',
 
-  // 空态与示例提问
+  // Empty state and example questions
   'ai.logAria': 'AI conversation',
   'ai.emptyTitle': 'Query lineage in natural language',
   'ai.emptyBody':
@@ -151,7 +151,7 @@ export const enAi: Record<AiKey, string> = {
   'ai.exampleFieldLocator': 'Where is the source file for this field?',
   'ai.exampleRecentChanges': 'Which fields changed recently?',
 
-  // 消息流
+  // Message stream
   'ai.you': 'You',
   'ai.thinking': 'Calling tools and composing the answer…',
   'ai.noAnswer': 'The model returned no text answer.',
@@ -164,7 +164,7 @@ export const enAi: Record<AiKey, string> = {
   'ai.cancelled': '(Cancelled)',
   'ai.connectFailed': 'Cannot connect to the AI service. Please try again later.',
 
-  // 证据锚点 chip
+  // Evidence anchor chip
   'ai.traceOnCanvas': 'Trace {dataset}.{field} on canvas',
 
   // Stop & clear conversation (R17)
@@ -186,7 +186,7 @@ export const enAi: Record<AiKey, string> = {
     'Confirming rewrites the edge source to manual · requires editor and above · recorded in the change log',
   'ai.suggestActionFailed': 'Action failed. Please try again.',
 
-  // 描述草稿卡
+  // Description draft card
   'ai.draftBadge': 'Description draft',
   'ai.draftAccepted': 'Accepted · Written to annotation',
   'ai.draftRejected': 'Rejected',
@@ -195,7 +195,7 @@ export const enAi: Record<AiKey, string> = {
   'ai.draftProcessing': 'Processing…',
   'ai.draftViewerHint': 'Only editors and above can accept or reject drafts.',
 
-  // 输入区
+  // Input area
   'ai.inputLabel': 'Ask the AI assistant',
   'ai.placeholderChecking': 'Checking LLM configuration…',
   'ai.placeholderStatusError': 'Cannot read AI status. Retry first.',

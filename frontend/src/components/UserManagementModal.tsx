@@ -68,8 +68,8 @@ export function UserManagementModal({
     return () => controller.abort();
   }, [token, reloadKey]);
 
-  // 打开时焦点移入、关闭后焦点还原、Esc 栈顶协议、Tab 圈定、body 滚动锁
-  // 均由 ModalShell → useOverlayBehavior 统一承担（评审 R13）
+  // Focus moves in on open, restores on close, Esc stack protocol, Tab containment, body scroll lock
+  // are all handled centrally by ModalShell → useOverlayBehavior (review R13)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

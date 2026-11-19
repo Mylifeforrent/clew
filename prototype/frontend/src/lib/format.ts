@@ -58,7 +58,7 @@ export function locatorTypeLabel(type: string | null | undefined): string {
 }
 
 export function humanizeLocator(locator: LocatorEnvelope | null | undefined): string {
-  if (!locator?.type) return '定位器信息不可用';
+  if (!locator?.type) return 'Locator information unavailable';
   const input = asRecord(locator.input) ?? {};
   const resolved = asRecord(locator.resolved) ?? {};
 
@@ -68,9 +68,9 @@ export function humanizeLocator(locator: LocatorEnvelope | null | undefined): st
       asNumber(resolved.column_index) ??
       asNumber(input.column) ??
       asNumber(resolved.column);
-    const parts = ['CSV 源文件'];
-    if (header) parts.push(`表头「${header}」`);
-    if (column) parts.push(`第 ${column} 列`);
+    const parts = ['CSV source file'];
+    if (header) parts.push(`header "${header}"`);
+    if (column) parts.push(`column ${column}`);
     return parts.join(' · ');
   }
 
@@ -88,20 +88,20 @@ export function humanizeLocator(locator: LocatorEnvelope | null | undefined): st
       asNumber(resolved.row_start) ?? asNumber(input.row_start);
     const rowEnd = asNumber(resolved.row_end) ?? asNumber(input.row_end);
 
-    const parts = ['XLSX 源文件'];
-    if (sheet) parts.push(`工作表「${sheet}」`);
+    const parts = ['XLSX source file'];
+    if (sheet) parts.push(`sheet "${sheet}"`);
     if (headerPath.length) {
-      parts.push(`表头路径 ${headerPath.map((item) => `「${item}」`).join(' → ')}`);
+      parts.push(`header path ${headerPath.map((item) => `"${item}"`).join(' → ')}`);
     }
     if (column) {
       parts.push(
         columnIndex && !inputColumn && !resolvedColumn
-          ? `${column} 列`
-          : `列 ${column}${columnIndex ? `（第 ${columnIndex} 列）` : ''}`,
+          ? `column ${column}`
+          : `column ${column}${columnIndex ? ` (column ${columnIndex})` : ''}`,
       );
     }
     if (rowStart) {
-      parts.push(rowEnd ? `数据行 ${rowStart}:${rowEnd}` : `数据行 ${rowStart} 起`);
+      parts.push(rowEnd ? `data rows ${rowStart}:${rowEnd}` : `from data row ${rowStart}`);
     }
 
     const anchors = Array.isArray(resolved.merged_anchors)
@@ -113,7 +113,7 @@ export function humanizeLocator(locator: LocatorEnvelope | null | undefined): st
       const value = asText(anchor.value);
       const range = asText(anchor.range);
       if (range) {
-        parts.push(value ? `合并表头「${value}」${range}` : `合并区域 ${range}`);
+        parts.push(value ? `merged header "${value}" ${range}` : `merged area ${range}`);
       }
     }
     return parts.join(' · ');
@@ -121,10 +121,10 @@ export function humanizeLocator(locator: LocatorEnvelope | null | undefined): st
 
   if (locator.type === 'json') {
     const jsonPath = asText(input.json_path) ?? asText(resolved.json_path);
-    return jsonPath ? `JSON 源文件 · ${jsonPath}` : 'JSON 源文件 · 路径信息缺失';
+    return jsonPath ? `JSON source file · ${jsonPath}` : 'JSON source file · path information missing';
   }
 
-  return `定位器类型「${locator.type}」`;
+  return `locator type "${locator.type}"`;
 }
 
 export function formatConfidence(value: number | null | undefined): string {
@@ -156,7 +156,7 @@ export function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value);
 }
 
-/** ISO8601 →「2026-10-23 14:30」（本地阅读用，秒级截断）。 */
+/** ISO8601 → "2026-10-23 14:30" (for local reading, truncated to the minute). */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
   const normalized = value.replace('T', ' ');

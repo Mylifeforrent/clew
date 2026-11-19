@@ -1,4 +1,4 @@
-"""源文件托管：上传（sha256 去重）、列表、下载（设计方案 §3.6）。"""
+"""Source file hosting: upload (sha256 dedup), list, download (design §3.6)."""
 
 import hashlib
 from datetime import UTC, datetime
@@ -19,18 +19,21 @@ ALLOWED_TYPES = {"csv", "xlsx", "json"}
 def _src_type_of(filename: str) -> str:
     suffix = Path(filename).suffix.lstrip(".").lower()
     if suffix not in ALLOWED_TYPES:
-        raise HTTPException(400, f"仅支持 {', '.join(sorted(ALLOWED_TYPES))} 文件，收到「{filename}」")
+        raise HTTPException(
+            400, f"Only {', '.join(sorted(ALLOWED_TYPES))} files are supported,"
+                 f" got \"{filename}\"")
     return suffix
 
 
 def store_upload(filename: str, data: bytes, username: str) -> dict:
-    """托管一份源文件并登记：同 sha256 复用已有记录（去重）。
+    """Host and register one source file: reuse an existing record with the same sha256 (dedup).
 
-    上传路由与 ``seed_demo`` 共用此服务路径；调用方负责空文件/大小上限校验。
+    The upload route and ``seed_demo`` share this service path; the caller is
+    responsible for empty-file / size-limit validation.
     """
     src_type = _src_type_of(filename)
     sha = hashlib.sha256(data).hexdigest()
-    # 文件名保留原始扩展名：openpyxl 等解析器按扩展名识别格式
+    # Keep the original file extension: parsers such as openpyxl detect the format by extension
     rel_path = f"files/{sha[:2]}/{sha}.{src_type}"
     abs_path = files_dir() / sha[:2] / f"{sha}.{src_type}"
     with get_db() as conn:
@@ -54,9 +57,9 @@ def store_upload(filename: str, data: bytes, username: str) -> dict:
 @router.post("", status_code=201)
 async def upload(files: list[UploadFile] | None = None,
                  user: dict = Depends(require_role("editor"))):
-    """批量上传第一手源文件；同内容（sha256 相同）复用已有记录。"""
+    """Batch-upload first-party source files; identical content (same sha256) reuses the existing record."""
     if not files:
-        raise HTTPException(400, "至少上传一个文件")
+        raise HTTPException(400, "Upload at least one file")
     max_upload_mb = get_settings().max_upload_mb
     max_bytes = max_upload_mb * 1024 * 1024
     out = []
@@ -64,10 +67,10 @@ async def upload(files: list[UploadFile] | None = None,
         _src_type_of(f.filename or "")
         data = await f.read()
         if not data:
-            raise HTTPException(400, f"文件「{f.filename}」为空")
+            raise HTTPException(400, f"File \"{f.filename}\" is empty")
         if len(data) > max_bytes:
             raise HTTPException(
-                413, f"文件「{f.filename}」超过单文件大小上限 {max_upload_mb}MB")
+                413, f"File \"{f.filename}\" exceeds the {max_upload_mb}MB per-file size limit")
         out.append(store_upload(f.filename or "", data, user["username"]))
     return out
 
@@ -83,10 +86,10 @@ def list_files(user: dict = Depends(require_role("viewer"))):
 
 @router.get("/{file_id}/download")
 def download(file_id: int, user: dict = Depends(require_role("viewer"))):
-    """受控下载：存储路径不对外暴露（业务规则#8）。"""
+    """Controlled download: the storage path is never exposed (business rule #8)."""
     with get_db() as conn:
         row = conn.execute("SELECT * FROM source_file WHERE id=?", (file_id,)).fetchone()
     if row is None:
-        raise HTTPException(404, f"源文件 {file_id} 不存在")
+        raise HTTPException(404, f"Source file {file_id} does not exist")
     abs_path = resolve_storage(row["storage_path"])
     return FileResponse(abs_path, filename=row["original_name"])

@@ -10,15 +10,15 @@ import {
 import { zh } from './zh';
 import { en } from './en';
 
-/** 支持的语言。默认 zh，不做浏览器自动检测（行为可预期）。 */
+/** Supported locales. Defaults to en; no browser auto-detection (predictable behavior). zh stays selectable and the preference is persisted. */
 export type Locale = 'zh' | 'en';
 
-/** 全部消息键：以 zh 聚合字典为类型基准，en 由各字典模块局部约束。 */
+/** All message keys: the aggregated zh dictionary is the type baseline; en is locally constrained per dictionary module. */
 export type MessageKey = keyof typeof zh;
 
 export type TranslateParams = Record<string, string | number>;
 
-/** t(key, params)：{var} 插值；复数语义由字典措辞规避（如 `Fields · {count}`）。 */
+/** t(key, params): {var} interpolation; plural semantics are handled by dictionary wording (e.g. `Fields · {count}`). */
 export type TranslateFn = (
   key: MessageKey,
   params?: TranslateParams,
@@ -32,10 +32,10 @@ const DOCUMENT_TITLES: Record<Locale, string> = {
   en: 'Clew · Field-level Data Lineage',
 };
 
-/** 非 React 模块（如 lib/api.ts）可用的静态翻译：跟随最近一次 Provider 挂载/切换的 locale。 */
-let activeLocale: Locale = 'zh';
+/** Static translation for non-React modules (e.g. lib/api.ts): follows the locale of the most recent Provider mount/switch. */
+let activeLocale: Locale = 'en';
 
-/** 非 React 模块读取当前 locale（与 tStatic 同源，跟随最近一次 Provider 挂载/切换）。 */
+/** Non-React modules read the current locale (same source as tStatic; follows the most recent Provider mount/switch). */
 export function getStaticLocale(): Locale {
   return activeLocale;
 }
@@ -53,9 +53,9 @@ function readInitialLocale(): Locale {
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
     if (stored === 'zh' || stored === 'en') return stored;
   } catch {
-    // localStorage 不可用（隐私模式等）时回退默认语言
+    // Fall back to the default locale when localStorage is unavailable (private mode, etc.)
   }
-  return 'zh';
+  return 'en';
 }
 
 interface I18nContextValue {
@@ -81,7 +81,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, next);
     } catch {
-      // 持久化失败不影响本次会话切换
+      // A persistence failure does not affect switching in this session
     }
   }, []);
 
@@ -106,6 +106,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
 export function useI18n(): I18nContextValue {
   const context = useContext(I18nContext);
-  if (!context) throw new Error('useI18n 必须在 I18nProvider 内使用');
+  if (!context) throw new Error('useI18n must be used within I18nProvider');
   return context;
 }

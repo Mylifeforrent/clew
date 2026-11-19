@@ -1,4 +1,4 @@
-/** edgeDetail.* 字典：血缘边详情面板。 */
+/** edgeDetail.* dictionary: lineage edge detail panel. */
 export const zhEdgeDetail = {
   'edgeDetail.kindTable': '表级血缘',
   'edgeDetail.kindField': '字段级血缘',

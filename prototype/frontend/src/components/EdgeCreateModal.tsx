@@ -12,8 +12,8 @@ interface EdgeCreateModalProps {
 }
 
 /**
- * 画布 handle 拖拽后的「新增血缘」二次确认。
- * 字段级 / 表级由 draft 的 from_field / to_field 是否为空决定。
+ * Confirmation for "new lineage" after dragging canvas handles.
+ * Field-level vs table-level is decided by whether draft.from_field / to_field are empty.
  */
 export function EdgeCreateModal({
   draft,
@@ -59,7 +59,7 @@ export function EdgeCreateModal({
     if (submitting) return;
     const parsedConfidence = Number(confidence);
     if (!Number.isFinite(parsedConfidence) || parsedConfidence < 0 || parsedConfidence > 1) {
-      setError('置信度必须是 0 到 1 之间的数字。');
+      setError('Confidence must be a number between 0 and 1.');
       return;
     }
 
@@ -85,7 +85,7 @@ export function EdgeCreateModal({
       setError(
         reason instanceof ApiError
           ? reason.message
-          : '新增血缘失败，请稍后重试。',
+          : 'Failed to create the lineage edge. Please try again later.',
       );
     } finally {
       if (!controller.signal.aborted) setSubmitting(false);
@@ -112,10 +112,10 @@ export function EdgeCreateModal({
             </span>
             <div className="min-w-0">
               <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-faint">
-                人工补边 · {isFieldLevel ? '字段级' : '表级'}
+                Manual edge · {isFieldLevel ? 'Field-level' : 'Table-level'}
               </div>
               <h2 id="edge-create-title" className="mt-0.5 text-[14px] font-semibold text-ink">
-                新增血缘
+                New lineage edge
               </h2>
             </div>
           </div>
@@ -125,7 +125,7 @@ export function EdgeCreateModal({
             onClick={onClose}
             disabled={submitting}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-ink-faint transition-colors duration-150 hover:bg-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="关闭新增血缘弹窗"
+            aria-label="Close the new lineage dialog"
           >
             <Icon name="close" size={16} />
           </button>
@@ -144,14 +144,14 @@ export function EdgeCreateModal({
                 htmlFor="edge-transform"
                 className="mb-1.5 block text-[12px] font-medium text-ink-soft"
               >
-                转换说明
+                Transform description
               </label>
               <input
                 id="edge-transform"
                 type="text"
                 value={transform}
                 onChange={(event) => setTransform(event.target.value)}
-                placeholder="如 trim/cast、lookup、金额汇总"
+                placeholder="e.g. trim/cast, lookup, amount aggregation"
                 className="field-input h-9 text-[13px]"
                 disabled={submitting}
                 maxLength={200}
@@ -164,7 +164,7 @@ export function EdgeCreateModal({
                   htmlFor="edge-confidence"
                   className="mb-1.5 block text-[12px] font-medium text-ink-soft"
                 >
-                  置信度（0~1）
+                  Confidence (0–1)
                 </label>
                 <input
                   id="edge-confidence"
@@ -183,14 +183,14 @@ export function EdgeCreateModal({
                   htmlFor="edge-note"
                   className="mb-1.5 block text-[12px] font-medium text-ink-soft"
                 >
-                  备注
+                  Note
                 </label>
                 <input
                   id="edge-note"
                   type="text"
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
-                  placeholder="为什么补这条边（可选）"
+                  placeholder="Why this edge is being added (optional)"
                   className="field-input h-9 text-[13px]"
                   disabled={submitting}
                   maxLength={500}
@@ -201,7 +201,7 @@ export function EdgeCreateModal({
             <div className="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-[12px] leading-4 text-blue-800">
               <Icon name="info" size={12} className="mt-0.5 shrink-0" />
               <span>
-                人工边来源记为 manual，会写入变更日志；同一上下游已存在血缘时后端返回 409。
+                Manual edges are recorded with source manual and written to the change log; if lineage already exists for the same endpoints, the backend returns 409.
               </span>
             </div>
 
@@ -223,7 +223,7 @@ export function EdgeCreateModal({
               disabled={submitting}
               className="h-8 rounded-lg border border-line-strong bg-card px-3 text-[13px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              取消
+              Cancel
             </button>
             <button
               type="submit"
@@ -233,12 +233,12 @@ export function EdgeCreateModal({
               {submitting ? (
                 <>
                   <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-white/40 border-t-white" />
-                  创建中…
+                  Creating…
                 </>
               ) : (
                 <>
                   <Icon name="plus" size={12} />
-                  创建血缘边
+                  Create lineage edge
                 </>
               )}
             </button>

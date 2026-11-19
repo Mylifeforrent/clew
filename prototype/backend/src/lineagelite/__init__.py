@@ -1,3 +1,3 @@
-"""LineageLite — 轻量级 AI 数据血缘工具。"""
+"""LineageLite — a lightweight AI data lineage tool."""
 
 __version__ = "0.1.0"

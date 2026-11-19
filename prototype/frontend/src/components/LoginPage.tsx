@@ -52,7 +52,7 @@ function MiniNode({
       </div>
       {collapsed ? (
         <div className="px-3 py-2.5 font-mono text-[11px] text-blue-300">
-                  4 个字段 · 已收起
+                  4 fields · Collapsed
         </div>
       ) : (
         <div className="divide-y divide-blue-700">
@@ -67,7 +67,7 @@ function MiniNode({
             >
               <span>{field}</span>
               <span className="text-blue-300">
-                {index === 0 ? '文本' : '数值'}
+                {index === 0 ? 'Text' : 'Number'}
               </span>
             </div>
           ))}
@@ -94,7 +94,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
     if (submitting) return;
     const name = username.trim();
     if (!name || !password) {
-      setError('请输入用户名和密码');
+      setError('Enter your username and password');
       return;
     }
 
@@ -111,7 +111,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
     } catch (reason) {
       if (isAbortError(reason)) return;
       setError(
-        reason instanceof ApiError ? reason.message : '无法连接服务，请稍后重试',
+        reason instanceof ApiError ? reason.message : 'Cannot reach the service. Please try again later.',
       );
     } finally {
       if (!controller.signal.aborted) setSubmitting(false);
@@ -130,28 +130,28 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                   Lineage<span className="text-blue-300">Lite</span>
                 </div>
                 <div className="font-mono text-[11px] uppercase tracking-[0.2em] text-blue-300">
-                  让数据来源清晰可见
+                  Make data provenance visible
                 </div>
               </div>
             </div>
             <span className="rounded-full border border-blue-700 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.16em] text-blue-200">
-              M3 · 编辑与版本
+              M3 · Editing & versions
             </span>
           </div>
 
           <div className="relative z-10 mt-16 max-w-[510px] animate-fade-up xl:mt-20">
             <div className="mb-4 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-blue-300">
               <span className="h-px w-8 bg-blue-400" />
-              字段级血缘 · 源文件可回查
+              Field-level lineage · Source files traceable
             </div>
             <h1 className="text-[28px] font-bold leading-[1.25] tracking-tight text-white">
-              每一条血缘，
+              Every lineage edge
               <br />
-              都落回原始文件。
+              traces back to the source file.
             </h1>
             <p className="mt-5 max-w-[430px] text-[13px] leading-6 text-blue-100">
-              从字段到工作表、行列与 JSONPath，把「数据从哪来」变成
-              可以被打开、核对与讨论的证据。
+              From fields to worksheets, rows, columns and JSONPath — turn
+              "where did this data come from" into evidence that can be opened, verified and discussed.
             </p>
           </div>
 
@@ -217,10 +217,10 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                 </span>
                 <div>
                   <div className="font-mono text-[11px] text-blue-100">
-                    订单明细.xlsx · 工作表「订单」
+                    order_details.xlsx · Sheet "Orders"
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] text-blue-300">
-                    C 列 · 数据行 3:15000
+                    Column C · Data rows 3:15000
                   </div>
                 </div>
               </div>
@@ -229,9 +229,9 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
 
           <div className="relative z-10 mt-8 grid grid-cols-3 gap-3 border-t border-blue-700 pt-5">
             {[
-              ['01', '身份与角色', 'JWT / RBAC'],
-              ['02', '字段级定位', 'CSV / XLSX / JSON'],
-              ['03', '系统内回源', '高亮核查'],
+              ['01', 'Identity & roles', 'JWT / RBAC'],
+              ['02', 'Field-level locating', 'CSV / XLSX / JSON'],
+              ['03', 'In-system source lookup', 'Highlighted verification'],
             ].map(([index, title, detail]) => (
               <div key={index}>
                 <div className="font-mono text-[11px] text-blue-300">{index}</div>
@@ -250,7 +250,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
           <div className="mb-9 flex items-center justify-between lg:hidden">
             <Brand compact />
             <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
-              字段级血缘
+              Field-level lineage
             </span>
           </div>
 
@@ -259,14 +259,14 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
               <div className="mb-3 flex items-center gap-2">
                 <span className="h-px w-7 bg-blue-600" />
                 <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-blue-700">
-                  工作台访问
+                  Workspace access
                 </span>
               </div>
               <h2 className="text-2xl font-semibold tracking-tight text-ink">
-                回到血缘现场
+                Back to the lineage
               </h2>
               <p className="mt-2.5 text-[13px] leading-6 text-ink-muted">
-                登录后浏览字段级血缘、校验源文件定位，并查看你所在角色的可操作范围。
+                Log in to browse field-level lineage, verify source file locators, and see what your role can do.
               </p>
             </div>
 
@@ -286,7 +286,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                   htmlFor="login-username"
                   className="mb-1.5 block text-[12px] font-medium text-ink-soft"
                 >
-                  用户名
+                  Username
                 </label>
                 <div className="group relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint transition-colors duration-150 group-focus-within:text-blue-600">
@@ -300,7 +300,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                     autoFocus
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
-                    placeholder="请输入用户名"
+                    placeholder="Enter your username"
                     className="field-input h-9 pl-9"
                     disabled={submitting}
                     required
@@ -313,7 +313,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                   htmlFor="login-password"
                   className="mb-1.5 block text-[12px] font-medium text-ink-soft"
                 >
-                  密码
+                  Password
                 </label>
                 <div className="group relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint transition-colors duration-150 group-focus-within:text-blue-600">
@@ -326,7 +326,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="请输入密码"
+                    placeholder="Enter your password"
                     className="field-input h-9 pl-9 pr-11"
                     disabled={submitting}
                     required
@@ -335,7 +335,7 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                     type="button"
                     onClick={() => setShowPassword((value) => !value)}
                     className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-ink-faint transition-colors duration-150 hover:bg-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-                    aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     aria-pressed={showPassword}
                   >
                     <Icon name={showPassword ? 'eye-off' : 'eye'} size={14} />
@@ -361,11 +361,11 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
                 {submitting ? (
                   <>
                     <span className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-white/40 border-t-white" />
-                    正在验证身份
+                    Verifying identity
                   </>
                 ) : (
                   <>
-                    登录工作台
+                    Log in to workspace
                     <Icon
                       name="arrow-right"
                       size={14}
@@ -380,12 +380,13 @@ export function LoginPage({ notice, onLoggedIn }: LoginPageProps) {
               <div className="flex items-start gap-2.5 text-[12px] leading-5 text-ink-muted">
                 <Icon name="lock" size={13} className="mt-0.5 shrink-0" />
                 <p>
-                  账号由管理员创建，密码仅保存加盐哈希。登录态使用短期 JWT，
-                  失效后会自动返回此页。
+                  Accounts are created by administrators and only salted password hashes
+                  are stored. Sessions use short-lived JWTs and bring you back to this page
+                  when they expire.
                 </p>
               </div>
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {['viewer 只读', 'editor 可编辑', 'admin 可管理'].map((role) => (
+                {['viewer read-only', 'editor can edit', 'admin can manage'].map((role) => (
                   <span
                     key={role}
                     className="inline-flex h-6 items-center rounded-md border border-line bg-card px-2 font-mono text-[11px] text-ink-muted"

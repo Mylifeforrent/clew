@@ -1,10 +1,11 @@
 import type { LineageGraph } from '../types';
 
 /**
- * 视图层派生的「同名字段匹配」连线。
+ * "Same-name field match" links derived in the view layer.
  *
- * 非库内血缘实体：由表级血缘（from_field/to_field 为 null）按两端数据集的
- * 同名字段推导，仅用于画布展示与上下游追踪演示；不可选中、不可编辑。
+ * Not a stored lineage entity: derived from table-level lineage (from_field/to_field
+ * are null) by matching same-name fields of the datasets at both ends; used only for
+ * canvas display and upstream/downstream tracing demos; not selectable, not editable.
  */
 export interface DerivedFieldLink {
   from_dataset: string;
@@ -19,11 +20,11 @@ export interface FieldChainNode {
   role: 'focus' | 'linked';
 }
 
-/** 点击字段后命中的上下游追踪链路（沿字段级关联无向 BFS）。 */
+/** Upstream/downstream trace chain hit after clicking a field (undirected BFS along field-level relations). */
 export interface FieldChain {
-  /** 命中的库内字段级边 id */
+  /** IDs of the stored field-level edges hit */
   edgeIds: Set<number>;
-  /** 命中的推导同名字段线 key（见 derivedLinkKey） */
+  /** Keys of the derived same-name field links hit (see derivedLinkKey) */
   linkKeys: Set<string>;
   nodes: FieldChainNode[];
 }
@@ -37,9 +38,10 @@ export function derivedLinkKey(link: DerivedFieldLink): string {
 }
 
 /**
- * 从表级血缘推导同名字段匹配线：两端数据集共有、且未被这对数据集之间
- * 任何一条显式字段级边占用的字段名（已有显式映射时以显式边为准，
- * 避免推导线与人工/AI 确认的字段映射互相矛盾）。
+ * Derive same-name field match links from table-level lineage: field names shared by
+ * both datasets and not already used by any explicit field-level edge between this
+ * dataset pair (when an explicit mapping exists the explicit edge wins, so derived
+ * links do not contradict manually/AI-confirmed field mappings).
  */
 export function deriveFieldMatches(graph: LineageGraph): DerivedFieldLink[] {
   const fieldsByDataset = new Map<string, Set<string>>();
@@ -64,7 +66,7 @@ export function deriveFieldMatches(graph: LineageGraph): DerivedFieldLink[] {
   const derived: DerivedFieldLink[] = [];
   const seen = new Set<string>();
   graph.edges.forEach((edge) => {
-    // 只展开表级血缘：显式字段级边只代表单个字段映射，不能推断其余字段
+    // Only expand table-level lineage: an explicit field-level edge represents a single field mapping and cannot infer the others
     if (edge.from_field !== null || edge.to_field !== null) return;
     if (edge.from_dataset === edge.to_dataset) return;
     const fromFields = fieldsByDataset.get(edge.from_dataset);
@@ -93,9 +95,10 @@ export function deriveFieldMatches(graph: LineageGraph): DerivedFieldLink[] {
 }
 
 /**
- * 以一个或多个点击/声明的字段为起点，沿「库内字段级边 + 推导同名字段线」
- * 做无向 BFS，收集整条上下游链路；起点字段没有任何字段级关联时返回 null
- * （此时画布不做高亮与压暗）。
+ * Starting from one or more clicked/declared fields, run an undirected BFS along
+ * "stored field-level edges + derived same-name field links" to collect the whole
+ * upstream/downstream chain; returns null when the starting fields have no field-level
+ * relations (the canvas then applies no highlighting or dimming).
  */
 export function computeFieldChain(
   graph: LineageGraph,

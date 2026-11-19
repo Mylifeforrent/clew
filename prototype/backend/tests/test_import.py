@@ -1,4 +1,4 @@
-"""验收：三种格式导入 + 定位器实文件核查（含 XLSX 合并单元格/多级表头）。"""
+"""Acceptance: three-format import + locator real-file verification (including XLSX merged cells/multi-level headers)."""
 
 import io
 import json
@@ -11,10 +11,10 @@ from tests.fixtures import order_xlsx_bytes, source_json_bytes, user_csv_bytes
 
 def _seed_sources(client, headers) -> None:
     upload(client, headers, [
-        ("订单明细.xlsx", order_xlsx_bytes(),
+        ("order_details.xlsx", order_xlsx_bytes(),
          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        ("用户表.csv", user_csv_bytes(), "text/csv"),
-        ("源.json", source_json_bytes(), "application/json"),
+        ("users.csv", user_csv_bytes(), "text/csv"),
+        ("source.json", source_json_bytes(), "application/json"),
     ])
 
 
@@ -34,27 +34,27 @@ def test_csv_import_with_multiheader_xlsx_and_bad_locator(client):
     ds_rows = [
         ["dataset_id", "dataset_name", "field_name", "field_type", "src_file",
          "src_type", "src_locator", "description"],
-        ["ods_raw", "订单明细", "order_id", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "header_path": ["商品信息", "商品ID"],
-                     "header_rows": 2, "row_start": 3}), "商品ID"],
-        ["ods_raw", "订单明细", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "header_path": ["商品信息", "订单号"],
-                     "header_rows": 2, "row_start": 3}), "订单号"],
-        ["ods_raw", "订单明细", "amount", "DECIMAL", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "header_path": ["商品信息", "金额"],
-                     "header_rows": 2, "row_start": 3}), "金额"],
-        ["ods_raw", "订单明细", "bad_field", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "header_path": ["商品信息", "不存在"], "header_rows": 2}),
-         "错误定位器"],
-        ["dwd_order", "订单宽表", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-         json.dumps({"sheet": "订单", "column": "C", "row_start": 3}), "订单号宽表"],
-        ["dwd_order", "订单宽表", "user_name", "STRING", "用户表.csv", "csv",
-         json.dumps({"column": 2}), "用户名"],
+        ["ods_raw", "Order Details", "order_id", "STRING", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Product ID"],
+                     "header_rows": 2, "row_start": 3}), "Product ID"],
+        ["ods_raw", "Order Details", "order_no", "STRING", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Order No"],
+                     "header_rows": 2, "row_start": 3}), "Order No"],
+        ["ods_raw", "Order Details", "amount", "DECIMAL", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Amount"],
+                     "header_rows": 2, "row_start": 3}), "Amount"],
+        ["ods_raw", "Order Details", "bad_field", "STRING", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Missing"], "header_rows": 2}),
+         "Bad locator"],
+        ["dwd_order", "Order Wide Table", "order_no", "STRING", "order_details.xlsx", "xlsx",
+         json.dumps({"sheet": "Orders", "column": "C", "row_start": 3}), "Wide table order number"],
+        ["dwd_order", "Order Wide Table", "user_name", "STRING", "users.csv", "csv",
+         json.dumps({"column": 2}), "User name"],
     ]
     edge_rows = [
         ["from_dataset", "from_field", "to_dataset", "to_field", "transform",
          "confidence", "note"],
-        ["ods_raw", "order_id", "dwd_order", "order_no", "trim/cast", "1.0", "同源加工"],
+        ["ods_raw", "order_id", "dwd_order", "order_no", "trim/cast", "1.0", "Same-source transform"],
         ["ods_raw", "", "dwd_order", "", "", "", ""],
     ]
     r = _import_csv(client, headers, ds_rows, edge_rows)
@@ -63,20 +63,20 @@ def test_csv_import_with_multiheader_xlsx_and_bad_locator(client):
     assert report["summary"] == {"total": 8, "ok": 7, "merged": 0, "rejected": 1}
     rejected = [i for i in report["items"] if i["status"] == "rejected"]
     assert rejected[0]["ref"] == "ods_raw.bad_field"
-    assert "实文件核查失败" in rejected[0]["reason"]
+    assert "Real-file verification failed" in rejected[0]["reason"]
 
-    # 错误定位器的字段不入库；正确字段带物化解析结果
+    # Fields with bad locators are not persisted; correct fields carry the materialized parse result
     ods = client.get("/datasets/ods_raw", headers=headers).json()
     assert [f["name"] for f in ods["fields"]] == ["amount", "order_id", "order_no"]
     order_no = next(f for f in ods["fields"] if f["name"] == "order_no")
     resolved = order_no["src_locator"]["resolved"]
-    assert resolved["column_index"] == 3  # 订单号在 C 列
+    assert resolved["column_index"] == 3  # Order No is in column C
     assert resolved["merged_anchors"] == [
-        {"value": "商品信息", "anchor": "B1", "range": "B1:F1"}]
+        {"value": "Product Info", "anchor": "B1", "range": "B1:F1"}]
 
     dwd = client.get("/datasets/dwd_order", headers=headers).json()
     simple = next(f for f in dwd["fields"] if f["name"] == "order_no")
-    assert simple["src_locator"]["input"] == {"sheet": "订单", "column": "C", "row_start": 3}
+    assert simple["src_locator"]["input"] == {"sheet": "Orders", "column": "C", "row_start": 3}
     assert simple["src_locator"]["resolved"]["column_index"] == 3
 
 
@@ -89,13 +89,13 @@ def test_xlsx_manifest_import(client):
     ds.title = "datasets"
     ds.append(["dataset_id", "dataset_name", "field_name", "field_type",
                "src_file", "src_type", "src_locator", "description"])
-    ds.append(["ods_raw", "订单明细", "order_no", "STRING", "订单明细.xlsx", "xlsx",
-               json.dumps({"sheet": "订单", "header_path": ["商品信息", "订单号"],
-                           "header_rows": 2, "row_start": 3}), "订单号"])
-    ds.append(["ods_raw", "订单明细", "qty", "INTEGER", "订单明细.xlsx", "xlsx",
-               json.dumps({"sheet": "订单", "column": "D", "row_start": 3}), "数量"])
-    ds.append(["ods_raw", "订单明细", "broken", "STRING", "订单明细.xlsx", "xlsx",
-               json.dumps({"sheet": "不存在的工作表", "column": "A"}), "错 sheet"])
+    ds.append(["ods_raw", "Order Details", "order_no", "STRING", "order_details.xlsx", "xlsx",
+               json.dumps({"sheet": "Orders", "header_path": ["Product Info", "Order No"],
+                           "header_rows": 2, "row_start": 3}), "Order No"])
+    ds.append(["ods_raw", "Order Details", "qty", "INTEGER", "order_details.xlsx", "xlsx",
+               json.dumps({"sheet": "Orders", "column": "D", "row_start": 3}), "Qty"])
+    ds.append(["ods_raw", "Order Details", "broken", "STRING", "order_details.xlsx", "xlsx",
+               json.dumps({"sheet": "Missing Sheet", "column": "A"}), "Wrong sheet"])
     lineage = wb.create_sheet("lineage")
     lineage.append(["from_dataset", "from_field", "to_dataset", "to_field",
                     "transform", "confidence", "note"])
@@ -122,14 +122,14 @@ def test_json_manifest_import(client):
 
     manifest = {
         "datasets": [
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_id",
-             "field_type": "INTEGER", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_id",
+             "field_type": "INTEGER", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"header": "user_id"}},
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "user_name",
-             "field_type": "STRING", "src_file": "用户表.csv", "src_type": "csv",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "user_name",
+             "field_type": "STRING", "src_file": "users.csv", "src_type": "csv",
              "src_locator": {"column": 2}},
-            {"dataset_id": "ods_user", "dataset_name": "用户表", "field_name": "ext_order_no",
-             "field_type": "STRING", "src_file": "源.json", "src_type": "json",
+            {"dataset_id": "ods_user", "dataset_name": "Users", "field_name": "ext_order_no",
+             "field_type": "STRING", "src_file": "source.json", "src_type": "json",
              "src_locator": {"json_path": "$.data.items[*].order_no"}},
         ],
         "lineage": [
@@ -147,7 +147,7 @@ def test_json_manifest_import(client):
 
     ods = client.get("/datasets/ods_user", headers=headers).json()
     ext = next(f for f in ods["fields"] if f["name"] == "ext_order_no")
-    assert ext["src_locator"]["resolved"]["hits"] == 2  # JSONPath 命中数
+    assert ext["src_locator"]["resolved"]["hits"] == 2  # JSONPath hit count
 
 
 def test_manifest_missing_sheet_rejected(client):

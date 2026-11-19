@@ -1,4 +1,4 @@
-/** brand.* 字典：品牌词标副标语。 */
+/** brand.* dictionary: brand wordmark tagline. */
 export const zhBrand = {
   'brand.tagline': '字段级血缘 · 顺线溯源',
 } as const;

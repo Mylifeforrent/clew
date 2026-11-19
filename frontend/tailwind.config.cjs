@@ -4,24 +4,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        /* 表面 */
-        page: '#F8FAFC',      // 页面/画布背景（slate-50）
-        card: '#FFFFFF',      // 卡片/面板/模态表面
-        subtle: '#F1F5F9',    // 次级表面：表头、代码底、hover 行（slate-100）
-        /* 文字 */
+        /* Surfaces */
+        page: '#F8FAFC',      // page/canvas background (slate-50)
+        card: '#FFFFFF',      // card/panel/modal surface
+        subtle: '#F1F5F9',    // secondary surface: table header, code background, hover row (slate-100)
+        /* Text */
         ink: {
-          DEFAULT: '#0F172A', // 主文字（slate-900）
-          soft: '#334155',    // 次级文字（slate-700）
-          muted: '#475569',   // 辅助文字（slate-600）
-          faint: '#64748B',   // 占位/禁用辅助（slate-500）
+          DEFAULT: '#0F172A', // primary text (slate-900)
+          soft: '#334155',    // secondary text (slate-700)
+          muted: '#475569',   // supporting text (slate-600)
+          faint: '#64748B',   // placeholder/disabled supporting text (slate-500)
         },
-        /* 边框 */
+        /* Borders */
         line: {
-          DEFAULT: '#E2E8F0', // 默认边框（slate-200）
-          strong: '#CBD5E1',  // 强边框/hover（slate-300）
-          soft: '#F1F5F9',    // 弱分隔（= subtle）
+          DEFAULT: '#E2E8F0', // default border (slate-200)
+          strong: '#CBD5E1',  // strong border/hover (slate-300)
+          soft: '#F1F5F9',    // subtle divider (= subtle)
         },
-        /* 品牌主色（Clew 线团橙，锚点：600=#EA580C，700=#C2410C；与 slate 中性面构成冷灰+暖橙） */
+        /* Brand primary (Clew thread orange; anchors: 600=#EA580C, 700=#C2410C; pairs cool gray neutrals with warm orange) */
         brand: {
           50: '#FFF7ED',
           100: '#FFEDD5',
@@ -34,22 +34,22 @@ module.exports = {
           800: '#9A3412',
           900: '#7C2D12',
         },
-        /* 语义色（DEFAULT=图标/白底文字/实心底，soft=浅底，deep=soft 底正文）
-           warning 自 Clew 改版起用深琥珀（比品牌橙深一档），避免与品牌橙同屏混淆 */
+        /* Semantic colors (DEFAULT=icon/white-on-color text/solid fill, soft=light fill, deep=text on soft)
+           warning uses a deeper amber since the Clew redesign (one step darker than brand orange) to avoid confusion on the same screen */
         success: { DEFAULT: '#15803D', soft: '#F0FDF4', deep: '#166534' },
         warning: { DEFAULT: '#B45309', soft: '#FFFBEB', deep: '#92400E' },
         danger: { DEFAULT: '#DC2626', soft: '#FEF2F2', deep: '#B91C1C' },
         info: { DEFAULT: '#2563EB', soft: '#EFF6FF', deep: '#1E40AF' },
-        /* AI 功能色（indigo，与品牌橙区分；soft 底正文用 deep） */
+        /* AI accent (indigo, distinct from brand orange; use deep for text on soft) */
         ai: { DEFAULT: '#4F46E5', soft: '#EEF2FF', deep: '#3730A3' },
-        /* 血缘边来源色（getEdgeVisual 四形态专用，SVG stroke；与 lib/edgeColors.ts 保持一致） */
+        /* Lineage edge source colors (used only by getEdgeVisual's four forms, SVG stroke; keep in sync with lib/edgeColors.ts) */
         lineage: {
-          imported: '#475569',        // imported 字段级（实线 1.55）
-          'imported-weak': '#64748B', // imported 表级（虚线 1.4）
-          manual: '#0D9488',          // 人工确认（teal-600，原琥珀让位品牌橙）
-          ai: '#4F46E5',              // AI 建议（虚线+流动）
-          derived: '#94A3B8',         // 视图派生：表级血缘同名字段匹配推断线
-          focus: '#EA580C',           // 字段追踪高亮（= 品牌橙，「点亮线索」品牌时刻；danger 红仅用于删除/校验失败）
+          imported: '#475569',        // imported field-level (solid 1.55)
+          'imported-weak': '#64748B', // imported table-level (dashed 1.4)
+          manual: '#0D9488',          // manually confirmed (teal-600; amber yielded to brand orange)
+          ai: '#4F46E5',              // AI-suggested (dashed + flowing)
+          derived: '#94A3B8',         // view-derived: inferred table-level links from same-name field matching
+          focus: '#EA580C',           // field trace highlight (= brand orange, the "light the thread" brand moment; danger red is only for delete/validation failure)
         },
       },
       fontFamily: {

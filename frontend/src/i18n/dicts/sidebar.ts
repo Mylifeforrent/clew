@@ -1,4 +1,4 @@
-/** sidebar.* 字典：左侧数据集栏。 */
+/** sidebar.* dictionary: left dataset sidebar. */
 export const zhSidebar = {
   'sidebar.assets': '数据资产',
   'sidebar.datasets': '数据集',

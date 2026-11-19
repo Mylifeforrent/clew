@@ -1,15 +1,15 @@
-"""M4 验收：AI 状态/对话（function calling）与启发式血缘建议全流程。
+"""M4 acceptance: AI status/chat (function calling) and the full heuristic lineage suggestion flow.
 
-覆盖接口：
-- GET /ai/status（viewer+，未配置/已配置两种状态）
-- POST /ai/chat（viewer+）：未配置 503、工具循环、tool_trace、graph 返回、
-  工具错误回传、5 轮上限、LLM 上游错误 502
-- POST /ai/suggest（editor+）：同名字段/包含关系/排除已存在边/落库 source='ai'
-- POST /ai/suggest/confirm（editor+）：ai → manual + change_log(updated)
-- POST /ai/suggest/reject（editor+）：删除 + change_log(deleted)
+Endpoints covered:
+- GET /ai/status (viewer+, both unconfigured/configured states)
+- POST /ai/chat (viewer+): unconfigured 503, tool loop, tool_trace, graph return,
+  tool error pass-through, 5-round cap, LLM upstream error 502
+- POST /ai/suggest (editor+): same-name fields/containment/exclude existing edges/persist source='ai'
+- POST /ai/suggest/confirm (editor+): ai → manual + change_log(updated)
+- POST /ai/suggest/reject (editor+): delete + change_log(deleted)
 
-所有 LLM 调用均由 monkeypatch 替换（``lineagelite.ai.llm.complete``），
-另有一条用例 monkeypatch ``urllib.request.urlopen`` 验证请求构造，全程不联网。
+All LLM calls are replaced by monkeypatch (``lineagelite.ai.llm.complete``); another case
+monkeypatches ``urllib.request.urlopen`` to verify request construction—no network access at all.
 """
 
 import copy
@@ -34,52 +34,52 @@ def _configure_llm(monkeypatch, base_url="https://llm.invalid/v1",
 
 
 def _seed(client, headers) -> None:
-    """上传三格式源文件并导入 4 个数据集 / 7 个字段 / 1 条字段级边。"""
+    """Upload three-format source files and import 4 datasets / 7 fields / 1 field-level edge."""
     files = upload(client, headers, [
-        ("订单明细.xlsx", order_xlsx_bytes(),
+        ("order_details.xlsx", order_xlsx_bytes(),
          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        ("用户表.csv", user_csv_bytes(), "text/csv"),
-        ("源.json", source_json_bytes(), "application/json"),
+        ("users.csv", user_csv_bytes(), "text/csv"),
+        ("source.json", source_json_bytes(), "application/json"),
     ])
     source_ids = ",".join(str(f["id"]) for f in files)
     manifest = {
         "datasets": [
-            {"dataset_id": "ods_order", "dataset_name": "订单原始",
+            {"dataset_id": "ods_order", "dataset_name": "Raw Orders",
              "field_name": "order_no", "field_type": "STRING",
-             "src_file": "订单明细.xlsx", "src_type": "xlsx",
-             "src_locator": {"sheet": "订单", "column": "C", "row_start": 3},
-             "description": "订单号"},
-            {"dataset_id": "ods_order", "dataset_name": "订单原始",
+             "src_file": "order_details.xlsx", "src_type": "xlsx",
+             "src_locator": {"sheet": "Orders", "column": "C", "row_start": 3},
+             "description": "Order No"},
+            {"dataset_id": "ods_order", "dataset_name": "Raw Orders",
              "field_name": "user_name", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": {"column": 2}, "description": "用户名"},
-            {"dataset_id": "dwd_order", "dataset_name": "订单宽表",
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": {"column": 2}, "description": "User name"},
+            {"dataset_id": "dwd_order", "dataset_name": "Order Wide Table",
              "field_name": "order_no", "field_type": "STRING",
-             "src_file": "订单明细.xlsx", "src_type": "xlsx",
-             "src_locator": {"sheet": "订单", "column": "C", "row_start": 3},
-             "description": "宽表订单号"},
-            {"dataset_id": "dwd_order", "dataset_name": "订单宽表",
+             "src_file": "order_details.xlsx", "src_type": "xlsx",
+             "src_locator": {"sheet": "Orders", "column": "C", "row_start": 3},
+             "description": "Wide table order number"},
+            {"dataset_id": "dwd_order", "dataset_name": "Order Wide Table",
              "field_name": "user_name", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": {"column": 2}, "description": "宽表用户名"},
-            {"dataset_id": "dws_order", "dataset_name": "订单汇总",
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": {"column": 2}, "description": "Wide table user name"},
+            {"dataset_id": "dws_order", "dataset_name": "Order Summary",
              "field_name": "ext_order_no", "field_type": "STRING",
-             "src_file": "源.json", "src_type": "json",
+             "src_file": "source.json", "src_type": "json",
              "src_locator": {"json_path": "$.data.items[*].order_no"},
-             "description": "外部订单号"},
-            {"dataset_id": "dim_user", "dataset_name": "用户维表",
+             "description": "External order number"},
+            {"dataset_id": "dim_user", "dataset_name": "User Dimension",
              "field_name": "user_name", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": {"column": 2}, "description": "维表用户名"},
-            {"dataset_id": "dim_user", "dataset_name": "用户维表",
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": {"column": 2}, "description": "Dimension user name"},
+            {"dataset_id": "dim_user", "dataset_name": "User Dimension",
              "field_name": "user_id", "field_type": "STRING",
-             "src_file": "用户表.csv", "src_type": "csv",
-             "src_locator": {"column": 1}, "description": "用户ID"},
+             "src_file": "users.csv", "src_type": "csv",
+             "src_locator": {"column": 1}, "description": "User ID"},
         ],
         "lineage": [
             {"from_dataset": "ods_order", "from_field": "order_no",
              "to_dataset": "dwd_order", "to_field": "order_no",
-             "transform": "trim/cast", "confidence": 1.0, "note": "已存在边"},
+             "transform": "trim/cast", "confidence": 1.0, "note": "Existing edge"},
         ],
     }
     r = client.post(
@@ -140,10 +140,10 @@ def _call(call_id: str, name: str, arguments: dict) -> dict:
                          "arguments": json.dumps(arguments, ensure_ascii=False)}}
 
 
-# ---------- LLM 客户端（不联网，LangChain 消息转换层） ----------
+# ---------- LLM client (no network, LangChain message conversion layer) ----------
 
 def test_llm_client_message_conversion_and_not_configured(monkeypatch):
-    """M5 LangChain 化后：验证 OpenAI dict ↔ LangChain 消息转换与未配置语义。"""
+    """After the M5 LangChain migration: verify OpenAI dict ↔ LangChain message conversion and unconfigured semantics."""
     from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 
     from lineagelite.ai import llm
@@ -178,16 +178,16 @@ def test_llm_client_message_conversion_and_not_configured(monkeypatch):
                                       "arguments": "{\"q\": \"x\"}"}}]},
         {"role": "tool", "tool_call_id": "c0", "content": "{\"results\": []}"},
     ], tools)
-    # 返回形态保持 OpenAI dict（chat.py 编排依赖）
+    # The return shape stays an OpenAI dict (chat.py orchestration depends on it)
     message = result["choices"][0]["message"]
     assert message["role"] == "assistant"
     assert message["content"] == "ok"
     assert message["tool_calls"][0]["function"]["name"] == "search_fields"
     assert json.loads(message["tool_calls"][0]["function"]["arguments"]) == {
         "q": "order_no"}
-    # 工具 schema 原样透传给 bind_tools
+    # The tool schema is passed to bind_tools unchanged
     assert captured["tools"] == tools
-    # OpenAI dict 消息被转换为 LangChain 消息类型
+    # OpenAI dict messages are converted to LangChain message types
     kinds = [type(m) for m in captured["messages"]]
     assert kinds[0] is SystemMessage
     assert isinstance(captured["messages"][2], AIMessage)
@@ -195,13 +195,13 @@ def test_llm_client_message_conversion_and_not_configured(monkeypatch):
     assert isinstance(captured["messages"][3], ToolMessage)
     assert captured["messages"][3].tool_call_id == "c0"
 
-    # 未配置（base_url 为空）→ LLMNotConfigured，不发起请求
+    # Not configured (empty base_url) → LLMNotConfigured, no request is made
     monkeypatch.setenv("LLM_BASE_URL", "")
     with pytest.raises(llm.LLMNotConfigured):
         llm.complete([{"role": "user", "content": "hi"}])
 
 
-# ---------- 状态与未配置 ----------
+# ---------- Status and unconfigured state ----------
 
 def test_ai_status_and_chat_requires_configuration(client, monkeypatch):
     admin_headers = login(client)
@@ -211,7 +211,7 @@ def test_ai_status_and_chat_requires_configuration(client, monkeypatch):
         monkeypatch.setenv(key, "")
 
     def forbidden(*args, **kwargs):
-        raise AssertionError("未配置 LLM 时不应调用 LLM")
+        raise AssertionError("The LLM must not be called when it is not configured")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", forbidden)
 
@@ -221,11 +221,11 @@ def test_ai_status_and_chat_requires_configuration(client, monkeypatch):
     assert client.get("/ai/status").status_code == 401
 
     r = client.post("/ai/chat", headers=viewer_headers,
-                    json={"messages": [{"role": "user", "content": "你好"}]})
+                    json={"messages": [{"role": "user", "content": "Hello"}]})
     assert r.status_code == 503, r.text
-    assert r.json()["detail"].startswith("未配置 LLM")
+    assert r.json()["detail"].startswith("LLM is not configured")
 
-    # 只配置 base_url + model（本地服务可不需要 API Key）即视为已配置
+    # Only base_url + model configured (local services may not need an API key) counts as configured
     monkeypatch.setenv("LLM_BASE_URL", "https://llm.invalid/v1")
     monkeypatch.setenv("LLM_MODEL", "test-model")
     assert client.get("/ai/status", headers=viewer_headers).json() == {
@@ -236,15 +236,16 @@ def test_ai_status_and_chat_requires_configuration(client, monkeypatch):
     def fake_final(messages, tools=None):
         seen["messages"] = copy.deepcopy(messages)
         seen["tools"] = tools
-        return _final_answer("你好，我是 LineageLite 助手。")
+        return _final_answer("Hello, I am the LineageLite assistant.")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", fake_final)
     r = client.post("/ai/chat", headers=viewer_headers,
-                    json={"messages": [{"role": "user", "content": "你好"}]})
+                    json={"messages": [{"role": "user", "content": "Hello"}]})
     assert r.status_code == 200, r.text
-    assert r.json() == {"answer": "你好，我是 LineageLite 助手。",
+    assert r.json() == {"answer": "Hello, I am the LineageLite assistant.",
                         "tool_trace": []}
-    # system 提示由后端固定，且本轮请求携带八个工具（含画布高亮/建议/影响/草稿）
+    # The system prompt is fixed by the backend, and this request carries eight tools
+    # (including canvas highlight/suggest/impact/draft)
     assert seen["messages"][0]["role"] == "system"
     assert {tool["function"]["name"] for tool in seen["tools"]} == {
         "search_fields", "get_field_details", "trace_lineage",
@@ -252,7 +253,7 @@ def test_ai_status_and_chat_requires_configuration(client, monkeypatch):
         "analyze_impact", "draft_descriptions"}
 
 
-# ---------- 工具循环与出图 ----------
+# ---------- Tool loop and graph rendering ----------
 
 def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
     headers = login(client)
@@ -274,18 +275,18 @@ def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
                       {"dataset": "dwd_order", "field": "order_no",
                        "direction": "up", "hops": 2}),
             ])
-        return _final_answer("dwd_order.order_no 来自 ods_order.order_no。")
+        return _final_answer("dwd_order.order_no comes from ods_order.order_no.")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=headers, json={
         "messages": [{"role": "user",
-                      "content": "dwd_order 的 order_no 是从哪来的？"}],
+                      "content": "Where does dwd_order.order_no come from?"}],
         "focus": {"dataset": "dwd_order", "field": "order_no"},
     })
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["answer"] == "dwd_order.order_no 来自 ods_order.order_no。"
+    assert body["answer"] == "dwd_order.order_no comes from ods_order.order_no."
     assert body["tool_trace"] == [
         {"tool": "search_fields", "args": {"q": "order_no"}, "ok": True},
         {"tool": "get_field_details",
@@ -297,7 +298,7 @@ def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
                   "direction": "up", "hops": 2}, "ok": True},
     ]
 
-    # graph 取最后一次 trace_lineage 的 GraphPayload
+    # graph takes the GraphPayload of the last trace_lineage
     graph = body["graph"]
     assert {dataset["id"] for dataset in graph["datasets"]} == {
         "dwd_order", "ods_order"}
@@ -307,7 +308,7 @@ def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
                and edge["to_field"] == "order_no"
                for edge in graph["edges"])
 
-    # 第一次请求：system + user；第二次请求：追加 assistant 与 4 条 tool 消息
+    # First request: system + user; second request: assistant plus 4 tool messages appended
     first = calls[0]
     assert [message["role"] for message in first["messages"]] == [
         "system", "user"]
@@ -315,7 +316,7 @@ def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
     assert first["tools"] is not None
 
     second = calls[1]
-    assert second["tools"] is not None  # 仅用掉 1 轮，仍可继续调用工具
+    assert second["tools"] is not None  # only 1 round used, tools can still be called
     tool_messages = [message for message in second["messages"]
                      if message["role"] == "tool"]
     assert [message["tool_call_id"] for message in tool_messages] == [
@@ -326,7 +327,7 @@ def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
     details_result = json.loads(tool_messages[1]["content"])
     assert details_result["dataset"] == "ods_order"
     assert details_result["field"] == "order_no"
-    assert details_result["preview"]["file"]["original_name"] == "订单明细.xlsx"
+    assert details_result["preview"]["file"]["original_name"] == "order_details.xlsx"
     history_result = json.loads(tool_messages[2]["content"])
     assert history_result["history"]
     assert history_result["history"][0]["op"] == "added"
@@ -335,7 +336,7 @@ def test_ai_chat_tool_loop_returns_answer_and_graph(client, monkeypatch):
 
 
 def test_ai_chat_mark_highlight_returns_highlights(client, monkeypatch):
-    """mark_highlight 校验字段存在性并把去重后的字段放入 highlights。"""
+    """mark_highlight verifies field existence and puts deduplicated fields into highlights."""
     headers = login(client)
     _seed(client, headers)
     _configure_llm(monkeypatch)
@@ -345,22 +346,22 @@ def test_ai_chat_mark_highlight_returns_highlights(client, monkeypatch):
             return _tool_round([
                 _call("call_mark", "mark_highlight", {"fields": [
                     {"dataset": "ods_order", "field": "order_no"},
-                    # 重复项去重、不存在项忽略
+                    # duplicates deduplicated, non-existent items ignored
                     {"dataset": "ods_order", "field": "order_no"},
                     {"dataset": "ods_order", "field": "no_such_field"},
                 ]}),
             ])
-        return _final_answer("已高亮 ods_order.order_no 的上下游。")
+        return _final_answer("Highlighted the upstream and downstream of ods_order.order_no.")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=headers, json={
         "messages": [{"role": "user",
-                      "content": "把 order_no 的上下游高亮出来"}],
+                      "content": "Highlight the upstream and downstream of order_no"}],
     })
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["answer"] == "已高亮 ods_order.order_no 的上下游。"
+    assert body["answer"] == "Highlighted the upstream and downstream of ods_order.order_no."
     assert body["highlights"] == [
         {"dataset": "ods_order", "field": "order_no"}]
     assert body["tool_trace"] == [
@@ -371,12 +372,12 @@ def test_ai_chat_mark_highlight_returns_highlights(client, monkeypatch):
              {"dataset": "ods_order", "field": "no_such_field"}]},
          "ok": True},
     ]
-    # graph 未返回时不应出现该键
+    # The key must be absent when no graph is returned
     assert "graph" not in body
 
 
 def test_ai_chat_mark_highlight_all_invalid_is_tool_error(client, monkeypatch):
-    """fields 全部不存在时工具报错回传模型，不产生 highlights。"""
+    """When none of fields exist, the tool reports an error back to the model and produces no highlights."""
     headers = login(client)
     _seed(client, headers)
     _configure_llm(monkeypatch)
@@ -388,12 +389,12 @@ def test_ai_chat_mark_highlight_all_invalid_is_tool_error(client, monkeypatch):
                     {"dataset": "no_ds", "field": "no_field"},
                 ]}),
             ])
-        return _final_answer("没有找到可高亮的字段。")
+        return _final_answer("No fields to highlight were found.")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=headers, json={
-        "messages": [{"role": "user", "content": "高亮一下"}],
+        "messages": [{"role": "user", "content": "Highlight something"}],
     })
     assert r.status_code == 200, r.text
     body = r.json()
@@ -416,12 +417,12 @@ def test_ai_chat_reports_tool_errors(client, monkeypatch):
                 _call("missing_field", "get_field_details",
                       {"dataset": "ods_order", "field": "missing"}),
             ])
-        return _final_answer("没有找到该字段。")
+        return _final_answer("The field was not found.")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=headers, json={
-        "messages": [{"role": "user", "content": "查一个不存在的字段"}]})
+        "messages": [{"role": "user", "content": "Look up a field that does not exist"}]})
     assert r.status_code == 200, r.text
     body = r.json()
     assert [item["ok"] for item in body["tool_trace"]] == [False, False]
@@ -430,8 +431,8 @@ def test_ai_chat_reports_tool_errors(client, monkeypatch):
                      if message["role"] == "tool"]
     errors = [json.loads(message["content"])["error"]
               for message in tool_messages]
-    assert "未知工具" in errors[0]
-    assert "不存在" in errors[1]
+    assert "Unknown tool" in errors[0]
+    assert "does not exist" in errors[1]
 
 
 def test_ai_chat_stops_after_five_tool_rounds(client, monkeypatch):
@@ -448,10 +449,10 @@ def test_ai_chat_stops_after_five_tool_rounds(client, monkeypatch):
     monkeypatch.setattr("lineagelite.ai.llm.complete", fake_complete)
 
     r = client.post("/ai/chat", headers=headers, json={
-        "messages": [{"role": "user", "content": "一直查"}]})
+        "messages": [{"role": "user", "content": "Keep searching"}]})
     assert r.status_code == 200, r.text
     body = r.json()
-    # 最多执行 5 轮工具；第 6 次请求不带 tools，强制收口
+    # At most 5 tool rounds; the 6th request carries no tools, forcing closure
     assert len(body["tool_trace"]) == 5
     assert len(calls) == 6
     assert all(tools is not None for tools in calls[:5])
@@ -466,23 +467,23 @@ def test_ai_chat_maps_llm_error_to_502(client, monkeypatch):
     from lineagelite.ai import llm
 
     def boom(messages, tools=None):
-        raise llm.LLMError("上游超时")
+        raise llm.LLMError("Upstream timeout")
 
     monkeypatch.setattr("lineagelite.ai.llm.complete", boom)
 
     r = client.post("/ai/chat", headers=headers, json={
-        "messages": [{"role": "user", "content": "你好"}]})
+        "messages": [{"role": "user", "content": "Hello"}]})
     assert r.status_code == 502, r.text
-    assert "上游超时" in r.json()["detail"]
+    assert "Upstream timeout" in r.json()["detail"]
 
 
-# ---------- 启发式建议 ----------
+# ---------- Heuristic suggestions ----------
 
 def test_ai_suggest_heuristic_exact_containment_and_existing_edges(client):
     headers = login(client)
     _seed(client, headers)
 
-    # 字段级：order_no 的唯一候选是包含关系（dwd_order.order_no 已有边，被排除）
+    # Field-level: the only candidate for order_no is containment (dwd_order.order_no already has an edge and is excluded)
     r = client.post("/ai/suggest", headers=headers,
                     json={"dataset": "ods_order", "field": "order_no"})
     assert r.status_code == 200, r.text
@@ -494,7 +495,7 @@ def test_ai_suggest_heuristic_exact_containment_and_existing_edges(client):
             candidate["to_dataset"], candidate["to_field"]) == (
         "ods_order", "order_no", "dws_order", "ext_order_no")
     assert candidate["confidence"] == 0.6
-    assert "包含" in candidate["reason"]
+    assert "containment" in candidate["reason"]
 
     row = _edge_row("ods_order", "order_no", "dws_order", "ext_order_no")
     assert row is not None
@@ -504,14 +505,14 @@ def test_ai_suggest_heuristic_exact_containment_and_existing_edges(client):
         " AND entity_key=? AND op='added'",
         ("ods_order.order_no-->dws_order.ext_order_no",)) == 1
 
-    # 数据集级：同名字段优先（0.7）；已存在的导入边与刚生成的 ai 边都排除
+    # Dataset-level: same field names take precedence (0.7); existing imported edges and the just-created ai edge are excluded
     r = client.post("/ai/suggest", headers=headers,
                     json={"dataset": "ods_order"})
     assert r.status_code == 200, r.text
     candidates = r.json()["candidates"]
     assert len(candidates) == 2
     assert all(item["confidence"] == 0.7 for item in candidates)
-    assert all("同名" in item["reason"] for item in candidates)
+    assert all("Same field name" in item["reason"] for item in candidates)
     keys = {(item["from_dataset"], item["from_field"],
              item["to_dataset"], item["to_field"]) for item in candidates}
     assert keys == {
@@ -520,13 +521,13 @@ def test_ai_suggest_heuristic_exact_containment_and_existing_edges(client):
     }
     assert ("ods_order", "order_no", "dwd_order", "order_no") not in keys
 
-    # 重复调用：全部候选边已存在 → 不再落库
+    # Repeated call: all candidate edges already exist → nothing new persisted
     r = client.post("/ai/suggest", headers=headers,
                     json={"dataset": "ods_order"})
     assert r.status_code == 200 and r.json()["candidates"] == []
     assert _db_count("SELECT COUNT(*) FROM edge WHERE source='ai'") == 3
 
-    # 参数不存在
+    # Arguments do not exist
     assert client.post("/ai/suggest", headers=headers,
                        json={"dataset": "no_such"}).status_code == 404
     assert client.post("/ai/suggest", headers=headers,
@@ -542,7 +543,7 @@ def test_ai_suggest_confirm_reject_flow_and_permissions(client):
 
     payload = {"dataset": "ods_order", "field": "user_name"}
 
-    # viewer 无权建议/确认/拒绝；未认证 401
+    # viewer has no permission to suggest/confirm/reject; unauthenticated 401
     assert client.post("/ai/suggest", headers=viewer_headers,
                        json=payload).status_code == 403
     assert client.post("/ai/suggest/confirm", headers=viewer_headers,
@@ -557,7 +558,7 @@ def test_ai_suggest_confirm_reject_flow_and_permissions(client):
                              "to_field": "user_name"}).status_code == 403
     assert client.post("/ai/suggest", json=payload).status_code == 401
 
-    # editor 生成两条同名字段候选
+    # editor generates two same-name field candidates
     r = client.post("/ai/suggest", headers=editor_headers, json=payload)
     assert r.status_code == 200, r.text
     candidates = r.json()["candidates"]
@@ -566,14 +567,14 @@ def test_ai_suggest_confirm_reject_flow_and_permissions(client):
     assert _db_count("SELECT COUNT(*) FROM edge WHERE source='ai'") == 2
     assert _db_count(
         "SELECT COUNT(*) FROM change_log WHERE entity_kind='edge'"
-        " AND op='added'") == 3  # 1 条导入边 + 2 条 AI 候选
+        " AND op='added'") == 3  # 1 imported edge + 2 AI candidates
 
     confirm_target = next(item for item in candidates
                           if item["to_dataset"] == "dwd_order")
     reject_target = next(item for item in candidates
                          if item["to_dataset"] == "dim_user")
 
-    # 确认：source ai → manual，写 updated 日志
+    # Confirm: source ai → manual, write an updated log
     r = client.post("/ai/suggest/confirm", headers=editor_headers,
                     json=_candidate_payload(confirm_target))
     assert r.status_code == 200, r.text
@@ -595,12 +596,12 @@ def test_ai_suggest_confirm_reject_flow_and_permissions(client):
     assert logs[0]["after"]["source"] == "manual"
     assert logs[1]["after"]["source"] == "ai"
 
-    # 重复确认已转正的边 → 404（只允许操作 source='ai'）
+    # Repeated confirm on a promoted edge → 404 (only source='ai' can be operated on)
     assert client.post("/ai/suggest/confirm", headers=editor_headers,
                        json=_candidate_payload(confirm_target)
                        ).status_code == 404
 
-    # 拒绝：删除 ai 边，写 deleted 日志
+    # Reject: delete the ai edge, write a deleted log
     r = client.post("/ai/suggest/reject", headers=editor_headers,
                     json=_candidate_payload(reject_target))
     assert r.status_code == 204, r.text
@@ -615,7 +616,7 @@ def test_ai_suggest_confirm_reject_flow_and_permissions(client):
     assert logs[0]["before"]["source"] == "ai"
     assert logs[0]["after"] is None
 
-    # 非 AI 边不可确认/拒绝；混合字段 400
+    # Non-AI edges cannot be confirmed/rejected; mixed fields 400
     imported = {"from_dataset": "ods_order", "from_field": "order_no",
                 "to_dataset": "dwd_order", "to_field": "order_no"}
     assert client.post("/ai/suggest/confirm", headers=editor_headers,

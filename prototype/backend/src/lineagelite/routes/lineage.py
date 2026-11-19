@@ -1,4 +1,4 @@
-"""血缘图查询 API（设计方案 §4.3 / §5.1）。"""
+"""Lineage graph query API (design §4.3 / §5.1)."""
 
 from typing import Literal
 
@@ -13,13 +13,13 @@ router = APIRouter(tags=["lineage"])
 
 @router.get("/lineage/subgraph")
 def subgraph(
-    dataset: str = Query(..., description="种子数据集 ID"),
-    field: str | None = Query(None, description="种子字段名（可选）"),
-    hops: int = Query(3, ge=1, le=5, description="最大跳数 1~5"),
+    dataset: str = Query(..., description="Seed dataset ID"),
+    field: str | None = Query(None, description="Seed field name (optional)"),
+    hops: int = Query(3, ge=1, le=5, description="Maximum hops 1~5"),
     direction: Literal["both", "up", "down"] = Query("both"),
     user: dict = Depends(require_role("viewer")),
 ):
-    """取数据集/字段的 N 跳血缘子图（GraphPayload）。"""
+    """Fetch the N-hop lineage subgraph (GraphPayload) for a dataset/field."""
     with get_db() as conn:
         try:
             return lineage_subgraph(conn, dataset, field, hops, direction)

@@ -1,6 +1,6 @@
-/** detail.* 字典：字段详情面板（检查器）。 */
+/** detail.* dictionary: field detail panel (inspector). */
 export const zhDetail = {
-  // 空状态引导
+  // Empty state guidance
   'detail.inspectorTitle': '检查器',
   'detail.fieldDetailsTitle': '字段详情',
   'detail.fieldInspector': '字段检查',
@@ -12,7 +12,7 @@ export const zhDetail = {
   'detail.hintLocatorDetail': 'sheet / 行列 / JSONPath',
   'detail.hintSourceBadgeTitle': '来源徽章',
 
-  // 上游血缘卡片
+  // Upstream lineage cards
   'detail.upstreamTitle': '上游血缘',
   'detail.fieldLevel': '字段级',
   'detail.transform': '转换',
@@ -21,7 +21,7 @@ export const zhDetail = {
   'detail.rootFieldTitle': '根字段 / 无字段级入边',
   'detail.rootFieldBody': '该字段可能是链路起点，或仅由表级血缘覆盖。',
 
-  // 定位器校验错误（buildLocatorInput）
+  // Locator validation errors (buildLocatorInput)
   'detail.errCsvColumnInteger': 'CSV 列号必须是大于等于 1 的整数。',
   'detail.errCsvRequired': 'CSV 定位器至少填写列号或表头名称。',
   'detail.errCsvExclusive': 'CSV 列号与表头名称只能填写一个。',
@@ -33,7 +33,7 @@ export const zhDetail = {
   'detail.errJsonPathRequired': 'JSON 定位器必须填写 JSONPath。',
   'detail.errUnknownLocatorType': '源文件类型未知，无法编辑定位器。',
 
-  // 字段编辑器
+  // Field editor
   'detail.editBannerTitle': '编辑字段属性',
   'detail.editBannerBody': '保存定位器时后端会重新做结构校验与实文件核查，失败返回 409 并保留原值。',
   'detail.descriptionPlaceholder': '字段业务含义（留空表示未登记）',
@@ -62,7 +62,7 @@ export const zhDetail = {
   'detail.errInvalidLocator': '定位器格式不合法。',
   'detail.errSaveFailed': '字段保存失败，请稍后重试。',
 
-  // 详情主体
+  // Detail body
   'detail.typeUnregistered': '类型未登记',
   'detail.noFieldDescription': '暂无字段描述',
   'detail.sourceFileTitle': '源文件',
@@ -84,7 +84,7 @@ export const zhDetail = {
   'detail.ariaClose': '关闭字段详情',
   'detail.rawLocatorSummary': '查看原始定位器',
 
-  // AI 建议
+  // AI suggestions
   'detail.aiSectionTitle': 'AI 建议',
   'detail.aiSectionBody':
     '按同名字段/包含关系查找可能缺失的字段级血缘；候选以 source=ai 落库，必须人工确认后才转为 manual。',
@@ -94,7 +94,7 @@ export const zhDetail = {
   'detail.reject': '拒绝',
   'detail.rejecting': '拒绝中…',
 
-  // 操作反馈（notify / 错误 fallback）
+  // Action feedback (notify / error fallbacks)
   'detail.notifyFieldUpdated': '字段属性已更新',
   'detail.notifySuggestCreated': '已生成 {count} 条 AI 候选血缘（source=ai）',
   'detail.suggestNoteNoNew': '没有新的候选（已存在的边会被排除）。',

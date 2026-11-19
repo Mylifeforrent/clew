@@ -1,4 +1,4 @@
-/** preview.* 字典：回源预览弹窗（PreviewModal）。 */
+/** preview.* dictionary: source preview modal (PreviewModal). */
 export const zhPreview = {
   'preview.title': '回源预览',
   'preview.kicker': '源文件回源 / 只读',

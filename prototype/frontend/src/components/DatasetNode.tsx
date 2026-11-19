@@ -15,13 +15,13 @@ export interface DatasetNodeData extends Record<string, unknown> {
   collapsed: boolean;
   isSeed: boolean;
   fieldsExpanded: boolean;
-  /** editor+ 才允许从 handle 拖出新血缘；viewer 的 handle 不可连接 */
+  /** Only editor+ may drag new lineage from handles; viewer handles are not connectable */
   connectable: boolean;
-  /** 02 §3.4：是任一 AI 候选边端点的字段名列表（纯展示派生，驱动字段行 sparkles 徽标） */
+  /** 02 §3.4: field names that are endpoints of any AI candidate edge (display-only derivation driving the sparkles badge on field rows) */
   aiEndpointFields?: string[];
-  /** 字段追踪：链路上的关联字段名列表（浅红底） */
+  /** Field trace: names of related fields on the chain (light red background) */
   chainFieldNames?: string[];
-  /** 字段追踪：聚焦字段名列表（强红底；点击或 AI 声明，可为多个） */
+  /** Field trace: focused field names (strong red background; from clicks or AI declarations, possibly multiple) */
   focusedFieldNames?: string[];
   onToggleCollapse: (datasetId: string) => void;
   onToggleFields: (datasetId: string) => void;
@@ -58,7 +58,7 @@ export function DatasetNode({ data }: NodeProps) {
           ? 'shadow-node-active'
           : 'shadow-node hover:shadow-card'
       }`}
-      aria-label={`数据集 ${dataset.name || dataset.id}，${fieldCount} 个字段`}
+      aria-label={`Dataset ${dataset.name || dataset.id}, ${fieldCount} fields`}
     >
       <span
         className={`pointer-events-none absolute inset-x-5 top-0 z-10 h-[2px] rounded-b-full ${
@@ -99,10 +99,10 @@ export function DatasetNode({ data }: NodeProps) {
           className="nodrag nopan flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors duration-150 hover:bg-card hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1"
           aria-label={
             collapsed
-              ? `展开 ${dataset.id} 的字段列表`
-              : `收起 ${dataset.id} 的字段列表`
+              ? `Expand the field list of ${dataset.id}`
+              : `Collapse the field list of ${dataset.id}`
           }
-          title={collapsed ? '展开字段列表' : '收起字段列表'}
+          title={collapsed ? 'Expand field list' : 'Collapse field list'}
         >
           <Icon
             name={collapsed ? 'chevron-right' : 'chevron-down'}
@@ -120,7 +120,7 @@ export function DatasetNode({ data }: NodeProps) {
             </h3>
             {isSeed && (
               <span className="shrink-0 rounded-full border border-blue-200 bg-card px-1.5 py-px font-mono text-[11px] uppercase text-blue-800">
-                种子
+                Seed
               </span>
             )}
           </div>
@@ -133,7 +133,7 @@ export function DatasetNode({ data }: NodeProps) {
             </span>
             <span className="h-[2px] w-[2px] shrink-0 rounded-full bg-line-strong" />
             <span className="shrink-0 font-mono text-[11px] text-ink-faint">
-              {fieldCount} 个字段
+              {fieldCount} fields
             </span>
           </div>
         </div>
@@ -161,7 +161,7 @@ export function DatasetNode({ data }: NodeProps) {
             className="nodrag nopan flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-[12px] text-ink-muted transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50/60 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60"
           >
             <Icon name="unfold-all" size={12} />
-            展开 {fieldCount} 个字段
+            Expand {fieldCount} fields
           </button>
         </div>
       ) : (
@@ -169,7 +169,7 @@ export function DatasetNode({ data }: NodeProps) {
           {fieldCount === 0 ? (
             <div className="flex h-[42px] items-center justify-center gap-1.5 rounded-md border border-dashed border-line-soft text-[12px] text-ink-faint">
               <Icon name="info" size={12} />
-              暂无字段
+              No fields
             </div>
           ) : (
             <>
@@ -204,8 +204,8 @@ export function DatasetNode({ data }: NodeProps) {
                         onSelectField(dataset, field);
                       }}
                       className="nodrag nopan flex h-full w-full min-w-0 items-center justify-between gap-2 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-card"
-                      aria-label={`查看字段 ${dataset.id}.${field.name}`}
-                      title={`${field.description || field.name} · 点击查看定位与回源预览`}
+                      aria-label={`View field ${dataset.id}.${field.name}`}
+                      title={`${field.description || field.name} · Click to view the locator and source preview`}
                     >
                       <span className="flex min-w-0 items-center gap-1.5">
                         {isFocused && (
@@ -233,7 +233,7 @@ export function DatasetNode({ data }: NodeProps) {
                         {aiEndpointFields?.includes(field.name) && (
                           <span
                             className="text-ai"
-                            title="存在待确认的 AI 候选血缘"
+                            title="There are AI candidate lineage edges pending confirmation"
                             aria-hidden="true"
                           >
                             <Icon name="sparkles" size={12} />
@@ -263,8 +263,8 @@ export function DatasetNode({ data }: NodeProps) {
                   aria-expanded={fieldsExpanded}
                   title={
                     fieldsExpanded
-                      ? `收起至前 ${FIELD_PREVIEW_LIMIT} 个字段`
-                      : `展开其余 ${hiddenCount} 个字段`
+                      ? `Collapse to the first ${FIELD_PREVIEW_LIMIT} fields`
+                      : `Expand the other ${hiddenCount} fields`
                   }
                 >
                   <Icon
@@ -272,8 +272,8 @@ export function DatasetNode({ data }: NodeProps) {
                     size={11}
                   />
                   {fieldsExpanded
-                    ? `收起至前 ${FIELD_PREVIEW_LIMIT} 个字段`
-                    : `其余 ${hiddenCount} 个字段已折叠`}
+                    ? `Collapse to the first ${FIELD_PREVIEW_LIMIT} fields`
+                    : `${hiddenCount} more fields collapsed`}
                 </button>
               )}
             </>

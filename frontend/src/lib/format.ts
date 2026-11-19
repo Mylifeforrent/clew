@@ -97,7 +97,7 @@ export function humanizeLocator(
     if (headerPath.length) {
       parts.push(
         t('format.headerPath', {
-          path: headerPath.map((item) => `「${item}」`).join(' → '),
+          path: headerPath.map((item) => `"${item}"`).join(' → '),
         }),
       );
     }
@@ -176,14 +176,14 @@ export function formatCount(value: number, locale: Locale = 'zh'): string {
   return new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US').format(value);
 }
 
-/** ISO8601 →「2026-10-23 14:30」（本地阅读用，秒级截断）。 */
+/** ISO8601 → "2026-10-23 14:30" (for local reading, truncated to seconds). */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
   const normalized = value.replace('T', ' ');
   return normalized.length > 16 ? normalized.slice(0, 16) : normalized;
 }
 
-/** 字节数 →「12.4MB / 20.5KB / 512B」（导入向导文件行展示用）。 */
+/** Bytes → "12.4MB / 20.5KB / 512B" (for import wizard file rows). */
 export function formatFileSize(bytes: number | null | undefined): string {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes) || bytes < 0) {
     return '—';

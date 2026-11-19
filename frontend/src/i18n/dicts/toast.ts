@@ -1,4 +1,4 @@
-/** toast.* 字典（由对应组件改造时填充）。 */
+/** toast.* dictionary (populated when the corresponding component is migrated). */
 export const zhToast = {} as const;
 
 export type ToastKey = keyof typeof zhToast;

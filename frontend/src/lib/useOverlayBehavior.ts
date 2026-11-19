@@ -2,21 +2,25 @@ import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
 /**
- * 浮层行为基座（评审 R13）：全部覆盖层统一接入，替代各浮层手写的
- * document keydown / Tab trap / 焦点保存 / body 滚动锁。
+ * Overlay behavior foundation (review R13): every overlay layer plugs into this,
+ * replacing the hand-written document keydown / Tab trap / focus save / body scroll
+ * lock in each overlay.
  *
- * - 焦点保存/还原：打开时记录 `document.activeElement`，关闭/卸载时还原；
- * - Tab 圈禁：Tab / Shift+Tab 时焦点不可逃逸出容器（含焦点丢失到容器外时拉回）；
- * - Esc 栈：模块级浮层栈（后开者优先），只有栈顶响应 Esc——
- *   AI 抽屉与版本抽屉同开时，一次 Esc 只关最近一层；
- * - body 滚动锁：打开时保存旧值并锁定 `body.style.overflow = 'hidden'`，
- *   关闭/卸载时按栈序还原（多层同开不互相踩踏）。
+ * - Focus save/restore: record `document.activeElement` on open, restore on close/unmount;
+ * - Tab containment: Tab / Shift+Tab cannot move focus out of the container (focus lost
+ *   outside the container is pulled back in);
+ * - Esc stack: a module-level overlay stack (last opened wins); only the top responds to Esc —
+ *   when the AI drawer and the versions drawer are open together, one Esc closes only the
+ *   most recent layer;
+ * - body scroll lock: save the previous value and lock `body.style.overflow = 'hidden'` on
+ *   open, restore in stack order on close/unmount (no stomping when multiple layers are open).
  *
- * `onRequestClose` / `dismissible` 经内部 ref 读取：父组件回调不稳定时
- * 监听器不重挂、不产生过期闭包；busy 态传 `dismissible: false` 拒关。
+ * `onRequestClose` / `dismissible` are read through internal refs: when the parent callback
+ * is unstable, listeners are not re-attached and no stale closures appear; pass
+ * `dismissible: false` in busy states to refuse closing.
  */
 
-/** 可聚焦元素选择器（沿用原 ImportWizardModal 实现，含 summary）。 */
+/** Focusable element selector (carried over from the original ImportWizardModal implementation, including summary). */
 const FOCUSABLE_SELECTOR = [
   'button:not([disabled])',
   '[href]',
@@ -31,15 +35,15 @@ interface OverlayStackEntry {
   requestClose: () => void;
 }
 
-/** 模块级浮层栈：只有栈顶（最后入栈者）响应 Esc 与 Tab 圈禁。 */
+/** Module-level overlay stack: only the top entry (last pushed) responds to Esc and Tab containment. */
 const overlayStack: OverlayStackEntry[] = [];
 
 export interface OverlayBehaviorOptions {
   open: boolean;
   onRequestClose: () => void;
-  /** false（busy 等拒关态）时 Esc 被吞掉不关闭；默认 true。 */
+  /** When false (busy and other refusal states), Esc is swallowed and does not close; defaults to true. */
   dismissible?: boolean;
-  /** 打开时优先聚焦的元素（关闭钮/输入框/取消钮）；缺省聚焦容器内第一个可聚焦元素。 */
+  /** Element to focus first on open (close button / input / cancel button); defaults to the first focusable element in the container. */
   initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
@@ -49,7 +53,7 @@ export function useOverlayBehavior(
 ): void {
   const { open, onRequestClose, dismissible = true, initialFocusRef } = options;
 
-  // 关键回调经 ref 读取：监听器只在 open 期间挂一次也能拿到最新值。
+  // Key callbacks are read through refs so a listener attached once while open still sees the latest values.
   const latestRef = useRef({ onRequestClose, dismissible });
   useEffect(() => {
     latestRef.current = { onRequestClose, dismissible };
@@ -73,7 +77,7 @@ export function useOverlayBehavior(
 
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
-        // 一次 Esc 只关最近打开的一层（如 AI 抽屉 + 版本抽屉同开）
+        // One Esc closes only the most recently opened layer (e.g. AI drawer + versions drawer open together)
         if (!isTopOfStack()) return;
         event.preventDefault();
         if (latestRef.current.dismissible) {
@@ -92,7 +96,7 @@ export function useOverlayBehavior(
         document.activeElement instanceof HTMLElement
           ? document.activeElement
           : null;
-      // 焦点已落到容器外（遮罩外的背景）：拉回圈内，Shift+Tab 从末尾进
+      // Focus already landed outside the container (background behind the mask): pull it back in; Shift+Tab enters from the end
       if (!active || !container.contains(active)) {
         event.preventDefault();
         (event.shiftKey ? last : first).focus();
@@ -118,8 +122,9 @@ export function useOverlayBehavior(
     overlayStack.push(entry);
     document.addEventListener('keydown', handleKeyDown);
 
-    // 初始焦点：优先指定元素；若焦点已在容器内（如 autoFocus 元素）则尊重现状；
-    // 指定元素不可聚焦（如 disabled 输入框）时回退容器内第一个可聚焦元素。
+    // Initial focus: prefer the designated element; if focus is already inside the container
+    // (e.g. an autoFocus element), respect it; if the designated element is not focusable
+    // (e.g. a disabled input), fall back to the first focusable element in the container.
     const activeNow =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
@@ -145,7 +150,7 @@ export function useOverlayBehavior(
         previousFocus.focus();
       }
     };
-    // containerRef / initialFocusRef / entryRef 均为调用方 useRef，身份稳定；
-    // onRequestClose 与 dismissible 经 latestRef 读取，父渲染不重挂监听器。
+    // containerRef / initialFocusRef / entryRef are all caller useRefs with stable identity;
+    // onRequestClose and dismissible are read via latestRef, so parent renders do not re-attach listeners.
   }, [open, containerRef, initialFocusRef, entryRef]);
 }

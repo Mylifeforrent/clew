@@ -6,7 +6,7 @@ import App from './App';
 import { I18nProvider } from './i18n';
 
 const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('缺少根节点 #root');
+if (!rootElement) throw new Error('Missing #root element');
 
 createRoot(rootElement).render(
   <StrictMode>

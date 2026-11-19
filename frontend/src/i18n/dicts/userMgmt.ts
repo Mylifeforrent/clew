@@ -1,4 +1,4 @@
-/** userMgmt.* 字典：用户管理弹窗。 */
+/** userMgmt.* dictionary: user management modal. */
 export const zhUserMgmt = {
   'userMgmt.roleViewer': '只读（viewer）',
   'userMgmt.roleEditor': '可编辑（editor）',

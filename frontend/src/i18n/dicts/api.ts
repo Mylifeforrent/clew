@@ -1,4 +1,4 @@
-/** api.* 字典：前端 HTTP 状态码兜底文案（后端返回的 detail 原样透传，不在此翻译）。 */
+/** api.* dictionary: frontend fallback copy for HTTP status codes (backend `detail` is passed through verbatim and not translated here). */
 export const zhApi = {
   'api.e401': '登录已过期，请重新登录',
   'api.e403': '当前账号无权执行此操作',

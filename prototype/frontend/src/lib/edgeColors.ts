@@ -1,26 +1,26 @@
 /**
- * 血缘边四形态色值（00 §2.4 lineage 色组的唯一事实来源）。
+ * Color values for the four lineage edge forms (single source of truth for the 00 §2.4 lineage color group).
  *
- * tailwind.config.cjs 的 colors.lineage 与此处值必须保持一致；
- * LineageEdge.getEdgeVisual 与 DatasetSidebar 图例共同引用本模块，
- * 避免同一组 hex 散落多处造成改色漂移。
+ * colors.lineage in tailwind.config.cjs must stay consistent with the values here;
+ * LineageEdge.getEdgeVisual and the DatasetSidebar legend both reference this module,
+ * avoiding color drift from the same hex values scattered across files.
  */
 export const EDGE_COLORS = {
-  /** source='ai' 候选边 */
+  /** source='ai' candidate edge */
   ai: '#4F46E5',
-  /** source='manual' 人工边 */
+  /** source='manual' manual edge */
   manual: '#D97706',
-  /** imported 字段级边 */
+  /** imported field-level edge */
   imported: '#475569',
-  /** imported 表级边（弱一档） */
+  /** imported table-level edge (one step weaker) */
   importedWeak: '#64748B',
-  /** 视图派生：表级血缘两端同名字段匹配的推断线 */
+  /** View-derived: inferred link from same-name field matching across the two ends of a table-level lineage */
   derived: '#94A3B8',
-  /** 点击字段后的上下游追踪高亮（与 danger 语义色同值） */
+  /** Upstream/downstream trace highlight after clicking a field (same value as the danger semantic color) */
   focus: '#DC2626',
 } as const;
 
-/** hex → rgba：压暗态箭头 marker 无法继承 path 的 opacity，需单独给 alpha。 */
+/** hex → rgba: dimmed arrow markers cannot inherit the path opacity, so alpha must be given separately. */
 export function withAlpha(hex: string, alpha: number): string {
   const value = hex.replace('#', '');
   const r = parseInt(value.slice(0, 2), 16);

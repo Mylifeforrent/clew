@@ -1,51 +1,51 @@
-# Clew 前端（正式目录）
+# Clew Frontend (production directory)
 
-Clew 的正式前端项目：字段级数据血缘核查与协作工具的 React SPA。视觉与交互以 `docs/04_hifi/00_设计总览与DesignToken.md` 及 01–06 页面文档为唯一设计事实来源；接口契约以 `docs/03_dev/05_API接口文档.md` 为准；实现说明见 `docs/03_dev/02_前端开发文档.md`。
+Clew's production frontend: a React SPA for field-level data lineage verification and collaboration. Visuals and interactions take `docs/04_hifi/00_design-overview-and-tokens.md` plus the 01–06 page documents as the single design source of truth; the API contract follows `docs/03_dev/05_api-reference.md`; implementation notes live in `docs/03_dev/02_frontend-development.md`.
 
-## 与 prototype 的关系
+## Relationship with prototype
 
-- `prototype/frontend/` 是已按 hi-fi 规范完成视觉迁移的原型工作区；本目录以它为基线**移植**而来（配置与 `src/` 同源复制），并在移植后按 hi-fi 01–05 逐屏核对、修正少量偏差。
-- 本目录相对 prototype 的增量能力：**导入向导**（hi-fi 06 全规格，`ImportWizardModal`）——源文件上传（`POST /files`）、清单导入（`POST /import`）、批次报告与报告下载，此前在 prototype 中无任何前端入口。
-- 两目录当前并存；prototype 仅作为参照保留，后续功能在 `frontend/` 演进。
+- `prototype/frontend/` is the prototype workspace whose visual migration to the hi-fi spec is already complete; this directory was **ported** from it as the baseline (config and `src/` copied from the same source), then checked screen by screen against hi-fi 01–05 with a few deviations corrected.
+- Incremental capability in this directory over prototype: the **import wizard** (full hi-fi 06 spec, `ImportWizardModal`) — source file upload (`POST /files`), manifest import (`POST /import`), batch report and report download; there was no frontend entry for these in prototype before.
+- Both directories currently coexist; prototype is kept for reference only, and future work evolves in `frontend/`.
 
-## 开发命令
+## Development commands
 
 ```bash
 cd frontend
-npm install        # npm 唯一包管理器（禁止 pnpm / yarn）
-npm run dev        # vite 开发服务器 → http://localhost:5173（proxy → 127.0.0.1:8000）
-npm run build      # tsc -b && vite build（类型检查 + 构建产物 dist/）
-npm run typecheck  # 仅类型检查
-npm run preview    # 本地预览构建产物
+npm install        # npm is the only package manager (pnpm / yarn are forbidden)
+npm run dev        # vite dev server → http://localhost:5173 (proxy → 127.0.0.1:8000)
+npm run build      # tsc -b && vite build (type check + dist/ build output)
+npm run typecheck  # type check only
+npm run preview    # preview the build output locally
 ```
 
-依赖集与 prototype 冻结一致（react 19 / @xyflow/react / @dagrejs/dagre + Vite + Tailwind v3），不新增任何依赖；无 UI 组件库、无路由库、无状态管理库、无 HTTP 库（只用 fetch）、无图标库（`components/Icon.tsx` 内置 43 个 SVG 图标）。
+Dependencies are frozen to match prototype (react 19 / @xyflow/react / @dagrejs/dagre + Vite + Tailwind v3) and no dependencies are added: no UI component library, no router, no state management library, no HTTP library (fetch only), no icon library (`components/Icon.tsx` ships 43 SVG icons).
 
-开发前需先启动后端（见仓库根 README）；后端未启动时登录页与工作台会显示错误卡与重试入口，不会白屏。
+Start the backend before development (see the repository root README); when it is not running, the sign-in page and workspace show an error card with a retry entry instead of a blank screen.
 
-## 目录结构
+## Directory structure
 
 ```
 frontend/
 ├── index.html / vite.config.ts / tsconfig.json / tailwind.config.cjs / postcss.config.cjs
 ├── public/favicon.svg
 └── src/
-    ├── main.tsx / App.tsx      # 入口与会话切换（401 过期事件 → 回登录页）
-    ├── index.css               # Tailwind 指令 + .field-input + React Flow 画布定制 + reduced-motion
-    ├── types.ts                # 全部 API 类型（唯一类型出口）
-    ├── lib/                    # api.ts（fetch 封装/ApiError/会话）、layout、format、roles 等 7 文件
-    └── components/             # 23 个组件（22 个移植 + 新增 ImportWizardModal）
+    ├── main.tsx / App.tsx      # entry and session switching (401 expiry event → back to sign-in)
+    ├── index.css               # Tailwind directives + .field-input + React Flow canvas customization + reduced-motion
+    ├── types.ts                # all API types (single type export point)
+    ├── lib/                    # api.ts (fetch wrapper/ApiError/session), layout, format, roles, etc. — 7 files
+    └── components/             # 23 components (22 ported + new ImportWizardModal)
 ```
 
-## 导入向导（本目录新增）
+## Import wizard (new in this directory)
 
-- 入口：TopBar「导入数据」primary 按钮，仅 editor 及以上角色渲染（「不渲染写入口」模式，真正校验在后端）。
-- 四步向导：① 上传源文件（逐文件 `POST /files`，sha256 去重）→ ② 上传清单/选格式（csv 双文件 / xlsx / json，本地校验格式一致）→ ③ 校验与执行（`POST /import` 同事务完成）→ ④ 批次报告（统计四卡、拒绝行表、报告 JSON 下载）。
-- 上传/提交 busy 中锁定 Esc、遮罩与关闭；有已上传文件时关闭前经 ConfirmDialog 二次确认；「完成」回调 Workspace 刷新数据集列表与子图。
+- Entry: the TopBar primary "Import" button, rendered only for editor and above (the "do not render write entries" pattern; real authorization is in the backend).
+- Four-step wizard: ① upload source files (per-file `POST /files`, sha256 dedup) → ② upload manifest / pick format (csv two-file / xlsx / json, validate format match locally) → ③ validate and execute (`POST /import` completes in one transaction) → ④ batch report (four stat cards, rejected-row table, report JSON download).
+- While busy uploading/submitting, Esc, the mask and close are locked; when files are already uploaded, closing goes through a ConfirmDialog first; the "Done" callback makes Workspace refresh the dataset list and subgraph.
 
-## 已知差距
+## Known gaps
 
-- 「按批次回滚」（`POST /import/batches/{id}/rollback`）仍无前端入口——hi-fi 06 明确批次行不提供回滚按钮，属后续工作项 `[TBD-FE]`；版本抽屉维持「按版本标签回滚」。
-- 头部「将入库为版本 v{n+1}」预分配徽章取 `GET /import/batches` 的最大 `version_no + 1`，属提示性预测，实际版本号以 `POST /import` 响应为准；批次列表拉取失败时省略该徽章。
-- 用户管理仍仅支持列表 + 新增用户（角色变更无后端接口，`[TBD-BIZ]`，与 prototype 一致）。
-- 设计方案 §5.1「点击节点展开邻域」等与代码现状的差异记录，见 `docs/03_dev/02_前端开发文档.md` §9.3（本目录未改变这些取舍）。
+- "Roll back by batch" (`POST /import/batches/{id}/rollback`) still has no frontend entry — hi-fi 06 explicitly omits a rollback button on batch rows, a follow-up item `[TBD-FE]`; the versions drawer keeps "roll back by version tag".
+- The header's pre-allocated "will be imported as version v{n+1}" badge takes the max `version_no + 1` from `GET /import/batches`; it is a hint-only prediction, and the actual version comes from the `POST /import` response. When the batch list cannot be fetched, the badge is omitted.
+- User management still supports only listing + creating users (role changes have no backend API, `[TBD-BIZ]`, same as prototype).
+- Design §5.1 "click a node to expand its neighborhood" and other differences from the current code are recorded in `docs/03_dev/02_frontend-development.md` §9.3 (this directory has not changed these trade-offs).

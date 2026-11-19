@@ -5,7 +5,7 @@ import './index.css';
 import App from './App';
 
 const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('缺少根节点 #root');
+if (!rootElement) throw new Error('Missing root element #root');
 
 createRoot(rootElement).render(
   <StrictMode>

@@ -1,16 +1,19 @@
-"""血缘图查询：递归 CTE 一次取出 N 跳子图（设计方案 §4.3）。
+"""Lineage graph queries: fetch an N-hop subgraph in one pass via a recursive CTE (design §4.3).
 
-两种种子语义：
+Two seed semantics:
 
-- **数据集种子**（``field_name is None``）：沿全部相连边（字段级 + 表级）
-  双向/单向扩展 N 跳，得到数据集闭包；
-- **字段种子**：沿字段级边精确扩展；表级边（``from_field`` / ``to_field``
-  均为 NULL）视为两侧数据集的字段全连通，即从一侧任一字段可抵达另一侧
-  全部字段。
+- **Dataset seed** (``field_name is None``): expand N hops bidirectionally or
+  unidirectionally along all connected edges (field-level + table-level) to
+  obtain the dataset closure;
+- **Field seed**: expand precisely along field-level edges; a table-level edge
+  (both ``from_field`` / ``to_field`` NULL) is treated as fully connecting the
+  fields of the datasets on both sides, i.e. any field on one side reaches all
+  fields on the other side.
 
-返回契约中的 ``GraphPayload``：闭包内数据集的**全部字段**（带定位器信封与
-来源文件）以及闭包内数据集之间的**全部边**。递归 CTE 写法保持 SQLite /
-PostgreSQL 兼容（仅用两种数据库都支持的标准 CTE 语法）。
+The response contract's ``GraphPayload``: **all fields** of the datasets in the
+closure (with locator envelopes and source files) plus **all edges** between
+datasets in the closure. The recursive CTE is written to stay compatible with
+SQLite / PostgreSQL (only standard CTE syntax supported by both).
 """
 
 import json
@@ -21,11 +24,11 @@ MAX_HOPS = 5
 
 
 class LineageNotFound(LookupError):
-    """种子数据集或字段不存在。"""
+    """The seed dataset or field does not exist."""
 
 
 def _direction_arms(table_alias: str, direction: str) -> list[str]:
-    """返回递归项里「本跳允许走哪个方向」的谓词片段。"""
+    """Return the predicate fragments for which direction this hop may follow."""
     arms: list[str] = []
     if direction in ("both", "down"):
         arms.append(f"e.from_dataset = {table_alias}.dataset_id")
@@ -36,7 +39,7 @@ def _direction_arms(table_alias: str, direction: str) -> list[str]:
 
 def _dataset_closure(conn: sqlite3.Connection, dataset_id: str, hops: int,
                      direction: str) -> list[str]:
-    """数据集种子的 N 跳闭包（深度 0 为起点）。"""
+    """N-hop closure for a dataset seed (depth 0 is the starting point)."""
     arms = _direction_arms("reach", direction)
     sql = f"""
 WITH RECURSIVE reach(dataset_id, hop) AS (
@@ -57,11 +60,13 @@ SELECT DISTINCT dataset_id FROM reach ORDER BY dataset_id
 
 def _field_closure(conn: sqlite3.Connection, dataset_id: str, field_name: str,
                    hops: int, direction: str) -> list[str]:
-    """字段种子的 N 跳闭包，返回命中的数据集 ID 列表。
+    """N-hop closure for a field seed, returning the IDs of the datasets hit.
 
-    表级边在递归项中通过 ``COALESCE(e.xxx_field, nf.name)`` 展开成**去向一侧**
-    数据集的全部字段；字段级边仍只连接 ``from_field`` / ``to_field``。
-    只 JOIN 一个 ``field`` 别名，避免同时对 from/to 侧 LEFT JOIN 产生行乘积。
+    In the recursive term, table-level edges are expanded via
+    ``COALESCE(e.xxx_field, nf.name)`` into **all fields of the destination-side
+    dataset**; field-level edges still only connect ``from_field`` /
+    ``to_field``. Only one ``field`` alias is joined, avoiding a row product
+    from LEFT JOINing both the from/to sides.
     """
     down = direction in ("both", "down")
     up = direction in ("both", "up")
@@ -86,7 +91,8 @@ WITH RECURSIVE reach(dataset_id, field_name, hop) AS (
          reach.hop + 1
   FROM reach
   JOIN edge e ON {' OR '.join(arms)}
-  -- 仅当本次走的边是表级边时，才 JOIN 去向一侧的字段（单侧 JOIN，无行乘积）
+  -- Join the destination-side fields only when this hop follows a table-level
+  -- edge (single-sided JOIN, no row product)
   LEFT JOIN field nf
          ON nf.dataset_id = CASE WHEN e.from_dataset = reach.dataset_id
                                  THEN e.to_dataset ELSE e.from_dataset END
@@ -101,7 +107,7 @@ SELECT DISTINCT dataset_id FROM reach ORDER BY dataset_id
 
 
 def _parse_locator(raw: str | None) -> dict:
-    """定位器信封解析；损坏数据降级为空中性信封，避免整张图 500。"""
+    """Parse the locator envelope; corrupt data degrades to an empty neutral envelope to avoid a 500 on the whole graph."""
     if not raw:
         return {"type": None, "input": None, "resolved": None}
     try:
@@ -114,7 +120,7 @@ def _parse_locator(raw: str | None) -> dict:
 
 
 def _payload(conn: sqlite3.Connection, dataset_ids: list[str]) -> dict:
-    """按闭包数据集装载全部字段与闭包内部全部边。"""
+    """Load all fields of the closure datasets and all edges inside the closure."""
     if not dataset_ids:
         return {"datasets": [], "edges": []}
     marks = ",".join("?" for _ in dataset_ids)
@@ -168,16 +174,18 @@ def _payload(conn: sqlite3.Connection, dataset_ids: list[str]) -> dict:
 def lineage_subgraph(conn: sqlite3.Connection, dataset_id: str,
                      field_name: str | None = None, hops: int = 3,
                      direction: str = "both") -> dict:
-    """返回以数据集或字段为种子的 N 跳血缘子图（GraphPayload）。"""
+    """Return the N-hop lineage subgraph seeded by a dataset or field (GraphPayload)."""
     if direction not in DIRECTIONS:
-        raise ValueError(f"direction 必须是 {'/'.join(DIRECTIONS)}，收到「{direction}」")
+        raise ValueError(
+            f"direction must be one of {'/'.join(DIRECTIONS)}, got \"{direction}\"")
     if not isinstance(hops, int) or isinstance(hops, bool) or not 1 <= hops <= MAX_HOPS:
-        raise ValueError(f"hops 必须是 1~{MAX_HOPS} 的整数，收到「{hops}」")
+        raise ValueError(
+            f"hops must be an integer between 1 and {MAX_HOPS}, got \"{hops}\"")
 
     dataset = conn.execute("SELECT id, name FROM dataset WHERE id=?",
                            (dataset_id,)).fetchone()
     if dataset is None:
-        raise LineageNotFound(f"数据集「{dataset_id}」不存在")
+        raise LineageNotFound(f"Dataset \"{dataset_id}\" does not exist")
 
     if field_name is None:
         closure = _dataset_closure(conn, dataset_id, hops, direction)
@@ -186,7 +194,7 @@ def lineage_subgraph(conn: sqlite3.Connection, dataset_id: str,
             "SELECT 1 FROM field WHERE dataset_id=? AND name=?",
             (dataset_id, field_name)).fetchone()
         if field is None:
-            raise LineageNotFound(f"字段「{dataset_id}.{field_name}」不存在")
+            raise LineageNotFound(f"Field \"{dataset_id}.{field_name}\" does not exist")
         closure = _field_closure(conn, dataset_id, field_name, hops, direction)
 
     return _payload(conn, closure)

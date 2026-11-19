@@ -4,7 +4,7 @@ import type { LineageDataset, LineageEdge } from '../types';
 export const NODE_WIDTH = 288;
 export const NODE_HEADER_HEIGHT = 56;
 export const FIELD_ROW_HEIGHT = 34;
-// 节点内部分折叠：默认最多展示 5 个字段，其余折叠（原型「其余 N 个字段已折叠」）
+// Partial folding inside the node: show at most 5 fields by default, fold the rest (prototype: "N more fields folded")
 export const FIELD_PREVIEW_LIMIT = 5;
 const FIELD_TOGGLE_HEIGHT = 26;
 const EXPANDED_PADDING = 12;

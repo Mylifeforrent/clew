@@ -1,20 +1,21 @@
-"""LLM 只读工具集（M4/M5）：复用既有查询能力，返回 JSON 可序列化结果。
+"""LLM read-only toolset (M4/M5): reuse existing query capabilities and return JSON-serializable results.
 
-工具只读，绝不写业务库；每个函数接收 ``sqlite3.Connection``，由 ``chat.py`` 在
-每轮工具调用时通过 ``get_db()`` 打开连接。两个例外（均不触碰业务数据）：
+The tools are read-only and never write the business database; each function accepts a
+``sqlite3.Connection`` which ``chat.py`` opens via ``get_db()`` for each tool round. Two
+exceptions (neither touches business data):
 
-- ``suggest_lineage``：把血缘候选写为 ``source='ai'`` 边（必须人工确认才生效，
-  业务不变量#4）；
-- ``draft_descriptions``：把描述草稿写为 ``description_draft`` 工作区表。
+- ``suggest_lineage``: writes lineage candidates as ``source='ai'`` edges (effective only after
+  manual confirmation, business invariant #4);
+- ``draft_descriptions``: writes description drafts to the ``description_draft`` workspace table.
 
-- ``search_fields``：字段名/数据集/描述/标注的模糊搜索（数据模型 §3.2 的轻量实现）；
-- ``get_field_details``：字段元数据 + 源定位器 + 回源预览 + 标注（复用 preview.py）；
-- ``trace_lineage``：N 跳血缘子图（复用 lineage.py 的 GraphPayload）；
-- ``get_field_history``：字段的 change_log 变更历史（复用 changes.py 快照解析）；
-- ``mark_highlight``：声明要在画布上高亮的字段（画布联动信号，只校验存在性）；
-- ``suggest_lineage``：对字段跑血缘建议（启发式 + 语义层），候选落库待人工确认；
-- ``analyze_impact``：字段下游影响面聚合（下游字段/源文件/最近变更）；
-- ``draft_descriptions``：为缺描述字段生成 AI 描述草稿（落草稿表待确认）。
+- ``search_fields``: fuzzy search over field name/dataset/description/annotation (lightweight implementation of data model §3.2);
+- ``get_field_details``: field metadata + source locator + source preview + annotations (reuses preview.py);
+- ``trace_lineage``: N-hop lineage subgraph (reuses the GraphPayload from lineage.py);
+- ``get_field_history``: field change_log history (reuses changes.py snapshot parsing);
+- ``mark_highlight``: declare fields to highlight on the canvas (canvas signal, only verifies existence);
+- ``suggest_lineage``: run lineage suggestions for a field (heuristics + semantic layer); candidates persisted for manual confirmation;
+- ``analyze_impact``: aggregate the downstream impact surface of a field (downstream fields/source files/recent changes);
+- ``draft_descriptions``: generate AI description drafts for fields missing descriptions (stored in the draft table pending confirmation).
 """
 
 from __future__ import annotations
@@ -40,14 +41,14 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "search_fields",
             "description": (
-                "按关键词模糊搜索字段：匹配数据集 ID/名称、字段名、字段描述"
-                "以及字段标注；返回最多 20 条。用于定位用户问题中的字段。"
+                "Fuzzy-search fields by keyword: matches dataset ID/name, field name, field description"
+                " and field annotations; returns at most 20 results. Use it to locate fields in the user's question."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "q": {"type": "string",
-                          "description": "搜索关键词，例如 order_no 或 订单号"},
+                          "description": "Search keyword, e.g. order_no or amount"},
                 },
                 "required": ["q"],
             },
@@ -58,14 +59,14 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "get_field_details",
             "description": (
-                "获取字段详情：类型、描述、源文件定位器、回源预览与标注历史。"
-                "回答“这个字段来自哪个文件/哪一列”时使用。"
+                "Get field details: type, description, source-file locator, source preview and annotation history."
+                " Use when answering \"which file/column does this field come from\"."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "dataset": {"type": "string", "description": "数据集 ID"},
-                    "field": {"type": "string", "description": "字段名"},
+                    "dataset": {"type": "string", "description": "Dataset ID"},
+                    "field": {"type": "string", "description": "Field name"},
                 },
                 "required": ["dataset", "field"],
             },
@@ -76,25 +77,25 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "trace_lineage",
             "description": (
-                "按数据集或字段追溯上下游血缘，返回 N 跳子图（GraphPayload："
-                "datasets/edges）。回答“从哪来/流向哪里”时使用。"
+                "Trace upstream/downstream lineage by dataset or field and return the N-hop subgraph"
+                " (GraphPayload: datasets/edges). Use when answering \"where does it come from / where does it flow\"."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "dataset": {"type": "string", "description": "种子数据集 ID"},
+                    "dataset": {"type": "string", "description": "Seed dataset ID"},
                     "field": {"type": "string",
-                              "description": "种子字段名；省略则按数据集追溯"},
+                              "description": "Seed field name; omit to trace by dataset"},
                     "direction": {
                         "type": "string",
                         "enum": list(DIRECTIONS),
-                        "description": "both=双向，up=仅上游，down=仅下游；默认 both",
+                        "description": "both=bidirectional, up=upstream only, down=downstream only; default both",
                     },
                     "hops": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": MAX_HOPS,
-                        "description": f"最大跳数 1~{MAX_HOPS}，默认 3",
+                        "description": f"Maximum hops 1~{MAX_HOPS}, default 3",
                     },
                 },
                 "required": ["dataset"],
@@ -106,14 +107,14 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "get_field_history",
             "description": (
-                "查询字段的变更历史（change_log 倒序）：谁在何时新增/修改了"
-                "字段描述、类型或源定位器。"
+                "Query a field's change history (change_log descending): who added/modified the"
+                " field description, type or source locator and when."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "dataset": {"type": "string", "description": "数据集 ID"},
-                    "field": {"type": "string", "description": "字段名"},
+                    "dataset": {"type": "string", "description": "Dataset ID"},
+                    "field": {"type": "string", "description": "Field name"},
                 },
                 "required": ["dataset", "field"],
             },
@@ -124,22 +125,22 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "mark_highlight",
             "description": (
-                "声明要在画布上红色追踪高亮的字段（画布联动信号，不返回数据）。"
-                "当用户要求高亮/标记/标出结果，或回答围绕某些字段的上下游时，"
-                "在给出最终回答前调用；字段必须真实存在。"
+                "Declare fields to highlight as a red trace chain on the canvas (a canvas signal; returns no data)."
+                " Call it before the final answer when the user asks to highlight/mark results, or when the"
+                " answer revolves around the upstream/downstream of some fields; the fields must exist."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "fields": {
                         "type": "array",
-                        "description": f"要高亮的字段列表（最多 {MAX_HIGHLIGHT_FIELDS} 个）",
+                        "description": f"Fields to highlight (at most {MAX_HIGHLIGHT_FIELDS})",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "dataset": {"type": "string",
-                                            "description": "数据集 ID"},
-                                "field": {"type": "string", "description": "字段名"},
+                                            "description": "Dataset ID"},
+                                "field": {"type": "string", "description": "Field name"},
                             },
                             "required": ["dataset", "field"],
                         },
@@ -154,17 +155,17 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "suggest_lineage",
             "description": (
-                "对某个数据集/字段运行血缘建议（启发式 + 语义相似），候选边以"
-                " source='ai' 落库并立即出现在画布上（蓝色虚线），必须由用户"
-                "在画布/详情面板人工确认后才转为正式血缘。当用户想让你"
-                "「补充/建议/推测」缺失血缘时调用。"
+                "Run lineage suggestions for a dataset/field (heuristics + semantic similarity); candidate"
+                " edges are persisted with source='ai' and appear on the canvas immediately (blue dashed),"
+                " and become official lineage only after the user confirms manually in the canvas/detail"
+                " panel. Call it when the user asks you to \"supplement/suggest/infer\" missing lineage."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "dataset": {"type": "string", "description": "上游数据集 ID"},
+                    "dataset": {"type": "string", "description": "Upstream dataset ID"},
                     "field": {"type": "string",
-                              "description": "上游字段名；省略则对整个数据集起草"},
+                              "description": "Upstream field name; omit to draft for the whole dataset"},
                 },
                 "required": ["dataset"],
             },
@@ -175,17 +176,18 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "analyze_impact",
             "description": (
-                "分析字段下游影响面：递归下游字段清单、各自源文件与核查状态、"
-                "最近变更。回答「改了这个字段会影响什么」类问题时使用。"
+                "Analyze the downstream impact surface of a field: recursive downstream field list, each"
+                " source file and verification status, and recent changes. Use for questions like"
+                " \"what is affected if I change this field\"."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "dataset": {"type": "string", "description": "数据集 ID"},
-                    "field": {"type": "string", "description": "字段名"},
+                    "dataset": {"type": "string", "description": "Dataset ID"},
+                    "field": {"type": "string", "description": "Field name"},
                     "hops": {"type": "integer", "minimum": 1,
                              "maximum": MAX_IMPACT_HOPS,
-                             "description": f"下游跳数 1~{MAX_IMPACT_HOPS}，默认 3"},
+                             "description": f"Downstream hops 1~{MAX_IMPACT_HOPS}, default 3"},
                 },
                 "required": ["dataset", "field"],
             },
@@ -196,18 +198,19 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "draft_descriptions",
             "description": (
-                "为数据集字段生成 AI 描述草稿（落草稿区，用户确认后才成为标注）。"
-                "fields 省略时自动选取描述为空的字段。当用户要求"
-                "「补全/生成字段描述」时调用。"
+                "Generate AI description drafts for dataset fields (stored in the draft area; they become"
+                " annotations only after user confirmation). When fields is omitted, fields with empty"
+                " descriptions are selected automatically. Call it when the user asks to"
+                " \"complete/generate field descriptions\"."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "dataset": {"type": "string", "description": "数据集 ID"},
+                    "dataset": {"type": "string", "description": "Dataset ID"},
                     "fields": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "字段名列表（最多 10 个）；省略则自动选取缺描述字段",
+                        "description": "List of field names (at most 10); omit to automatically select fields missing descriptions",
                     },
                 },
                 "required": ["dataset"],
@@ -218,33 +221,33 @@ TOOL_SCHEMAS: list[dict] = [
 
 
 class ToolError(ValueError):
-    """工具参数或目标不合法；回传给 LLM 以便其自我纠正，不中断对话。"""
+    """Tool arguments or target are invalid; returned to the LLM so it can self-correct without aborting the conversation."""
 
 
 def _text(args: dict, key: str, *, required: bool = True) -> str | None:
     value = args.get(key)
     if value is None:
         if required:
-            raise ToolError(f"缺少参数「{key}」")
+            raise ToolError(f'Missing argument "{key}"')
         return None
     if not isinstance(value, str):
-        raise ToolError(f"参数「{key}」必须是字符串")
+        raise ToolError(f'Argument "{key}" must be a string')
     text = value.strip()
     if required and not text:
-        raise ToolError(f"参数「{key}」不能为空")
+        raise ToolError(f'Argument "{key}" cannot be empty')
     return text or None
 
 
 def _hops(args: dict) -> int:
     value = args.get("hops", 3)
     if isinstance(value, bool) or not isinstance(value, int):
-        # 部分模型会把整数写成字符串，这里做一次宽容转换
+        # Some models write integers as strings; do one tolerant conversion here
         try:
             value = int(value)
         except (TypeError, ValueError):
-            raise ToolError(f"hops 必须是 1~{MAX_HOPS} 的整数") from None
+            raise ToolError(f"hops must be an integer in 1..{MAX_HOPS}") from None
     if not 1 <= value <= MAX_HOPS:
-        raise ToolError(f"hops 必须是 1~{MAX_HOPS} 的整数，收到「{value}」")
+        raise ToolError(f'hops must be an integer in 1..{MAX_HOPS}; got "{value}"')
     return value
 
 
@@ -254,7 +257,7 @@ def _direction(args: dict) -> str:
         return "both"
     if not isinstance(value, str) or value not in DIRECTIONS:
         raise ToolError(
-            f"direction 必须是 {'/'.join(DIRECTIONS)}，收到「{value}」")
+            f'direction must be one of {" / ".join(DIRECTIONS)}; got "{value}"')
     return value
 
 
@@ -294,7 +297,7 @@ def get_field_details(conn: sqlite3.Connection, args: dict) -> dict:
         "SELECT id, name, description FROM dataset WHERE id=?",
         (dataset,)).fetchone()
     if dataset_row is None:
-        raise ToolError(f"数据集「{dataset}」不存在")
+        raise ToolError(f'Dataset "{dataset}" does not exist')
 
     row = conn.execute(
         "SELECT f.name, f.field_type, f.description, f.src_locator,"
@@ -303,7 +306,7 @@ def get_field_details(conn: sqlite3.Connection, args: dict) -> dict:
         " WHERE f.dataset_id=? AND f.name=?",
         (dataset, field)).fetchone()
     if row is None:
-        raise ToolError(f"字段「{dataset}.{field}」不存在")
+        raise ToolError(f'Field "{dataset}.{field}" does not exist')
 
     try:
         locator = json.loads(row["src_locator"])
@@ -331,7 +334,7 @@ def get_field_details(conn: sqlite3.Connection, args: dict) -> dict:
         },
         "annotations": [dict(item) for item in annotations],
     }
-    # 回源预览失败（定位失效/源文件缺失）不阻断字段详情，转为可读错误
+    # A failed source preview (stale locator/missing source file) does not block field details; turn it into a readable error
     try:
         result["preview"] = field_preview(conn, dataset, field)
     except (LookupError, PreviewError) as exc:
@@ -364,7 +367,7 @@ def get_field_history(conn: sqlite3.Connection, args: dict) -> dict:
     field = _text(args, "field")
     if conn.execute("SELECT 1 FROM field WHERE dataset_id=? AND name=?",
                     (dataset, field)).fetchone() is None:
-        raise ToolError(f"字段「{dataset}.{field}」不存在")
+        raise ToolError(f'Field "{dataset}.{field}" does not exist')
 
     rows = conn.execute(
         "SELECT id, op, actor, created_at, before, after FROM change_log"
@@ -383,14 +386,15 @@ def get_field_history(conn: sqlite3.Connection, args: dict) -> dict:
 
 
 def mark_highlight(conn: sqlite3.Connection, args: dict) -> dict:
-    """画布联动信号：声明要在前端高亮的字段。
+    """Canvas signal: declare fields to highlight in the frontend.
 
-    只校验字段存在性（SELECT），不返回业务数据；不存在的项记入 ``ignored``
-    并在结果中回传给模型，全部不存在时抛 :class:`ToolError` 让模型纠正。
+    Only verifies field existence (SELECT) and returns no business data; non-existent items go
+    into ``ignored`` and are returned to the model, while an all-invalid list raises
+    :class:`ToolError` so the model can correct itself.
     """
     raw = args.get("fields")
     if not isinstance(raw, list) or not raw:
-        raise ToolError("fields 必须是非空数组")
+        raise ToolError("fields must be a non-empty array")
 
     fields: list[dict] = []
     ignored: list[str] = []
@@ -418,7 +422,7 @@ def mark_highlight(conn: sqlite3.Connection, args: dict) -> dict:
         fields.append({"dataset": dataset, "field": field})
 
     if not fields:
-        raise ToolError("没有可高亮的字段：fields 里的 dataset/field 均不存在")
+        raise ToolError("No fields to highlight: none of the dataset/field pairs in fields exist")
     return {"fields": fields, "ignored": ignored}
 
 
@@ -432,7 +436,7 @@ TOOL_FUNCS = {
 
 
 def suggest_lineage(conn: sqlite3.Connection, args: dict, actor: str) -> dict:
-    """对话内血缘建议：候选以 source='ai' 落库，必须人工确认（不变量#4）。"""
+    """In-conversation lineage suggestions: candidates persist as source='ai' and require manual confirmation (invariant #4)."""
     dataset = _text(args, "dataset")
     field = _text(args, "field", required=False)
     from . import suggest
@@ -446,23 +450,23 @@ def suggest_lineage(conn: sqlite3.Connection, args: dict, actor: str) -> dict:
 
 
 def analyze_impact(conn: sqlite3.Connection, args: dict) -> dict:
-    """下游影响面聚合：字段级下游链 + 源文件 + 最近变更。"""
+    """Downstream impact aggregation: field-level downstream chain + source files + recent changes."""
     dataset = _text(args, "dataset")
     field = _text(args, "field")
     value = args.get("hops", 3)
     try:
         hops = int(value) if not isinstance(value, bool) else 0
     except (TypeError, ValueError):
-        raise ToolError(f"hops 必须是 1~{MAX_IMPACT_HOPS} 的整数") from None
+        raise ToolError(f"hops must be an integer in 1..{MAX_IMPACT_HOPS}") from None
     if not 1 <= hops <= MAX_IMPACT_HOPS:
-        raise ToolError(f"hops 必须是 1~{MAX_IMPACT_HOPS} 的整数")
+        raise ToolError(f"hops must be an integer in 1..{MAX_IMPACT_HOPS}")
 
     try:
         graph = lineage_subgraph(conn, dataset, field, hops, "down")
     except (LineageNotFound, ValueError) as exc:
         raise ToolError(str(exc)) from None
 
-    # 沿字段级边从起点做下游 BFS，收集受影响字段（不含起点）
+    # BFS downstream from the start point along field-level edges, collecting affected fields (excluding the start)
     adjacency: dict[tuple, list[tuple]] = {}
     for edge in graph["edges"]:
         if edge["from_field"] is None or edge["to_field"] is None:
@@ -493,7 +497,7 @@ def analyze_impact(conn: sqlite3.Connection, args: dict) -> dict:
             })
     impacted.sort(key=lambda item: (item["dataset"], item["field"]))
 
-    # 受影响字段最近的变更（change_log），每字段取最新一条
+    # Recent changes (change_log) of affected fields, newest one per field
     changes: list[dict] = []
     if impacted:
         keys = [f"{item['dataset']}.{item['field']}" for item in impacted]
@@ -524,7 +528,7 @@ def analyze_impact(conn: sqlite3.Connection, args: dict) -> dict:
 
 def draft_descriptions_tool(conn: sqlite3.Connection, args: dict,
                             actor: str) -> dict:
-    """对话内描述草稿：生成 → description_draft(pending) → 前端确认卡。"""
+    """In-conversation description drafts: generate → description_draft(pending) → frontend confirmation card."""
     dataset = _text(args, "dataset")
     raw_fields = args.get("fields")
     if raw_fields is None:
@@ -532,7 +536,7 @@ def draft_descriptions_tool(conn: sqlite3.Connection, args: dict,
     elif isinstance(raw_fields, list) and all(isinstance(f, str) for f in raw_fields):
         fields = [f.strip() for f in raw_fields if f.strip()][:MAX_DRAFT_FIELDS]
     else:
-        raise ToolError("fields 必须是字段名字符串数组")
+        raise ToolError("fields must be an array of field-name strings")
     try:
         from . import descriptions
 
@@ -548,10 +552,10 @@ def draft_descriptions_tool(conn: sqlite3.Connection, args: dict,
 
 def run_tool(conn: sqlite3.Connection, name: str, args: dict | None,
              actor: str = "system") -> dict:
-    """按名称执行工具；未知工具/非法参数抛 :class:`ToolError`。
+    """Execute a tool by name; an unknown tool or invalid arguments raises :class:`ToolError`.
 
-    ``actor`` 仅被会写候选/草稿的两个工具使用（change_log / created_by 需要
-    真实用户；系统内部调用缺省 "system"）。
+    ``actor`` is used only by the two tools that write candidates/drafts (change_log / created_by
+    need a real user; internal system calls default to "system").
     """
     if name == "suggest_lineage":
         if args is None:
@@ -564,10 +568,10 @@ def run_tool(conn: sqlite3.Connection, name: str, args: dict | None,
 
     func = TOOL_FUNCS.get(name)
     if func is None:
-        raise ToolError(f"未知工具「{name}」，可用工具："
-                        f"{', '.join([*TOOL_FUNCS, 'suggest_lineage', 'draft_descriptions'])}")
+        raise ToolError(f'Unknown tool "{name}"; available tools: '
+                        f'{", ".join([*TOOL_FUNCS, "suggest_lineage", "draft_descriptions"])}')
     if args is None:
         args = {}
     if not isinstance(args, dict):
-        raise ToolError("工具参数必须是 JSON 对象")
+        raise ToolError("Tool arguments must be a JSON object")
     return func(conn, args)

@@ -1,4 +1,4 @@
-/** login.* 字典：登录页。 */
+/** login.* dictionary: sign-in page. */
 export const zhLogin = {
   'login.collapsedFields': '{count} 个字段 · 已收起',
   'login.typeText': '文本',

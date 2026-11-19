@@ -1,4 +1,4 @@
-/** edgeCreate.* 字典：人工补边弹窗。 */
+/** edgeCreate.* dictionary: manual edge creation modal. */
 export const zhEdgeCreate = {
   'edgeCreate.eyebrowField': '人工补边 · 字段级',
   'edgeCreate.eyebrowTable': '人工补边 · 表级',

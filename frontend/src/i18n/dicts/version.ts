@@ -1,4 +1,4 @@
-/** version.* 字典：版本抽屉（批次/标签/差异/回滚）。 */
+/** version.* dictionary: versions drawer (batches / tags / diffs / rollbacks). */
 export const zhVersion = {
   'version.kind.dataset': '数据集',
   'version.kind.field': '字段',

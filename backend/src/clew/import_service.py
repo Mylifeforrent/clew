@@ -1,7 +1,8 @@
-"""导入编排：校验 → 入库 → change_log → 导入报告（设计方案 §3.5 / §4.2）。
+"""Import orchestration: validate → persist → change_log → import report (design §3.5 / §4.2).
 
-写路径顺序：先 datasets/fields（满足边表复合外键），再 lineage。
-每条变更写 change_log（op + before/after 快照），批次回滚据此反做。
+Write-path order: datasets/fields first (satisfies the edge table's composite
+foreign keys), then lineage. Every change writes change_log (op + before/after
+snapshots); batch rollback reverses them accordingly.
 """
 
 import json
@@ -34,7 +35,7 @@ def _log(conn, batch_id: int, kind: str, key: str, op: str,
 
 
 def _resolve_source_file(conn, ref: str, bound: list) -> tuple[int, str] | None:
-    """src_file 引用解析：源文件库 ID 或本批绑定文件集内的原始文件名。"""
+    """Resolve a src_file reference: a source-file library ID or an original file name within this batch's bound file set."""
     if ref.isdigit():
         for f in bound:
             if f["id"] == int(ref):
@@ -44,7 +45,7 @@ def _resolve_source_file(conn, ref: str, bound: list) -> tuple[int, str] | None:
     if len(matches) == 1:
         return matches[0]["id"], matches[0]["src_type"]
     if len(matches) > 1:
-        raise ValueError(f"src_file「{ref}」在本批文件集中不唯一")
+        raise ValueError(f"src_file \"{ref}\" is not unique within this batch's file set")
     return None
 
 
@@ -103,7 +104,7 @@ def _ensure_dataset(conn, rec: DatasetFieldRecord, actor: str, batch_id: int) ->
 def run_import(actor: str, fmt: str, bound_files: list[dict],
                ds_recs: list[DatasetFieldRecord],
                edge_recs: list[LineageEdgeRecord]) -> tuple[int, int, ImportReport]:
-    """执行一次导入，返回 (batch_id, version_no, report)。"""
+    """Run one import and return (batch_id, version_no, report)."""
     items: list[ImportReportItem] = []
 
     with get_db() as conn:
@@ -118,24 +119,29 @@ def run_import(actor: str, fmt: str, bound_files: list[dict],
              fmt, actor, _now()))
         batch_id = cur.lastrowid
 
-        # ---------- 阶段一：datasets / fields ----------
+        # ---------- Phase one: datasets / fields ----------
         for rec in ds_recs:
             ref = f"{rec.dataset_id}.{rec.field_name}"
             try:
-                # 清单行级解析错误：整行拒绝（reason 即行内错误说明）
+                # Manifest row-level parse error: reject the whole row (reason is
+                # the in-row error description)
                 if rec.parse_error:
                     raise ValueError(rec.parse_error)
                 if not rec.dataset_id or not rec.field_name:
-                    raise ValueError("dataset_id / field_name 必填")
+                    raise ValueError("dataset_id / field_name are required")
                 if rec.src_type not in CHECKERS:
-                    raise ValueError(f"src_type 必须是 csv/xlsx/json，收到「{rec.src_type}」")
+                    raise ValueError(
+                        f"src_type must be csv/xlsx/json, got \"{rec.src_type}\"")
                 sf = _resolve_source_file(conn, rec.src_file, bound_files)
                 if sf is None:
-                    raise ValueError(f"src_file「{rec.src_file}」无法在本批文件集中唯一定位")
+                    raise ValueError(
+                        f"src_file \"{rec.src_file}\" cannot be uniquely resolved"
+                        " within this batch's file set")
                 sf_id, sf_type = sf
                 if sf_type != rec.src_type:
                     raise ValueError(
-                        f"src_type「{rec.src_type}」与源文件实际类型「{sf_type}」不符")
+                        f"src_type \"{rec.src_type}\" does not match the source"
+                        f" file's actual type \"{sf_type}\"")
             except ValueError as e:
                 items.append(ImportReportItem(status="rejected", kind="field", ref=ref,
                                               reason=str(e), source_row=rec.row))
@@ -149,14 +155,16 @@ def run_import(actor: str, fmt: str, bound_files: list[dict],
             except Exception as e:
                 items.append(ImportReportItem(
                     status="rejected", kind="field", ref=ref,
-                    reason=f"定位器结构校验失败：{e}", source_row=rec.row))
+                    reason=f"locator structural validation failed: {e}",
+                    source_row=rec.row))
                 continue
             try:
                 resolved = CHECKERS[rec.src_type](src_path, loc_in)
             except LocatorError as e:
                 items.append(ImportReportItem(
                     status="rejected", kind="field", ref=ref,
-                    reason=f"实文件核查失败：{e}", source_row=rec.row))
+                    reason=f"real-file verification failed: {e}",
+                    source_row=rec.row))
                 continue
 
             locator_envelope = json.dumps(
@@ -167,37 +175,45 @@ def run_import(actor: str, fmt: str, bound_files: list[dict],
             _ensure_dataset(conn, rec, actor, batch_id)
             _upsert_field(conn, rec, sf_id, locator_envelope, actor, batch_id, items)
 
-        # ---------- 阶段二：lineage ----------
-        seen_edges: dict[tuple, int] = {}  # 自然键 -> items 下标
+        # ---------- Phase two: lineage ----------
+        seen_edges: dict[tuple, int] = {}  # natural key -> items index
         for rec in edge_recs:
             ref = (f"{rec.from_dataset}.{rec.from_field or '*'}-->"
                    f"{rec.to_dataset}.{rec.to_field or '*'}")
             try:
-                # 清单行级解析错误：整行拒绝（reason 即行内错误说明）
+                # Manifest row-level parse error: reject the whole row (reason is
+                # the in-row error description)
                 if rec.parse_error:
                     raise ValueError(rec.parse_error)
                 if not rec.from_dataset or not rec.to_dataset:
-                    raise ValueError("from_dataset / to_dataset 必填")
-                # 混合字段边（一空一非空）语义无效：表级或字段级必须二选一
+                    raise ValueError("from_dataset / to_dataset are required")
+                # Mixed-field edges (one side empty, one non-empty) are semantically
+                # invalid: it must be either table-level or field-level
                 if bool(rec.from_field) != bool(rec.to_field):
                     raise ValueError(
-                        "血缘边必须同时提供上下游字段（字段级）或都不提供（表级）")
+                        "Lineage edges must provide both upstream and downstream"
+                        " fields (field-level) or neither (table-level)")
                 if rec.from_field and not conn.execute(
                         "SELECT 1 FROM field WHERE dataset_id=? AND name=?",
                         (rec.from_dataset, rec.from_field)).fetchone():
-                    raise ValueError(f"上游字段 {rec.from_dataset}.{rec.from_field} 不存在")
+                    raise ValueError(
+                        f"Upstream field {rec.from_dataset}.{rec.from_field}"
+                        " does not exist")
                 if rec.to_field and not conn.execute(
                         "SELECT 1 FROM field WHERE dataset_id=? AND name=?",
                         (rec.to_dataset, rec.to_field)).fetchone():
-                    raise ValueError(f"下游字段 {rec.to_dataset}.{rec.to_field} 不存在")
+                    raise ValueError(
+                        f"Downstream field {rec.to_dataset}.{rec.to_field}"
+                        " does not exist")
                 if not conn.execute("SELECT 1 FROM dataset WHERE id=?",
                                     (rec.from_dataset,)).fetchone() or \
                    not conn.execute("SELECT 1 FROM dataset WHERE id=?",
                                     (rec.to_dataset,)).fetchone():
-                    raise ValueError("血缘引用的数据集不存在")
+                    raise ValueError(
+                        "A dataset referenced by the edge does not exist")
                 confidence = rec.confidence if rec.confidence is not None else 1.0
                 if not 0 <= confidence <= 1:
-                    raise ValueError("confidence 需在 0~1 之间")
+                    raise ValueError("confidence must be between 0 and 1")
             except ValueError as e:
                 items.append(ImportReportItem(status="rejected", kind="edge", ref=ref,
                                               reason=str(e), source_row=rec.row))
@@ -209,7 +225,7 @@ def run_import(actor: str, fmt: str, bound_files: list[dict],
                        "source": "imported", "note": rec.note}
             key = (rec.from_dataset, rec.from_field, rec.to_dataset, rec.to_field)
 
-            if key in seen_edges:  # 同批重复：后到覆盖 transform/note（设计方案 §3.5-4）
+            if key in seen_edges:  # duplicate within the batch: later row overrides transform/note (design §3.5-4)
                 idx = seen_edges[key]
                 first = items[idx]
                 conn.execute(
@@ -219,7 +235,9 @@ def run_import(actor: str, fmt: str, bound_files: list[dict],
                     (payload["transform"], payload["confidence"], payload["note"],
                      actor, _now(), *key))
                 first.status = "merged"
-                first.reason = f"同上下游重复，被清单第 {rec.row} 行覆盖"
+                first.reason = (
+                    f"duplicate upstream/downstream pair, overwritten by manifest"
+                    f" row {rec.row}")
                 continue
 
             existing = conn.execute(
@@ -234,8 +252,9 @@ def run_import(actor: str, fmt: str, bound_files: list[dict],
                      payload["source"], payload["note"], actor, actor, _now(), _now()))
                 _log(conn, batch_id, "edge", ref, "added", None, payload, actor)
             else:
-                # 只取 EDGE_SNAPSHOT_KEYS 业务列，与人工编辑/added 快照保持一致
-                # （不含 id/时间戳，也不含 created_by/updated_by 审计列）。
+                # Take only EDGE_SNAPSHOT_KEYS business columns, consistent with
+                # manual edits/added snapshots (no id/timestamps and no
+                # created_by/updated_by audit columns).
                 before = edge_snapshot(existing)
                 if all(before[k] == payload[k] for k in payload):
                     items.append(ImportReportItem(status="ok", kind="edge", ref=ref,

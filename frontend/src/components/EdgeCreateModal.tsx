@@ -14,8 +14,8 @@ interface EdgeCreateModalProps {
 }
 
 /**
- * 画布 handle 拖拽后的「新增血缘」二次确认。
- * 字段级 / 表级由 draft 的 from_field / to_field 是否为空决定。
+ * Confirmation for "add lineage" after dragging a canvas handle.
+ * Field-level vs. table-level is decided by whether draft.from_field / to_field are null.
  */
 export function EdgeCreateModal({
   draft,
@@ -123,7 +123,7 @@ export function EdgeCreateModal({
         </>
       }
     >
-      {/* footer 提交按钮经 form 属性关联本表单（ModalShell 结构下 footer 在 form 之外） */}
+      {/* The footer submit button is associated with this form via the form attribute (under ModalShell the footer sits outside the form) */}
       <form id="edge-create-form" onSubmit={handleSubmit}>
         <div className="space-y-3.5">
           <p className="break-all font-mono text-[13px] leading-5 text-ink-soft">

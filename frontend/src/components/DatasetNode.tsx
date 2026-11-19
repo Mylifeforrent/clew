@@ -17,13 +17,13 @@ export interface DatasetNodeData extends Record<string, unknown> {
   collapsed: boolean;
   isSeed: boolean;
   fieldsExpanded: boolean;
-  /** editor+ 才允许从 handle 拖出新血缘；viewer 的 handle 不可连接 */
+  /** Only editor+ can drag new lineage from handles; viewer handles are not connectable */
   connectable: boolean;
-  /** 02 §3.4：是任一 AI 候选边端点的字段名列表（纯展示派生，驱动字段行 sparkles 徽标） */
+  /** 02 §3.4: field names that are endpoints of any AI candidate edge (display-only derivation, drives the sparkles badge on field rows) */
   aiEndpointFields?: string[];
-  /** 字段追踪：链路上的关联字段名列表（浅红底） */
+  /** Field trace: linked field names on the chain (light red background) */
   chainFieldNames?: string[];
-  /** 字段追踪：聚焦字段名列表（强红底；点击或 AI 声明，可为多个） */
+  /** Field trace: focused field names (strong red background; from clicks or AI declarations, may be multiple) */
   focusedFieldNames?: string[];
   onToggleCollapse: (datasetId: string) => void;
   onToggleFields: (datasetId: string) => void;
@@ -33,9 +33,10 @@ export interface DatasetNodeData extends Record<string, unknown> {
 export type DatasetFlowNode = Node<DatasetNodeData, 'dataset'>;
 
 /**
- * memo 包装（R15）：画布把「追踪态染色」拆为对命中节点的 data 浅补丁，
- * 未命中节点的 node 对象引用保持不变，memo 让 React Flow 的 NodeWrapper
- * 浅比较短路，避免每次点字段追踪都全量重渲染节点。
+ * memo wrapper (R15): the canvas turns "trace coloring" into a shallow data patch on hit
+ * nodes; node object references of untouched nodes stay the same, so memo makes React
+ * Flow's NodeWrapper shallow-compare short-circuit, avoiding a full node re-render on
+ * every field trace click.
  */
 export const DatasetNode = memo(function DatasetNode({ data }: NodeProps) {
   const nodeData = data as unknown as DatasetNodeData;

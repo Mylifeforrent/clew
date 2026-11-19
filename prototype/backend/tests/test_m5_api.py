@@ -1,4 +1,4 @@
-"""M5 AI 演进回归测试：SSE 流式对话与 MCP 工具暴露。"""
+"""M5 AI evolution regression tests: SSE streaming chat and MCP tool exposure."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from tests.test_m4_api import _configure_llm, _seed
 
 
 def test_ai_chat_stream_sse_events(client, monkeypatch):
-    """SSE 事件序列：tool（高亮声明）→ token（逐字）→ done（含 highlights）。"""
+    """SSE event sequence: tool (highlight declaration) → token (token-by-token) → done (with highlights)."""
     headers = login(client)
     _seed(client, headers)
     _configure_llm(monkeypatch)
@@ -19,7 +19,7 @@ def test_ai_chat_stream_sse_events(client, monkeypatch):
 
     def fake_stream_complete(messages, tools=None, on_delta=None):
         calls.append({"tools": tools})
-        if len(messages) == 2:  # 第一轮：声明高亮（工具轮，不外发 token）
+        if len(messages) == 2:  # First round: declare highlight (tool round, no tokens emitted)
             return {"choices": [{"message": {
                 "role": "assistant", "content": "",
                 "tool_calls": [{"id": "c1", "type": "function",
@@ -28,16 +28,16 @@ def test_ai_chat_stream_sse_events(client, monkeypatch):
                                                  {"dataset": "ods_order",
                                                   "field": "order_no"}]})}}]}}]}
         if on_delta is not None:
-            on_delta("你好")
-            on_delta("，世界")
+            on_delta("Hello")
+            on_delta(", world")
         return {"choices": [{"message": {"role": "assistant",
-                                         "content": "你好，世界"}}]}
+                                         "content": "Hello, world"}}]}
 
     monkeypatch.setattr("lineagelite.ai.llm.stream_complete",
                         fake_stream_complete)
 
     r = client.post("/ai/chat/stream", headers=headers, json={
-        "messages": [{"role": "user", "content": "高亮 order_no"}]})
+        "messages": [{"role": "user", "content": "Highlight order_no"}]})
     assert r.status_code == 200, r.text
     assert r.headers["content-type"].startswith("text/event-stream")
 
@@ -51,17 +51,17 @@ def test_ai_chat_stream_sse_events(client, monkeypatch):
             events.append(current)
     assert [event["type"] for event in events] == ["tool", "token", "token", "done"]
     assert events[0]["data"]["tool"] == "mark_highlight"
-    assert [e["data"]["delta"] for e in events[1:3]] == ["你好", "，世界"]
+    assert [e["data"]["delta"] for e in events[1:3]] == ["Hello", ", world"]
     done = events[3]["data"]
-    assert done["answer"] == "你好，世界"
+    assert done["answer"] == "Hello, world"
     assert done["highlights"] == [{"dataset": "ods_order", "field": "order_no"}]
-    # 工具轮不外发 token；第 2 轮仍带 tools（仅第 6 次请求强制收口才不带）
+    # Tool rounds emit no tokens; round 2 still carries tools (only the 6th request forces closure without tools)
     assert calls[0]["tools"] is not None
     assert calls[1]["tools"] is not None
 
 
 def test_mcp_server_exposes_readonly_query_tools():
-    """MCP server 只暴露 5 个查询工具（不暴露任何写候选/草稿能力）。"""
+    """The MCP server exposes only the 5 query tools (no candidate-writing/draft capability)."""
     import asyncio
 
     from lineagelite.ai.mcp_server import mcp

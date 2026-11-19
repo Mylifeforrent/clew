@@ -34,21 +34,22 @@ import type { AiKey } from '../i18n/dicts/ai';
 interface AiAssistantDrawerProps {
   open: boolean;
   token: string;
-  /** 当前画布聚焦的数据集/字段，作为每轮对话的 focus 上下文 */
+  /** Dataset/field currently focused on the canvas, used as the focus context for each conversation round */
   focus: AiFocus | null;
-  /** editor+ 才渲染描述草稿的采纳/拒绝按钮 */
+  /** Only editor+ sees the accept/reject buttons on description drafts */
   canEdit: boolean;
   onClose: () => void;
   /**
-   * 响应联动：graph 存在时把子图交给 Workspace 复用现有画布状态渲染；
-   * highlights（mark_highlight 声明）同时交给 Workspace 驱动画布追踪高亮。
+   * Response sync: when graph is present, hand the subgraph to Workspace to render through
+   * the existing canvas state; highlights (mark_highlight declarations) are also handed to
+   * Workspace to drive canvas trace highlighting.
    */
   onGraph: (graph: LineageGraph | null, highlights?: AiHighlightItem[]) => void;
-  /** suggest_lineage 落库候选后由 Workspace 刷新画布（靛蓝虚线候选边） */
+  /** After suggest_lineage saves candidates, Workspace refreshes the canvas (indigo dashed candidate edges) */
   onSuggested: (count: number) => void;
-  /** 候选卡确认/拒绝成功后的画布刷新（onSuggested 同链路的静默版，评审 R17） */
+  /** Canvas refresh after a candidate card is confirmed/rejected (silent variant of the onSuggested path, review R17) */
   onRefresh?: () => void;
-  /** 回答内证据锚点点击：把该字段应用为画布追踪焦点 */
+  /** Evidence anchor click in an answer: apply that field as the canvas trace focus */
   onFieldFocus: (dataset: string, field: string) => void;
 }
 
@@ -59,23 +60,23 @@ interface ChatEntry {
   toolTrace?: AiToolTrace[];
   graph?: LineageGraph;
   drafts?: AiDraftItem[];
-  /** suggest 事件携带的候选（每轮一卡；多事件按候选签名去重合并） */
+  /** Candidates carried by suggest events (one card per round; multiple events are deduped and merged by candidate signature) */
   suggestCards?: AiSuggestionCandidate[][];
-  /** 候选卡的本地决策结果（key → 已确认/已拒绝），随会话保留（评审 R17） */
+  /** Local decision results for candidate cards (key → confirmed/rejected), kept with the conversation (review R17) */
   suggestDecisions?: Record<string, 'confirmed' | 'rejected'>;
-  /** 本地中止/系统提示行（不回传模型，不计入历史上下文） */
+  /** Local abort/system notice lines (never sent back to the model, not counted in history context) */
   notice?: boolean;
-  /** SSE 流式进行中：显示打点光标与工具进行态 */
+  /** SSE stream in progress: show the typing cursor and tool progress state */
   streaming?: boolean;
   error?: boolean;
 }
 
-/** 候选签名：同一候选在 suggest 事件与 done 载荷间去重 */
+/** Candidate signature: dedupes the same candidate between suggest events and the done payload */
 function suggestKey(item: AiSuggestionCandidate): string {
   return `${item.from_dataset}.${item.from_field ?? '*'}>${item.to_dataset}.${item.to_field ?? '*'}`;
 }
 
-/** 工具名 → 字典键映射；标签文本在使用处经 t() 按当前语言取值。 */
+/** Tool name → dictionary key mapping; label text is resolved via t() in the current language at the usage site. */
 const TOOL_LABEL_KEYS: Record<string, AiKey> = {
   search_fields: 'ai.tool.searchFields',
   get_field_details: 'ai.tool.getFieldDetails',
@@ -98,7 +99,7 @@ function focusLabel(focus: AiFocus | null, t: TranslateFn): string {
   return focus.field ? `${focus.dataset}.${focus.field}` : focus.dataset;
 }
 
-/** 常见文件扩展名不作为字段引用（避免 d0_orders.csv 被当成 数据集.字段） */
+/** Common file extensions are not treated as field references (avoids parsing d0_orders.csv as dataset.field) */
 const NON_FIELD_TOKENS = new Set([
   'csv', 'xlsx', 'xls', 'json', 'md', 'txt', 'png', 'svg', 'db', 'py', 'ts',
 ]);
@@ -106,15 +107,16 @@ const NON_FIELD_TOKENS = new Set([
 const FIELD_REF_PATTERN = /\b([a-zA-Z][\w-]{0,31})\.([a-zA-Z][\w-]{0,63})\b/g;
 
 /**
- * GFM markdown 渲染（演进规划 07：业界聊天 UI 统一做法——表格/代码块/列表
- * 带样式渲染，而非裸文本）。安全：react-markdown 默认不执行内联 HTML。
+ * GFM markdown rendering (roadmap 07: the industry-standard chat UI approach — tables/code
+ * blocks/lists render with styles instead of raw text). Security: react-markdown does not
+ * execute inline HTML by default.
  */
 function linkifyFieldRefs(markdown: string): string {
-  /** 把非代码段里的 `数据集.字段` 文本替换为锚点链接，由 a 组件接管为 chip。 */
+  /** Replace `dataset.field` text outside code segments with anchor links; the a component renders them as chips. */
   const segments = markdown.split(/(```[\s\S]*?(?:```|$)|`[^`\n]*`)/g);
   return segments
     .map((segment, index) => {
-      if (index % 2 === 1) return segment; // 代码段原样保留
+      if (index % 2 === 1) return segment; // keep code segments as-is
       return segment.replace(
         FIELD_REF_PATTERN,
         (full, dataset: string, field: string) => {
@@ -176,7 +178,7 @@ function AnswerText({
             );
           }
         } catch {
-          // 解码失败时按普通链接处理
+          // Treat decode failures as plain links
         }
       }
       return (
@@ -289,7 +291,7 @@ function AnswerText({
   );
 }
 
-/** 描述草稿确认卡：采纳 → 写 annotation；拒绝 → 不再重复生成。 */
+/** Description draft confirmation card: accept → write an annotation; reject → never regenerate. */
 function DraftCard({
   item,
   token,
@@ -318,7 +320,7 @@ function DraftCard({
         });
       }
     } catch {
-      // 失败保持 pending，卡片可重试
+      // Stay pending on failure so the card can be retried
     } finally {
       setBusy(false);
     }
@@ -379,9 +381,10 @@ function DraftCard({
 }
 
 /**
- * 内联候选确认卡（评审 R17，hi-fi 04 §3.6 视觉基线：虚线框 + ai 色）。
- * 信息与操作对齐详情面板候选卡：确认 / 拒绝走 REST 直通端点（后端要求 editor），
- * viewer 收到的卡片操作置灰并提示；决策结果经 onDecided 写回会话条目（关抽屉不丢）。
+ * Inline candidate confirmation card (review R17, hi-fi 04 §3.6 visual baseline: dashed border + ai color).
+ * Information and actions mirror the detail panel candidate card: confirm/reject go through direct REST
+ * endpoints (the backend requires editor); viewers see disabled actions with a hint; decisions are written
+ * back to the conversation entry via onDecided (kept after closing the drawer).
  */
 function InlineSuggestCard({
   token,
@@ -422,7 +425,7 @@ function InlineSuggestCard({
       onDecided(key, accept ? 'confirmed' : 'rejected');
     } catch (reason) {
       if (isAbortError(reason)) return;
-      // 失败保持 pending，卡片可重试；后端 detail（如 403/429）原样透出
+      // Stay pending on failure so the card can be retried; backend detail (e.g. 403/429) is surfaced verbatim
       setActionError(
         reason instanceof ApiError ? reason.message : t('ai.suggestActionFailed'),
       );
@@ -555,7 +558,7 @@ function InlineSuggestCard({
 }
 
 function ToolTraceCard({ trace }: { trace: AiToolTrace[] }) {
-  // 纯 UI 折叠态：默认折叠，含失败调用的消息默认展开
+  // Pure UI collapse state: collapsed by default; messages with failed calls start expanded
   const [open, setOpen] = useState(() => trace.some((item) => !item.ok));
   const { t } = useI18n();
   if (trace.length === 0) return null;
@@ -675,7 +678,7 @@ export function AiAssistantDrawer({
       })
       .catch((reason: unknown) => {
         if (controller.signal.aborted || isAbortError(reason)) return;
-        // 状态接口失败时保守地视为不可用，输入区展示重试入口而不崩溃。
+        // Conservatively treat a failed status call as unavailable; the input area shows a retry entry instead of crashing.
         setStatus(null);
         setStatusError(
           reason instanceof ApiError
@@ -689,9 +692,9 @@ export function AiAssistantDrawer({
     return () => controller.abort();
   }, [open, token, statusReloadKey]);
 
-  // 打开时焦点移入（输入框）、关闭后焦点还原、Esc 栈顶协议、Tab 圈定、
-  // body 滚动锁均由 ModalShell → useOverlayBehavior 统一承担（评审 R13）；
-  // 常驻组件 open=false 时不渲染 ModalShell，行为基座仅在打开期间激活。
+  // Focus moves in (to the input) on open, restores on close, Esc stack protocol, Tab containment,
+  // and the body scroll lock are all handled centrally by ModalShell → useOverlayBehavior (review R13);
+  // this resident component renders no ModalShell while open=false, so the behavior base is active only while open.
 
   useEffect(() => {
     if (!open) return;
@@ -710,8 +713,9 @@ export function AiAssistantDrawer({
     [],
   );
 
-  /** 关闭即软中断（评审 R17）：流进行中先追加本地中止提示再 abort，随后收起抽屉；
-   *  不回滚已落库的建议（停止只终止「当前回合」的前端等待）。 */
+  /** Closing performs a soft abort (review R17): while streaming, append a local abort notice, abort,
+   *  then close the drawer; already-saved suggestions are not rolled back (stopping only ends the
+   *  current round's frontend wait). */
   const handleRequestClose = useCallback(() => {
     if (sending) {
       setEntries((current) => [
@@ -729,7 +733,7 @@ export function AiAssistantDrawer({
     onClose();
   }, [sending, onClose, t]);
 
-  /** 清空对话（评审 R17）：确认后清空会话与本地决策；会话仍存内存，不回滚后端已落库数据 */
+  /** Clear conversation (review R17): after confirmation, clear messages and local decisions; the conversation stays in memory and persisted backend data is not rolled back */
   const handleClearEntries = useCallback(() => {
     setClearConfirmOpen(false);
     setEntries([]);
@@ -756,8 +760,8 @@ export function AiAssistantDrawer({
     setInput('');
     setSending(true);
 
-    // 只回传有内容的 user/assistant 文本；system 提示由后端固定。
-    // 本地提示行（notice）与错误条目不回传模型。
+    // Send back only non-empty user/assistant text; the system prompt is fixed by the backend.
+    // Local notice lines and error entries are not sent back to the model.
     const history: AiChatMessage[] = [
       ...entries,
       userEntry,
@@ -826,7 +830,7 @@ export function AiAssistantDrawer({
               break;
             case 'done':
               updateEntry(assistantId, (entry) => {
-                // done 载荷与 suggest 事件可能携带同一批候选，按签名去重合并
+                // The done payload and suggest events may carry the same candidates; dedupe and merge by signature
                 const cards = entry.suggestCards ?? [];
                 const seen = new Set(cards.flat().map(suggestKey));
                 const fresh = (event.suggestions ?? []).filter(
@@ -847,8 +851,8 @@ export function AiAssistantDrawer({
                   streaming: false,
                 };
               });
-              // 每轮回答都通知 Workspace：无 graph 则只更新高亮焦点
-              //（未声明 highlights 时为显式清除上一轮追踪态）
+              // Notify Workspace on every answer: without graph, only the highlight focus is updated
+              // (when no highlights are declared this explicitly clears the previous round's trace state)
               onGraph(event.graph ?? null, event.highlights);
               break;
             case 'error':
@@ -856,7 +860,7 @@ export function AiAssistantDrawer({
                 ...entry,
                 streaming: false,
                 error: true,
-                // 限流（429）优先用 i18n 文案；其余沿用后端 detail（评审 R17/R11）
+                // Rate limiting (429) prefers the i18n copy; otherwise the backend detail is used (review R17/R11)
                 content:
                   event.status === '429'
                     ? t('ai.rateLimited')
@@ -895,8 +899,8 @@ export function AiAssistantDrawer({
         }));
       }
     } finally {
-      // 复位条件改为「仍是当前回合的 controller」：停止/关抽屉的中止（controller
-      // 仍为当前）也能恢复输入；被新一轮替换的旧回合不抢复位（评审 R17）
+      // The reset condition is "still the current round's controller": aborts from stop/close-drawer
+      // (the controller is still current) also restore input; an old round replaced by a new one does not steal the reset (review R17)
       if (abortRef.current === controller) setSending(false);
     }
   }
@@ -1244,7 +1248,7 @@ export function AiAssistantDrawer({
                                   [key]: status,
                                 },
                               }));
-                              // 确认（转人工边）/拒绝成功后刷新画布，同 onSuggested 链路
+                              // Refresh the canvas after confirm (to manual edge)/reject succeeds, same path as onSuggested
                               onRefresh?.();
                             }}
                             onViewOnCanvas={onFieldFocus}

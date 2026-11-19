@@ -138,7 +138,7 @@ function ChangeSummary({ entry, t }: { entry: ChangeEntry; t: TranslateFn }) {
   );
 }
 
-/** 字段 / 边的变更历史抽屉；数据来自 GET /changes，按 id 倒序。 */
+/** Change history drawer for a field / edge; data comes from GET /changes, ordered by id descending. */
 export function HistoryDrawer({
   token,
   entityKind,
@@ -174,8 +174,8 @@ export function HistoryDrawer({
     return () => controller.abort();
   }, [token, entityKind, entityKey, reloadKey]);
 
-  // 打开时焦点移入、关闭后焦点还原、Esc 栈顶协议、Tab 圈定、body 滚动锁
-  // 均由 ModalShell → useOverlayBehavior 统一承担（评审 R13）
+  // Focus moves in on open, restores on close, Esc stack protocol, Tab containment, body scroll lock
+  // are all handled centrally by ModalShell → useOverlayBehavior (review R13)
 
   return (
     <ModalShell
@@ -280,7 +280,7 @@ export function HistoryDrawer({
             </ol>
           )}
 
-          {/* 条目达查询上限时的截断提示（评审 R18） */}
+          {/* Truncation hint when entries reach the query limit (review R18) */}
           {!loading && !error && entries !== null && entries.length >= 50 && (
             <p className="mt-3 flex items-center gap-1 text-[11px] leading-4 text-ink-faint">
               <Icon name="info" size={10} className="shrink-0" />

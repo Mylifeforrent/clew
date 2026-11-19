@@ -49,7 +49,7 @@ import { Icon } from './Icon';
 const nodeTypes = { dataset: DatasetNode, group: GroupNode };
 const edgeTypes = { lineage: LineageEdgeView };
 
-/** 追踪焦点激活时，未命中链路的连线统一压暗到该透明度 */
+/** When a trace focus is active, links off the chain are dimmed to this opacity */
 const DIMMED_OPACITY = 0.15;
 const DIMMED_MARKER_ALPHA = 0.3;
 
@@ -94,8 +94,9 @@ interface LineageCanvasProps {
   onNotice: (message: string) => void;
   onRetry: () => void;
   /**
-   * AI 回答声明的高亮字段（mark_highlight 汇总）：seq 变化即应用或清除
-   * 追踪焦点；fields 为空数组表示显式清除（新一轮回答未声明高亮）。
+   * Highlight fields declared by AI answers (mark_highlight aggregate): a change in seq
+   * applies or clears the trace focus; an empty fields array means an explicit clear
+   * (the new answer declared no highlights).
    */
   aiFocusFields: { seq: number; fields: AiHighlightItem[] } | null;
 }
@@ -135,15 +136,15 @@ export function LineageCanvas({
     FlowNode,
     LineageFlowEdge
   > | null>(null);
-  // 用户手动拖拽后的节点位置：折叠/刷新重建 nodes 时优先复用，避免被 dagre 重排覆盖
+  // Node positions after manual dragging: reused when collapse/refresh rebuilds nodes so dagre re-layout does not overwrite them
   const draggedPositions = useRef(new Map<string, { x: number; y: number }>());
   const [groups, setGroups] = useState<CollapsedGroup[]>([]);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const nextGroupId = useRef(1);
-  // 字段追踪焦点：点击字段行或 AI 回答声明后，沿字段级关联高亮整条上下游链路
+  // Field trace focus: after clicking a field row or an AI declaration, highlight the whole upstream/downstream chain along field-level relations
   const [focusFields, setFocusFields] = useState<FieldFocus[]>([]);
 
-  // 视图派生：表级血缘两端同名字段匹配线（非库内血缘，仅追踪演示用）
+  // View-derived: same-name field match links across table-level lineage ends (not stored lineage; tracing demo only)
   const derivedLinks = useMemo(
     () => (graph ? deriveFieldMatches(graph) : []),
     [graph],
@@ -156,8 +157,9 @@ export function LineageCanvas({
     [graph, derivedLinks, focusFields],
   );
 
-  // M2 遗留修复：种子或跳数变化都视为一张新图——清空拖拽位置与折叠组，
-  // 让 dagre 按新的子图规模重新布局，避免新旧节点位置叠加。
+  // M2 leftover fix: a seed or hops change is treated as a brand-new graph — clear dragged
+  // positions and collapsed groups so dagre re-layouts for the new subgraph size instead of
+  // stacking old and new node positions.
   useEffect(() => {
     draggedPositions.current.clear();
     setGroups([]);
@@ -166,7 +168,7 @@ export function LineageCanvas({
     nextGroupId.current = 1;
   }, [seedDatasetId, hops]);
 
-  // 子图刷新后焦点字段已不存在时，剔除失效焦点（全部失效即清空追踪态）
+  // Drop stale focuses after a subgraph refresh when the focused fields no longer exist (all stale means clearing the trace state)
   useEffect(() => {
     if (focusFields.length === 0 || !graph) return;
     const next = focusFields.filter((item) => {
@@ -178,7 +180,7 @@ export function LineageCanvas({
     if (next.length !== focusFields.length) setFocusFields(next);
   }, [graph, focusFields]);
 
-  // 子图刷新后剔除已不存在的分组成员
+  // Drop group members that no longer exist after a subgraph refresh
   useEffect(() => {
     if (!graph) {
       setGroups([]);
@@ -244,8 +246,8 @@ export function LineageCanvas({
     const names = selectedNodeIds.map((id) => nameById.get(id) ?? id);
     const label =
       names.length > 2
-        ? `${names.slice(0, 2).join('、')} 等`
-        : names.join('、');
+        ? `${names.slice(0, 2).join(', ')} and others`
+        : names.join(', ');
     const groupId = `group-${nextGroupId.current}`;
     nextGroupId.current += 1;
 
@@ -289,7 +291,7 @@ export function LineageCanvas({
     );
   }, [graph, nodes, selectedNodeIds, setEdges, setNodes]);
 
-  /** 追踪前保证链路字段可见：折叠的表自动展开，超出预览上限的字段列表自动展开 */
+  /** Ensure chain fields are visible before tracing: collapsed tables and field lists beyond the preview limit are expanded automatically */
   const revealChainFields = useCallback(
     (targetChain: FieldChain) => {
       if (!graph) return;
@@ -336,7 +338,7 @@ export function LineageCanvas({
         focusFields[0].fieldName === nextFocus[0].fieldName;
       setFocusFields(nextFocus);
 
-      // 追踪前先保证链路上的字段行可见，否则链路线会被隐藏。
+      // Make chain field rows visible before tracing, otherwise the chain links would be hidden.
       if (graph && !sameFocus) {
         const nextChain = computeFieldChain(graph, derivedLinks, nextFocus);
         if (nextChain) revealChainFields(nextChain);
@@ -367,7 +369,7 @@ export function LineageCanvas({
 
   const handlePaneClick = useCallback(() => setFocusFields([]), []);
 
-  // AI 回答声明的高亮字段：校验存在 → 自动展开链路 → 应用为追踪焦点
+  // Highlight fields declared by AI answers: validate existence → auto-expand the chain → apply as trace focus
   useEffect(() => {
     if (!aiFocusFields) return;
     if (aiFocusFields.fields.length === 0) {
@@ -402,13 +404,13 @@ export function LineageCanvas({
       const { source, target, sourceHandle, targetHandle } = connection;
       if (!source || !target || !sourceHandle || !targetHandle) return;
       if (source === target && sourceHandle === targetHandle) {
-        onNotice('上下游不能是同一个字段或同一个节点。');
+        onNotice('Upstream and downstream cannot be the same field or the same node.');
         return;
       }
       const sourceIsTable = sourceHandle === TABLE_SOURCE_HANDLE;
       const targetIsTable = targetHandle === TABLE_TARGET_HANDLE;
       if (sourceIsTable !== targetIsTable) {
-        onNotice('字段级与表级血缘不能混连：请字段连字段，或表头 handle 连表头 handle。');
+        onNotice('Field-level and table-level lineage cannot be mixed: connect field to field, or table header handle to table header handle.');
         return;
       }
 
@@ -419,15 +421,15 @@ export function LineageCanvas({
         ? null
         : parseFieldHandle(targetHandle, 'field:in:');
       if (!sourceIsTable && (!fromField || !toField)) {
-        onNotice('未能识别字段 handle，请重新拖拽。');
+        onNotice('Could not identify the field handle; please drag again.');
         return;
       }
       if (source === target && sourceIsTable) {
-        onNotice('上下游不能是同一个数据集。');
+        onNotice('Upstream and downstream cannot be the same dataset.');
         return;
       }
       if (source === target && fromField !== null && fromField === toField) {
-        onNotice('上下游不能是同一个字段。');
+        onNotice('Upstream and downstream cannot be the same field.');
         return;
       }
 
@@ -456,7 +458,7 @@ export function LineageCanvas({
     );
     const present = new Set(graph.datasets.map((dataset) => dataset.id));
 
-    // 分组映射：成员数据集在视图层隐藏，跨组边聚合到组节点
+    // Group mapping: member datasets are hidden at the view layer; cross-group edges aggregate onto the group node
     const datasetGroups = new Map<string, CollapsedGroup>();
     groups.forEach((group) => {
       const memberIds = group.memberIds.filter((id) => present.has(id));
@@ -472,8 +474,8 @@ export function LineageCanvas({
       return { x: position?.x ?? 0, y: position?.y ?? 0 };
     };
 
-    // 02 §七#32：纯展示派生——字段是任一 AI 候选边端点时，字段行渲染 sparkles 徽标。
-    // 不改变任何边构建/选择逻辑。
+    // 02 §7#32: display-only derivation — a field row renders a sparkles badge when the field
+    // is an endpoint of any AI candidate edge. It changes no edge-building/selection logic.
     const aiEndpointFields = new Map<string, Set<string>>();
     graph.edges.forEach((edge) => {
       if (edge.source !== 'ai') return;
@@ -489,7 +491,7 @@ export function LineageCanvas({
       }
     });
 
-    // 追踪链路命中的字段：按数据集聚合，驱动节点内字段行红色高亮
+    // Fields hit by the trace chain: aggregated per dataset, driving red highlighting of field rows inside nodes
     const chainByDataset = new Map<
       string,
       { focused: string[]; linked: string[] }
@@ -533,7 +535,7 @@ export function LineageCanvas({
       });
     });
 
-    // 组节点放在成员当前位置的包围盒中心；不参与 dagre 布局（最小实现取舍）。
+    // The group node sits at the center of the members' current positions; it does not participate in dagre layout (minimal-implementation trade-off).
     groups.forEach((group) => {
       const memberIds = group.memberIds.filter((id) => present.has(id));
       if (memberIds.length < 2) return;
@@ -564,7 +566,7 @@ export function LineageCanvas({
       });
     });
 
-    // 只渲染节点中实际可见字段的 handle/连线；部分折叠时隐藏字段的边同步隐藏
+    // Only render handles/links for fields actually visible in nodes; links to hidden fields are hidden as well when partially collapsed
     const fieldNames = new Map(
       graph.datasets.map((dataset) => [
         dataset.id,
@@ -610,7 +612,7 @@ export function LineageCanvas({
       }
 
       if (fromGroup || toGroup) {
-        // 跨组边聚合：同一对「组/数据集」只保留一条，展开组后可再操作具体边
+        // Cross-group edge aggregation: keep one link per group/dataset pair; individual edges become operable after expanding the group
         const sourceNode = fromGroup?.id ?? edge.from_dataset;
         const targetNode = toGroup?.id ?? edge.to_dataset;
         const key = `${sourceNode}-->${targetNode}`;
@@ -652,7 +654,7 @@ export function LineageCanvas({
           targetHandle: TABLE_TARGET_HANDLE,
           type: 'lineage',
           data,
-          ariaLabel: `表级血缘，从 ${edge.from_dataset} 到 ${edge.to_dataset}，来源 ${edge.source}`,
+          ariaLabel: `Table-level lineage from ${edge.from_dataset} to ${edge.to_dataset}, source ${edge.source}`,
           style: {
             stroke: visual.color,
             strokeWidth: visual.width,
@@ -711,7 +713,7 @@ export function LineageCanvas({
         targetHandle: fieldTargetHandle(toField),
         type: 'lineage',
         data,
-        ariaLabel: `字段级血缘，从 ${edge.from_dataset}.${fromField} 到 ${edge.to_dataset}.${toField}，来源 ${edge.source}`,
+        ariaLabel: `Field-level lineage from ${edge.from_dataset}.${fromField} to ${edge.to_dataset}.${toField}, source ${edge.source}`,
         style: {
           stroke: strokeColor,
           strokeWidth: focusState === 'chain' ? 2.6 : visual.width,
@@ -739,12 +741,12 @@ export function LineageCanvas({
       });
     });
 
-    // 视图派生连线：表级血缘两端同名字段匹配（非库内边，不可选中/编辑）
+    // View-derived links: same-name field matching across table-level lineage ends (not stored edges, not selectable/editable)
     derivedLinks.forEach((link) => {
       if (!present.has(link.from_dataset) || !present.has(link.to_dataset)) {
         return;
       }
-      // 分组内/跨组时推导线不画：跨组关系已由聚合边表达
+      // Do not draw derived links inside/across groups: cross-group relations are already expressed by aggregate edges
       if (
         datasetGroups.has(link.from_dataset) ||
         datasetGroups.has(link.to_dataset)
@@ -786,7 +788,7 @@ export function LineageCanvas({
           fromLabel: `${link.from_dataset}.${link.from_field}`,
           toLabel: `${link.to_dataset}.${link.to_field}`,
         },
-        ariaLabel: `同名字段匹配推断线，从 ${link.from_dataset}.${link.from_field} 到 ${link.to_dataset}.${link.to_field}`,
+        ariaLabel: `Same-name field match inferred link from ${link.from_dataset}.${link.from_field} to ${link.to_dataset}.${link.to_field}`,
         style: {
           stroke: strokeColor,
           strokeWidth: focusState === 'chain' ? 2.6 : 1.3,
@@ -832,7 +834,7 @@ export function LineageCanvas({
         targetHandle: TABLE_TARGET_HANDLE,
         type: 'lineage',
         data,
-        ariaLabel: `跨组聚合血缘，从 ${aggregate.sourceLabel} 到 ${aggregate.targetLabel}，共 ${aggregate.count} 条`,
+        ariaLabel: `Cross-group aggregate lineage from ${aggregate.sourceLabel} to ${aggregate.targetLabel}, ${aggregate.count} edges in total`,
         style: {
           stroke: visual.color,
           strokeWidth: 1.5,
@@ -859,7 +861,7 @@ export function LineageCanvas({
     chain,
     derivedLinks,
     graph,
-    // 跳数变化时即使 graph 还是旧引用，也要立刻用清空后的拖拽位置重新布局
+    // On a hops change, re-layout immediately with the cleared dragged positions even if graph is still the old reference
     hops,
     seedDatasetId,
     collapsedIds,
@@ -886,7 +888,7 @@ export function LineageCanvas({
       });
     }, 100);
     return () => window.clearTimeout(timer);
-    // 过滤只改变边集合，不重置视口；种子/跳数/分组变化时重新适配
+    // Filters only change the edge set and do not reset the viewport; re-fit when the seed/hops/groups change
   }, [flowInstance, seedDatasetId, hops, graph?.datasets.length, groups.length]);
 
   const allCollapsed =
@@ -904,10 +906,10 @@ export function LineageCanvas({
             <Icon name="network" size={22} />
           </div>
           <h2 className="mt-4 text-xl font-medium text-ink">
-            选择一个数据集
+            Select a dataset
           </h2>
           <p className="mt-2 text-[13px] leading-5 text-ink-muted">
-            从左侧数据集栏选择种子，画布会展示字段级与表级上下游血缘。
+            Pick a seed from the dataset sidebar on the left; the canvas shows field-level and table-level upstream/downstream lineage.
           </p>
         </div>
       </div>
@@ -947,7 +949,7 @@ export function LineageCanvas({
           elevateNodesOnSelect
           proOptions={{ hideAttribution: true }}
           className="lineage-flow"
-          aria-label="字段级血缘画布"
+          aria-label="Field-level lineage canvas"
         >
           <Controls
             position="bottom-left"
@@ -963,7 +965,7 @@ export function LineageCanvas({
             nodeBorderRadius={4}
             maskColor="rgba(248, 250, 252, 0.65)"
             className="lineage-minimap"
-            ariaLabel="血缘画布缩略图"
+            ariaLabel="Lineage canvas minimap"
           />
 
           <Panel position="top-left" className="!m-3">
@@ -974,10 +976,10 @@ export function LineageCanvas({
                 </span>
                 <div className="px-0.5">
                   <div className="max-w-[140px] truncate text-[13px] font-medium text-ink">
-                    {seedName || '血缘子图'}
+                    {seedName || 'Lineage subgraph'}
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] tabular-nums text-ink-faint">
-                    {graph.datasets.length} 个数据集 · {graph.edges.length} 条连线
+                    {graph.datasets.length} datasets · {graph.edges.length} links
                   </div>
                 </div>
                 <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
@@ -985,13 +987,13 @@ export function LineageCanvas({
                   type="button"
                   onClick={onToggleAll}
                   className="flex h-7 items-center gap-1.5 rounded-lg border border-line-strong bg-card px-2.5 text-[12px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1"
-                  title={allCollapsed ? '展开全部字段' : '收起全部字段'}
+                  title={allCollapsed ? 'Expand all fields' : 'Collapse all fields'}
                 >
                   <Icon
                     name={allCollapsed ? 'unfold-all' : 'fold-all'}
                     size={12}
                   />
-                  {allCollapsed ? '全部展开' : '全部收起'}
+                  {allCollapsed ? 'Expand all' : 'Collapse all'}
                 </button>
               </div>
 
@@ -1005,10 +1007,10 @@ export function LineageCanvas({
                       type="button"
                       onClick={handleCollapseSelected}
                       className="flex h-7 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-[12px] font-medium text-blue-800 transition-colors duration-150 hover:border-blue-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1"
-                      title="把框选的节点折叠成一个组占位节点"
+                      title="Collapse the selected nodes into a group placeholder node"
                     >
                       <Icon name="fold-all" size={12} />
-                      折叠选中（{groupableCount}）
+                      Collapse selected ({groupableCount})
                     </button>
                   )}
                   {groups.length > 0 && (
@@ -1023,7 +1025,7 @@ export function LineageCanvas({
                       className="flex h-7 items-center gap-1.5 rounded-lg border border-line-strong bg-card px-2.5 text-[12px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1"
                     >
                       <Icon name="unfold-all" size={12} />
-                      展开全部组（{groups.length}）
+                      Expand all groups ({groups.length})
                     </button>
                   )}
                 </div>
@@ -1033,17 +1035,17 @@ export function LineageCanvas({
 
           <Panel position="bottom-center" className="!mb-2 hidden md:block">
             <div className="flex items-center gap-2.5 rounded-full border border-line bg-card/90 px-3 py-1.5 font-mono text-[11px] text-ink-muted shadow-float">
-              <span>拖拽平移</span>
+              <span>Drag to pan</span>
               <span className="h-2 w-px bg-line" />
-              <span>Shift + 拖拽框选</span>
+              <span>Shift + drag to box-select</span>
               <span className="h-2 w-px bg-line" />
-              <span>悬停/点击连线查看详情</span>
+              <span>Hover/click a link for details</span>
               <span className="h-2 w-px bg-line" />
-              <span>点击字段高亮上下游链路</span>
+              <span>Click a field to highlight its upstream/downstream chain</span>
               {canEdit && (
                 <>
                   <span className="h-2 w-px bg-line" />
-                  <span>拖拽 handle 新增血缘</span>
+                  <span>Drag a handle to add lineage</span>
                 </>
               )}
             </div>
@@ -1060,9 +1062,9 @@ export function LineageCanvas({
           <div className="flex items-center gap-2.5 rounded-lg border border-line bg-card px-4 py-3 shadow-float">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
             <div>
-              <div className="text-[13px] font-medium text-ink">正在加载血缘子图</div>
+              <div className="text-[13px] font-medium text-ink">Loading lineage subgraph</div>
               <div className="mt-0.5 font-mono text-[11px] text-ink-faint">
-                展开 {seedDatasetId} · {hops} 跳邻域
+                Expanding {seedDatasetId} · {hops}-hop neighborhood
               </div>
             </div>
           </div>
@@ -1081,7 +1083,7 @@ export function LineageCanvas({
               </span>
               <div className="min-w-0">
                 <h2 className="text-[13px] font-semibold text-ink">
-                  无法加载当前子图
+                  Unable to load the current subgraph
                 </h2>
                 <p className="mt-1.5 break-words text-[12px] leading-5 text-ink-muted">
                   {error}
@@ -1092,7 +1094,7 @@ export function LineageCanvas({
                   className="mt-3 inline-flex h-7 items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 text-[13px] font-medium text-white transition-colors duration-150 hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1"
                 >
                   <Icon name="refresh" size={12} />
-                  重新加载
+                  Reload
                 </button>
               </div>
             </div>

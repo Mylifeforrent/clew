@@ -15,18 +15,18 @@ import { useI18n } from '../i18n';
 export type EdgeKind = 'field' | 'table';
 
 export interface LineageEdgeData extends Record<string, unknown> {
-  /** 库内血缘边；derived（同名字段匹配推断）线没有对应实体，为空 */
+  /** Stored lineage edge; null for derived (same-name field match) lines, which have no entity */
   edge?: LineageEdge;
   kind: EdgeKind;
   fromLabel: string;
   toLabel: string;
-  /** 折叠分组时跨组边的聚合条数；存在时该连线不可单独操作 */
+  /** Aggregated edge count when collapsing groups; when present, this line cannot be acted on individually */
   aggregateCount?: number;
-  /** true = 表级血缘同名字段匹配的视图派生线（非库内边，不可选中/编辑） */
+  /** true = view-derived line from table-level same-name field matching (not a stored edge; not selectable/editable) */
   derived?: boolean;
-  /** derived 线的稳定 key（lib/fieldChain.derivedLinkKey）；追踪染色按它查链路命中 */
+  /** Stable key for derived lines (lib/fieldChain.derivedLinkKey); trace coloring uses it to look up chain hits */
   derivedLinkKey?: string;
-  /** 字段追踪焦点态：'chain' = 命中链路（红），'dim' = 被压暗 */
+  /** Field trace focus state: 'chain' = hit the chain (red), 'dim' = dimmed */
   focusState?: 'chain' | 'dim';
   canEdit?: boolean;
   onSelect?: () => void;

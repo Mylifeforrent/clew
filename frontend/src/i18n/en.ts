@@ -1,8 +1,9 @@
 /**
- * 英文聚合字典。
+ * English aggregate dictionary (the default locale).
  *
- * 各模块的 en 导出在本地以 `Record<XxxKey, string>` 约束（编译期强制与 zh 键一致），
- * 此处聚合后整体断言回 MessageKey（空模块 keyof 为 never 时允许兼容）。
+ * Each module's en export is locally constrained with `Record<XxxKey, string>`
+ * (enforced at compile time to match the zh keys); after aggregation the whole object
+ * is asserted back to MessageKey (compatible even when an empty module's keyof is never).
  */
 import type { MessageKey } from './index';
 import { enCommon } from './dicts/common';

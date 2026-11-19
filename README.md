@@ -120,7 +120,8 @@ from — then ask the AI copilot to trace it for you.
 
 The entire workspace — canvas, inspector, import wizard, AI drawer, version and user
 drawers — is available in **English and Simplified Chinese**. The preference is
-persisted locally. The application defaults to Chinese; this README defaults to English.
+persisted locally. The application defaults to English; Simplified Chinese can be
+selected from the language toggle at any time.
 
 ## How it works
 
@@ -220,19 +221,19 @@ clew/
 │   ├── assets/     # logo and demo GIFs
 │   ├── 01_design/  # design, business model and data model
 │   ├── 03_dev/     # architecture, API contracts and AI evolution notes
-│   └── PROJECT.md  # detailed project README (Chinese)
+│   └── PROJECT.md  # detailed project README (English)
 ├── README.zh.md    # Chinese product page
 └── .env.example
 ```
 
 ## Documentation
 
-- [docs/PROJECT.md](./docs/PROJECT.md) — detailed project description (Chinese): milestone scope,
+- [docs/PROJECT.md](./docs/PROJECT.md) — detailed project description (English): milestone scope,
   backend/frontend behavior, API list, known gaps.
 - [docs/README.md](./docs/README.md) — documentation index and reading order.
-- [API contract](./docs/03_dev/05_API接口文档.md) — all endpoints, permissions and error
+- [API contract](./docs/03_dev/05_api-reference.md) — all endpoints, permissions and error
   semantics.
-- [Design documents](./docs/01_design/Clew-设计方案.md) — the research and architecture
+- [Design documents](./docs/01_design/clew-design-proposal.md) — the research and architecture
   behind the implementation.
 
 ## Status and known gaps

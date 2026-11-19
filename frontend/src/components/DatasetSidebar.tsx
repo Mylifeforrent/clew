@@ -27,7 +27,7 @@ interface DatasetSidebarProps {
 
 const CONFIDENCE_OPTIONS = [0, 0.6, 0.8, 1] as const;
 
-/** 图例线样与 getEdgeVisual 完全同参（00 §2.4，色值走 lib/edgeColors 单一来源） */
+/** Legend line samples use exactly the same params as getEdgeVisual (00 §2.4; colors come from the single source lib/edgeColors) */
 const LEGEND_LINE_VISUALS = {
   field: { stroke: EDGE_COLORS.imported, width: 1.55, dash: undefined },
   table: { stroke: EDGE_COLORS.importedWeak, width: 1.4, dash: '4 5' },

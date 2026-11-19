@@ -1,19 +1,19 @@
-"""M4/M5 血缘建议：AI 建议边必须人工确认后才生效（业务不变量#4）。
+"""M4/M5 lineage suggestions: AI suggested edges must be manually confirmed to take effect (business invariant #4).
 
-启发式（M4，不调用 LLM，可离线运行）：
-1. **同名字段优先**：字段名小写并去掉下划线后完全相等 → confidence 0.7；
-2. **包含关系其次**：去下划线小写后一方包含另一方（较短者至少 3 个字符）
-   → confidence 0.6；
-3. 排除已存在的边（两个方向都排除，避免建议出反向重复/环）；
-4. 候选以 ``source='ai'`` 落库并写 change_log(added)；
-5. ``confirm`` 将 source 改为 manual 并写 change_log(updated)；
-   ``reject`` 删除候选边并写 change_log(deleted)。
+Heuristics (M4, no LLM call, works offline):
+1. **Same field name first**: field names lowercased with underscores removed are exactly equal → confidence 0.7;
+2. **Containment next**: after lowercasing/removing underscores one contains the other (shorter at least 3 characters)
+   → confidence 0.6;
+3. Exclude existing edges (both directions, to avoid reverse duplicates/cycles in suggestions);
+4. Candidates persist with ``source='ai'`` and write change_log(added);
+5. ``confirm`` changes source to manual and writes change_log(updated);
+   ``reject`` deletes the candidate edge and writes change_log(deleted).
 
-语义层（M5，演进规划 07 §三#9）：配置了 EMBEDDING_* 时，对字段名+描述做
-向量化，余弦 ≥ SEMANTIC_THRESHOLD 的跨数据集字段对补充为候选（confidence
-0.65）；embedding 未配置或调用失败时**静默降级**为纯启发式。
+Semantic layer (M5, evolution plan 07 §3 #9): when EMBEDDING_* is configured, embed field name+description,
+and cross-dataset field pairs with cosine ≥ SEMANTIC_THRESHOLD are added as candidates (confidence 0.65);
+when embeddings are not configured or the call fails, **silently degrade** to pure heuristics.
 
-候选方向：以请求给出的数据集/字段为上游（from），其他数据集的相似字段为下游（to）。
+Candidate direction: the requested dataset/field is upstream (from), similar fields in other datasets are downstream (to).
 """
 
 from __future__ import annotations
@@ -36,20 +36,20 @@ _EDGE_COLUMNS = (
 
 
 def normalize_field_name(name: str) -> str:
-    """契约定义的归一化：小写 + 去掉下划线。"""
+    """Normalization defined by the contract: lowercase + remove underscores."""
     return name.strip().lower().replace("_", "")
 
 
 def _focus_fields(conn: sqlite3.Connection, dataset: str,
                   field: str | None) -> list[sqlite3.Row]:
     if conn.execute("SELECT 1 FROM dataset WHERE id=?", (dataset,)).fetchone() is None:
-        raise LookupError(f"数据集「{dataset}」不存在")
+        raise LookupError(f'Dataset "{dataset}" does not exist')
     if field is not None:
         rows = conn.execute(
             "SELECT dataset_id, name FROM field WHERE dataset_id=? AND name=?",
             (dataset, field)).fetchall()
         if not rows:
-            raise LookupError(f"字段「{dataset}.{field}」不存在")
+            raise LookupError(f'Field "{dataset}.{field}" does not exist')
         return rows
     return conn.execute(
         "SELECT dataset_id, name FROM field WHERE dataset_id=? ORDER BY name",
@@ -65,7 +65,7 @@ def _target_fields(conn: sqlite3.Connection,
 
 
 def _existing_edge_keys(conn: sqlite3.Connection) -> set[tuple]:
-    """已存在边的自然键集合（含反向），用于排除重复建议。"""
+    """Natural keys of existing edges (including reverse), used to exclude duplicate suggestions."""
     keys: set[tuple] = set()
     rows = conn.execute(
         "SELECT from_dataset, from_field, to_dataset, to_field FROM edge").fetchall()
@@ -85,12 +85,12 @@ def _match(focus_name: str, target_name: str) -> tuple[float, str] | None:
         return None
     if left == right:
         return (EXACT_CONFIDENCE,
-                f"同名字段（忽略大小写与下划线）：{focus_name} 与 {target_name}")
+                f"Same field name (ignoring case and underscores): {focus_name} and {target_name}")
     shorter, longer = sorted((left, right), key=len)
     if len(shorter) >= MIN_CONTAINMENT_LENGTH and shorter in longer:
         return (CONTAINMENT_CONFIDENCE,
-                "字段名高度相似（忽略大小写与下划线后为包含关系）："
-                f"{focus_name} 与 {target_name}")
+                "Field names are highly similar (containment after ignoring case and underscores): "
+                f"{focus_name} and {target_name}")
     return None
 
 
@@ -111,12 +111,12 @@ def _augment_semantic(
     seen: set[tuple],
     candidates: list[dict],
 ) -> list[dict]:
-    """语义层（M5）：embedding 可用时补充同名字段规则覆盖不到的候选。
+    """Semantic layer (M5): when embeddings are available, add candidates not covered by the same-name rule.
 
-    任何失败（未配置 / 网络 / 维度异常）都静默降级——语义是 best-effort，
-    不能拖垮纯启发式的可用性。
+    Any failure (not configured / network / dimension mismatch) silently degrades—semantics are
+    best-effort and must not take down the availability of pure heuristics.
     """
-    from . import llm  # 延迟导入，避免测试桩循环依赖
+    from . import llm  # Delayed import to avoid circular dependencies in test stubs
 
     try:
         embeddings = llm.get_embeddings()
@@ -159,21 +159,21 @@ def _augment_semantic(
                     "to_dataset": target_row["dataset_id"],
                     "to_field": target_row["name"],
                     "confidence": SEMANTIC_CONFIDENCE,
-                    "reason": f"语义相似（embedding 余弦 {score:.2f}）："
-                              f"{focus_row['name']} 与 {target_row['name']}",
+                    "reason": f"Semantically similar (embedding cosine {score:.2f}): "
+                              f"{focus_row['name']} and {target_row['name']}",
                 })
         return candidates + semantic
-    except Exception:  # noqa: BLE001 —— 语义层任何异常都降级为纯启发式
+    except Exception:  # noqa: BLE001 — any semantic-layer exception degrades to pure heuristics
         return candidates
 
 
 def suggest_edges(conn: sqlite3.Connection, dataset: str, field: str | None,
                   actor: str) -> list[dict]:
-    """生成并落库 AI 候选边，返回本次新增的候选列表。
+    """Generate and persist AI candidate edges, returning the candidates added in this call.
 
-    返回值严格对应 API 契约：
-    ``[{from_dataset, from_field, to_dataset, to_field, confidence, reason}]``。
-    同一自然键已有边时跳过，因此重复调用不会重复落库。
+    The return value strictly matches the API contract:
+    ``[{from_dataset, from_field, to_dataset, to_field, confidence, reason}]``.
+    Natural keys that already have an edge are skipped, so repeated calls do not persist duplicates.
     """
     focus_rows = _focus_fields(conn, dataset, field)
     target_rows = _target_fields(conn, dataset)
@@ -201,11 +201,11 @@ def suggest_edges(conn: sqlite3.Connection, dataset: str, field: str | None,
                 "reason": reason,
             })
 
-    # M5 语义层：embedding 配置齐全时补充语义相似候选（失败静默降级）
+    # M5 semantic layer: add semantically similar candidates when embeddings are fully configured (silent degradation on failure)
     candidates = _augment_semantic(
         conn, dataset, field, existing, seen, candidates)
 
-    # 同名字段（0.7）优先于语义/包含（0.65/0.6）；同置信度按目标字段稳定排序
+    # Same field name (0.7) takes precedence over semantic/containment (0.65/0.6); equal confidence sorts stably by target field
     candidates.sort(key=lambda item: (
         -item["confidence"], item["to_dataset"], item["to_field"],
         item["from_dataset"], item["from_field"]))
@@ -244,14 +244,14 @@ def _ai_edge(conn: sqlite3.Connection, from_dataset: str,
         (from_dataset, from_field, to_dataset, to_field)).fetchone()
     if row is None:
         raise LookupError(
-            "AI 建议边不存在或已处理（仅 source='ai' 的候选可确认/拒绝）")
+            "AI suggested edge does not exist or has already been handled (only source='ai' candidates can be confirmed/rejected)")
     return row
 
 
 def confirm_suggestion(conn: sqlite3.Connection, from_dataset: str,
                        from_field: str | None, to_dataset: str,
                        to_field: str | None, actor: str) -> dict:
-    """把 AI 候选边转为人工边（source='manual'），写 change_log(updated)。"""
+    """Turn an AI candidate edge into a manual edge (source='manual') and write change_log(updated)."""
     row = _ai_edge(conn, from_dataset, from_field, to_dataset, to_field)
     before = edge_snapshot(row)
     conn.execute(
@@ -270,7 +270,7 @@ def confirm_suggestion(conn: sqlite3.Connection, from_dataset: str,
 def reject_suggestion(conn: sqlite3.Connection, from_dataset: str,
                       from_field: str | None, to_dataset: str,
                       to_field: str | None, actor: str) -> None:
-    """删除 AI 候选边，写 change_log(deleted)。"""
+    """Delete an AI candidate edge and write change_log(deleted)."""
     row = _ai_edge(conn, from_dataset, from_field, to_dataset, to_field)
     before = edge_snapshot(row)
     conn.execute("DELETE FROM edge WHERE id=?", (row["id"],))

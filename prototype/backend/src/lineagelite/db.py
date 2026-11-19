@@ -1,11 +1,11 @@
-"""SQLite 连接与建表 DDL。表结构对应《轻量级AI血缘工具-数据模型.md》。
+"""SQLite connection and table DDL. The schema corresponds to "Lightweight AI Lineage Tool - Data Model".
 
-与文档的 M1/M3 实现补充（均向后兼容）：
-- import_batch 增加 rolled_back_at / rolled_back_by：回滚留痕（业务规则#6），
-  同时保证 change_log 保持只读历史，重放/重导入幂等。
-- M3 新增 rollback_record：按版本标签回滚的审计（回滚不写 change_log，
-  避免重复回滚反做回滚日志），数据模型 §2.10 / §七。
-- 时间列统一存 ISO8601 UTC 文本（SQLite TEXT 亲和）。
+M1/M3 implementation additions to the document (all backward compatible):
+- import_batch gains rolled_back_at / rolled_back_by: rollback trail (business rule #6),
+  and change_log stays a read-only history, keeping replay/re-import idempotent.
+- M3 adds rollback_record: auditing for version-tag rollbacks (rollback does not write
+  change_log, avoiding a rollback of the rollback log on repeated rollback), data model §2.10 / §7.
+- Time columns uniformly store ISO8601 UTC text (SQLite TEXT affinity).
 """
 
 import sqlite3
@@ -118,8 +118,9 @@ CREATE TABLE IF NOT EXISTS change_log (
   created_at TEXT NOT NULL
 );
 
--- M3：按版本标签回滚的审计记录。回滚本身不写 change_log（否则下次回滚会反做
--- 回滚日志，破坏幂等），操作者/时间/反做范围记录在此表，满足「写必留痕」。
+-- M3: audit records for version-tag rollbacks. Rollback itself does not write change_log
+-- (otherwise the next rollback would reverse the rollback log and break idempotency);
+-- the actor/time/reversal scope is recorded here, satisfying "every write leaves a trail".
 CREATE TABLE IF NOT EXISTS rollback_record (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tag_name TEXT NOT NULL REFERENCES version_tag(name),
@@ -130,8 +131,8 @@ CREATE TABLE IF NOT EXISTS rollback_record (
   created_at TEXT NOT NULL
 );
 
--- M5：AI 描述草稿工作区（数据模型 §2.11）。草稿不触碰 field.description，
--- 用户确认采纳后写 annotation；rejected 的字段不再重复生成。
+-- M5: AI description draft workspace (data model §2.11). Drafts never touch field.description;
+-- once the user accepts, an annotation is written; rejected fields are not regenerated.
 CREATE TABLE IF NOT EXISTS description_draft (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dataset_id TEXT NOT NULL REFERENCES dataset(id),
@@ -155,9 +156,9 @@ CREATE INDEX IF NOT EXISTS idx_log_batch ON change_log(batch_id);
 CREATE INDEX IF NOT EXISTS idx_annot_target ON annotation(target_kind, target_id);
 CREATE INDEX IF NOT EXISTS idx_rollback_tag ON rollback_record(tag_name, id);
 
--- 部分唯一索引：SQLite 的 UNIQUE 对含 NULL 的组合按 NULLS DISTINCT 语义处理，
--- 表级边（from_field/to_field 均为 NULL）无法被上面的 UNIQUE 拦截，
--- 按字段级 / 表级两种形态分别兜底（数据模型 §2.5）。
+-- Partial unique indexes: SQLite UNIQUE treats combinations containing NULL as NULLS DISTINCT,
+-- so table-level edges (from_field/to_field both NULL) cannot be caught by the UNIQUE above;
+-- cover the field-level and table-level shapes separately (data model §2.5).
 CREATE UNIQUE INDEX IF NOT EXISTS uq_edge_field ON edge(from_dataset, from_field, to_dataset, to_field) WHERE from_field IS NOT NULL AND to_field IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_edge_table ON edge(from_dataset, to_dataset) WHERE from_field IS NULL AND to_field IS NULL;
 """

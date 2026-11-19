@@ -74,12 +74,12 @@ one you are changing and why.
 
 ## Commit messages
 
-Commit subjects are written in Simplified Chinese, short and imperative, for
+Commit subjects are written in English, short and imperative, for
 example:
 
 ```text
-补齐字段定位器的 409 校验
-修复 XLSX 合并表头高亮偏移
+Add 409 validation for the field locator
+Fix highlight offset for merged XLSX headers
 ```
 
 Use the body for the reason behind the change when it is not obvious.

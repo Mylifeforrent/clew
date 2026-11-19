@@ -8,13 +8,14 @@ import { Icon } from './Icon';
 import { useI18n } from '../i18n';
 
 /**
- * 「折叠为组」占位节点（M3 前端最小实现）。
+ * "Collapse into group" placeholder node (minimal M3 frontend implementation).
  *
- * 取舍说明：不引入 dagre 的 compound（子图）布局，也不改后端子图契约；
- * 组节点只是把多选成员在**视图层**隐藏后放在成员包围盒中心。
- * - 成员原本的字段级/表级边在组内互相抵消；
- * - 跨组边聚合为一条组级连线，指向本节点的表级 handle；
- * - 点击节点或「展开」按钮即解散该组（不写后端）。
+ * Trade-offs: dagre's compound (subgraph) layout is not used and the backend subgraph
+ * contract is unchanged; the group node simply hides the selected members at the **view
+ * layer** and sits at the center of their bounding box.
+ * - Members' original field-level/table-level edges cancel out inside the group;
+ * - Cross-group edges are aggregated into one group-level link pointing at this node's table handle;
+ * - Clicking the node or the "expand" button dissolves the group (nothing is written to the backend).
  */
 export interface GroupNodeData extends Record<string, unknown> {
   label: string;

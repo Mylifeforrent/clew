@@ -1,10 +1,11 @@
-"""应用配置：仓库根 .env（不入库），见 .env.example。"""
+"""Application settings: repo-root .env (not committed), see .env.example."""
 
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 仓库根 .env（包位于 prototype/backend/src/lineagelite/，故向上 4 层；符合 AGENTS.md 配置规范）
+# Repo-root .env (the package lives at prototype/backend/src/lineagelite/, so four levels up;
+# matches the AGENTS.md configuration convention)
 ENV_FILE = Path(__file__).resolve().parents[4] / ".env"
 
 
@@ -18,16 +19,17 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     admin_username: str = "admin"
     admin_password: str = "admin123"
-    max_upload_mb: int = 50  # 单个源文件上传大小上限（MB）
-    # 允许跨域的前端来源（逗号分隔）；默认仅本机 Vite 开发服务器
+    max_upload_mb: int = 50  # Per-file upload size limit (MB)
+    # Allowed cross-origin frontend origins (comma-separated); default is only the local Vite dev server
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
-    # M4：OpenAI 兼容 LLM（仓库根 .env 注入；默认空表示未配置，/ai/chat 返回 503）。
-    # API Key 允许为空，便于连接无需鉴权的本地 OpenAI 兼容服务。
+    # M4: OpenAI-compatible LLM (injected from the repo-root .env; empty means not configured, /ai/chat returns 503).
+    # The API key may be empty, which makes local OpenAI-compatible services without auth easy to use.
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
-    # M5：embedding（语义血缘建议）。OpenAI / 阿里云 DashScope 兼容模式均可，
-    # 经 LangChain OpenAIEmbeddings 的 base_url 切换；默认空 = 语义层降级为纯启发式。
+    # M5: embeddings (semantic lineage suggestions). OpenAI / Alibaba Cloud DashScope compatible
+    # mode both work, switched by the base_url of LangChain OpenAIEmbeddings; empty by default
+    # means the semantic layer degrades to pure heuristics.
     embedding_base_url: str = ""
     embedding_api_key: str = ""
     embedding_model: str = ""
@@ -48,5 +50,5 @@ def files_dir(settings: Settings | None = None) -> Path:
 
 
 def resolve_storage(rel_path: str) -> Path:
-    """把 source_file.storage_path（相对 data_dir）解析为绝对路径。"""
+    """Resolve source_file.storage_path (relative to data_dir) to an absolute path."""
     return Path(get_settings().data_dir) / rel_path

@@ -1,4 +1,4 @@
-"""验收：JWT 登录、RBAC 角色守卫（viewer 无写入权限）、用户管理。"""
+"""Acceptance: JWT login, RBAC role guards (viewer has no write permission), user management."""
 
 from tests.conftest import ADMIN, create_user, login
 
@@ -19,7 +19,7 @@ def test_viewer_cannot_write(client):
     admin_headers = login(client)
     viewer_headers = create_user(client, admin_headers, "wangwu", "viewer")
 
-    # viewer：可读、不可写
+    # viewer: can read, cannot write
     assert client.get("/datasets", headers=viewer_headers).status_code == 200
     assert client.get("/users", headers=viewer_headers).status_code == 403
     r = client.post("/files", headers=viewer_headers,
@@ -52,7 +52,8 @@ def test_cors_only_allows_configured_origin(client):
     allowed = client.options(
         "/datasets", headers={"Origin": "http://localhost:5173", **preflight})
     assert allowed.headers["access-control-allow-origin"] == "http://localhost:5173"
-    # Bearer 认证不需要 credentials，关闭后不会回显凭证
+    # Bearer authentication does not need credentials; disabled, so credentials
+    # are never echoed
     assert "access-control-allow-credentials" not in allowed.headers
 
     evil = client.options(

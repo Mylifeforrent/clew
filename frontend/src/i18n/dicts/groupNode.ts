@@ -1,4 +1,4 @@
-/** groupNode.* 字典：折叠组占位节点。 */
+/** groupNode.* dictionary: collapsed group placeholder node. */
 export const zhGroupNode = {
   'groupNode.aria': '折叠分组 {label}，包含 {count} 个数据集，点击展开',
   'groupNode.expandTitle': '展开该分组',

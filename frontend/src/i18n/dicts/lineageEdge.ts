@@ -1,4 +1,4 @@
-/** lineageEdge.* 字典：血缘边 tooltip。 */
+/** lineageEdge.* dictionary: lineage edge tooltip. */
 export const zhLineageEdge = {
   'lineageEdge.derivedTitle': '同名字段匹配 · 推断',
   'lineageEdge.derivedNote': '由两端数据集的表级血缘按同名字段匹配推断，仅用于上下游追踪演示，不是库内血缘边。',

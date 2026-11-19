@@ -52,20 +52,20 @@ import { useI18n } from '../i18n';
 const nodeTypes = { dataset: DatasetNode, group: GroupNode };
 const edgeTypes = { lineage: LineageEdgeView };
 
-/** 追踪焦点激活时，未命中链路的连线统一压暗到该透明度 */
+/** When trace focus is active, links that miss the chain are dimmed to this opacity */
 const DIMMED_OPACITY = 0.15;
 const DIMMED_MARKER_ALPHA = 0.3;
 
-/** R16：边列表默认最多展示条数 */
+/** R16: default maximum number of edge-list rows */
 const EDGE_LIST_LIMIT = 20;
-/** R15：md 以下移动端引导浮层的已读记忆 */
+/** R15: read-state memory for the mobile hint overlay below md */
 const MOBILE_HINTS_STORAGE_KEY = 'clew.canvasMobileHintsRead';
 /**
- * R16：底部 Controls（3 个 27px 按钮 + 边框 ≈ 83px，面板边距 15px）占住左下角，
- * 边列表浮层上移至其正上方。
+ * R16: the bottom Controls (3 × 27px buttons + border ≈ 83px, panel margin 15px) occupy the bottom-left,
+ * so the edge-list overlay moves just above them.
  */
 const EDGE_LIST_PANEL_CLASS = '!mb-[104px]';
-/** R16：边列表展开体宽度，极窄画布留出面板边距（下划线 = calc 内空格） */
+/** R16: expanded edge-list width; very narrow canvases keep the panel margin (underscore = space inside calc) */
 const EDGE_LIST_WIDTH_CLASS = 'w-[min(300px,calc(100%_-_30px))]';
 
 type FlowNode = DatasetFlowNode | GroupFlowNode;
@@ -90,7 +90,7 @@ interface AggregateEdge {
   count: number;
 }
 
-/** R16：边列表行（库内血缘边 + 展示用标签 + 是否与追踪焦点字段直接相连） */
+/** R16: edge-list row (stored lineage edge + display label + whether it connects directly to the traced focus field) */
 interface EdgeListRow {
   edge: LineageEdge;
   fromLabel: string;
@@ -105,9 +105,9 @@ interface LineageCanvasProps {
   loading: boolean;
   error: string | null;
   canEdit: boolean;
-  /** R15.2：数据集列表（Workspace 侧栏数据源）是否在加载——空图首屏显示加载卡而非空态 */
+  /** R15.2: whether the dataset list (Workspace sidebar source) is loading — the empty first screen shows a loading card instead of the empty state */
   datasetsLoading: boolean;
-  /** R15.3：过滤前的父图边数——过滤把边清空但父图有边时显示过滤空态提示 */
+  /** R15.3: edge count of the parent graph before filtering — shows the filtered-empty hint when filtering clears all edges but the parent graph has some */
   totalEdgeCount: number;
   collapsedIds: ReadonlySet<string>;
   fieldsExpandedIds: ReadonlySet<string>;
@@ -121,8 +121,8 @@ interface LineageCanvasProps {
   onNotice: (message: string) => void;
   onRetry: () => void;
   /**
-   * AI 回答声明的高亮字段（mark_highlight 汇总）：seq 变化即应用或清除
-   * 追踪焦点；fields 为空数组表示显式清除（新一轮回答未声明高亮）。
+   * Highlight fields declared by AI answers (mark_highlight aggregate): a seq change applies or clears
+   * the trace focus; an empty fields array means an explicit clear (the new answer declared no highlights).
    */
   aiFocusFields: { seq: number; fields: AiHighlightItem[] } | null;
 }
@@ -145,8 +145,8 @@ function sameStringList(a: readonly string[], b: readonly string[]): boolean {
 }
 
 /**
- * R15：按边 data 判定追踪态（与重构前 effect 内的判定逐分支等价）：
- * derived 线按 linkKeys、字段级真实边按 edgeIds、表级真实边与聚合边恒为 dim。
+ * R15: determine trace state from edge data (branch-for-branch equivalent to the pre-refactor effect):
+ * derived lines use linkKeys, real field-level edges use edgeIds, real table-level and aggregate edges are always dim.
  */
 function edgeFocusStateOf(
   data: LineageEdgeData,
@@ -165,9 +165,9 @@ function edgeFocusStateOf(
 }
 
 /**
- * R15：把追踪态「浅补丁」到单条边上——只重写 focusState/stroke/opacity/
- * animated/marker/zIndex 这些会随染色变化的字段，data 内的回调引用原样保留。
- * 各分支数值与重构前 effect 的取值逐一对应。
+ * R15: "shallow-patch" the trace state onto a single edge — only rewrite focusState/stroke/opacity/
+ * animated/marker/zIndex, the fields that change with coloring; callback references inside data are kept as-is.
+ * Every branch value corresponds one-to-one with the pre-refactor effect.
  */
 function applyEdgeFocus(
   edge: LineageFlowEdge,
@@ -232,7 +232,7 @@ function applyEdgeFocus(
     };
   }
 
-  // kind 'table'：真实表级边与跨组聚合边
+  // kind 'table': real table-level edges and cross-group aggregate edges
   const isAggregate = Boolean(data.aggregateCount);
   return {
     ...edge,
@@ -283,17 +283,17 @@ export function LineageCanvas({
     FlowNode,
     LineageFlowEdge
   > | null>(null);
-  // 用户手动拖拽后的节点位置：折叠/刷新重建 nodes 时优先复用，避免被 dagre 重排覆盖
+  // Node positions after manual dragging: reused first when folding/refreshing rebuilds nodes, avoiding dagre overwrites
   const draggedPositions = useRef(new Map<string, { x: number; y: number }>());
   const [groups, setGroups] = useState<CollapsedGroup[]>([]);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const nextGroupId = useRef(1);
-  // 字段追踪焦点：点击字段行或 AI 回答声明后，沿字段级关联高亮整条上下游链路
+  // Field trace focus: after clicking a field row or an AI declaration, highlight the whole chain along field-level links
   const [focusFields, setFocusFields] = useState<FieldFocus[]>([]);
-  // R16：边列表浮层（默认收起，避免遮挡底部 Controls）
+  // R16: edge-list overlay (collapsed by default so it does not cover the bottom Controls)
   const [edgeListOpen, setEdgeListOpen] = useState(false);
   const [edgeListQuery, setEdgeListQuery] = useState('');
-  // R15：md 以下首次引导浮层（localStorage 记忆已读）
+  // R15: first-visit hint overlay below md (read state remembered in localStorage)
   const [mobileHintsDismissed, setMobileHintsDismissed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(MOBILE_HINTS_STORAGE_KEY) === '1';
@@ -302,7 +302,7 @@ export function LineageCanvas({
     }
   });
 
-  // 视图派生：表级血缘两端同名字段匹配线（非库内血缘，仅追踪演示用）
+  // View-derived: same-name field match lines from table-level lineage (not stored lineage; trace demo only)
   const derivedLinks = useMemo(
     () => (graph ? deriveFieldMatches(graph) : []),
     [graph],
@@ -315,8 +315,8 @@ export function LineageCanvas({
     [graph, derivedLinks, focusFields],
   );
 
-  // M2 遗留修复：种子或跳数变化都视为一张新图——清空拖拽位置与折叠组，
-  // 让 dagre 按新的子图规模重新布局，避免新旧节点位置叠加。
+  // M2 follow-up fix: a seed or hop change counts as a new graph — clear drag positions and groups
+  // so dagre re-layouts for the new subgraph size, avoiding old/new node position overlap.
   useEffect(() => {
     draggedPositions.current.clear();
     setGroups([]);
@@ -325,7 +325,7 @@ export function LineageCanvas({
     nextGroupId.current = 1;
   }, [seedDatasetId, hops]);
 
-  // 子图刷新后焦点字段已不存在时，剔除失效焦点（全部失效即清空追踪态）
+  // After a subgraph refresh, drop focus fields that no longer exist (all gone = clear the trace state)
   useEffect(() => {
     if (focusFields.length === 0 || !graph) return;
     const next = focusFields.filter((item) => {
@@ -337,7 +337,7 @@ export function LineageCanvas({
     if (next.length !== focusFields.length) setFocusFields(next);
   }, [graph, focusFields]);
 
-  // 子图刷新后剔除已不存在的分组成员
+  // After a subgraph refresh, drop group members that no longer exist
   useEffect(() => {
     if (!graph) {
       setGroups([]);
@@ -452,7 +452,7 @@ export function LineageCanvas({
     );
   }, [graph, nodes, selectedNodeIds, setEdges, setNodes, t]);
 
-  /** 追踪前保证链路字段可见：折叠的表自动展开，超出预览上限的字段列表自动展开 */
+  /** Ensure chain fields are visible before tracing: collapsed datasets expand automatically, and field lists beyond the preview limit expand automatically */
   const revealChainFields = useCallback(
     (targetChain: FieldChain) => {
       if (!graph) return;
@@ -474,8 +474,8 @@ export function LineageCanvas({
     [collapsedIds, fieldsExpandedIds, graph, onToggleCollapse, onToggleFields],
   );
 
-  // 追踪焦点镜像 ref：handleSelectField 不再依赖 focusFields state，
-  // 引用保持稳定 —— 节点 data 内的回调不随追踪态变化，是 memo 拆层的前提
+  // Mirror ref of the trace focus: handleSelectField no longer depends on focusFields state
+  // and its reference stays stable — callbacks in node data do not change with trace state, which is the premise of the memo split.
   const focusFieldsRef = useRef<FieldFocus[]>([]);
   focusFieldsRef.current = focusFields;
 
@@ -505,7 +505,7 @@ export function LineageCanvas({
         current[0].fieldName === nextFocus[0].fieldName;
       setFocusFields(nextFocus);
 
-      // 追踪前先保证链路上的字段行可见，否则链路线会被隐藏。
+      // Make sure the chain's field rows are visible before tracing, otherwise chain lines stay hidden.
       if (graph && !sameFocus) {
         const nextChain = computeFieldChain(graph, derivedLinks, nextFocus);
         if (nextChain) revealChainFields(nextChain);
@@ -535,7 +535,7 @@ export function LineageCanvas({
 
   const handlePaneClick = useCallback(() => setFocusFields([]), []);
 
-  // AI 回答声明的高亮字段：校验存在 → 自动展开链路 → 应用为追踪焦点
+  // Highlight fields declared by AI answers: validate existence → auto-expand the chain → apply as trace focus
   useEffect(() => {
     if (!aiFocusFields) return;
     if (aiFocusFields.fields.length === 0) {
@@ -610,8 +610,8 @@ export function LineageCanvas({
   );
 
   /**
-   * R15.1 拆层①：dagre 布局只在 graph / 折叠集合 / 字段展开集合变化时重跑
-   * （这三种因素决定节点尺寸与图结构）。追踪态、分组、拖拽都不再触发 dagre。
+   * R15.1 split layer ①: the dagre layout re-runs only when the graph / collapsed set / field-expanded set change
+   * (these three determine node sizes and graph structure). Trace state, grouping and dragging no longer trigger dagre.
    */
   const layoutPositions = useMemo(
     () =>
@@ -622,9 +622,9 @@ export function LineageCanvas({
   );
 
   /**
-   * R15.1 拆层②：构建不含追踪染色的节点/边集合（追踪前的「基线」视觉，
-   * 与重构前 chain 为空时的产物逐字段等价）。依赖里刻意不含 chain/hops——
-   * 点字段追踪、改跳数不再触发 O(V+E) 的集合重建与 setNodes/setEdges。
+   * R15.1 split layer ②: build node/edge collections without trace coloring (the "baseline" visual before tracing,
+   * field-for-field equivalent to the pre-refactor output with an empty chain). Dependencies deliberately exclude chain/hops —
+   * clicking a field trace or changing hops no longer triggers an O(V+E) collection rebuild and setNodes/setEdges.
    */
   const { baseNodes, baseEdges } = useMemo(() => {
     if (!graph) {
@@ -634,7 +634,7 @@ export function LineageCanvas({
 
     const present = new Set(graph.datasets.map((dataset) => dataset.id));
 
-    // 分组映射：成员数据集在视图层隐藏，跨组边聚合到组节点
+    // Group mapping: member datasets are hidden at the view layer; cross-group edges aggregate onto the group node
     const datasetGroups = new Map<string, CollapsedGroup>();
     groups.forEach((group) => {
       const memberIds = group.memberIds.filter((id) => present.has(id));
@@ -650,8 +650,8 @@ export function LineageCanvas({
       return { x: position?.x ?? 0, y: position?.y ?? 0 };
     };
 
-    // 02 §七#32：纯展示派生——字段是任一 AI 候选边端点时，字段行渲染 sparkles 徽标。
-    // 不改变任何边构建/选择逻辑。
+    // 02 §7 #32: display-only derivation — when a field is an endpoint of any AI candidate edge, the field row renders a sparkles badge.
+    // No edge-building/selection logic is changed.
     const aiEndpointFields = new Map<string, Set<string>>();
     graph.edges.forEach((edge) => {
       if (edge.source !== 'ai') return;
@@ -684,7 +684,7 @@ export function LineageCanvas({
           fieldsExpanded: fieldsExpandedIds.has(dataset.id),
           connectable: canEdit,
           aiEndpointFields: aiFields ? Array.from(aiFields) : [],
-          // 追踪染色字段：基线恒为空列表，命中时由拆层③浅补丁
+          // Trace-colored fields: the baseline is always an empty list; hits are shallow-patched by split layer ③
           chainFieldNames: [],
           focusedFieldNames: [],
           onToggleCollapse,
@@ -697,7 +697,7 @@ export function LineageCanvas({
       });
     });
 
-    // 组节点放在成员当前位置的包围盒中心；不参与 dagre 布局（最小实现取舍）。
+    // Group nodes sit at the center of members' current bounding box and do not participate in the dagre layout (minimal implementation trade-off).
     groups.forEach((group) => {
       const memberIds = group.memberIds.filter((id) => present.has(id));
       if (memberIds.length < 2) return;
@@ -728,7 +728,7 @@ export function LineageCanvas({
       });
     });
 
-    // 只渲染节点中实际可见字段的 handle/连线；部分折叠时隐藏字段的边同步隐藏
+    // Only render handles/edges for fields actually visible in the node; edges of fields hidden by partial folding are hidden too
     const fieldNames = new Map(
       graph.datasets.map((dataset) => [
         dataset.id,
@@ -772,7 +772,7 @@ export function LineageCanvas({
       }
 
       if (fromGroup || toGroup) {
-        // 跨组边聚合：同一对「组/数据集」只保留一条，展开组后可再操作具体边
+        // Cross-group edge aggregation: keep one link per "group/dataset" pair; concrete edges can be edited after expanding the group
         const sourceNode = fromGroup?.id ?? edge.from_dataset;
         const targetNode = toGroup?.id ?? edge.to_dataset;
         const key = `${sourceNode}-->${targetNode}`;
@@ -888,12 +888,12 @@ export function LineageCanvas({
       });
     });
 
-    // 视图派生连线：表级血缘两端同名字段匹配（非库内边，不可选中/编辑）
+    // View-derived links: same-name field matches on both ends of table-level lineage (not stored edges; not selectable/editable)
     derivedLinks.forEach((link) => {
       if (!present.has(link.from_dataset) || !present.has(link.to_dataset)) {
         return;
       }
-      // 分组内/跨组时推导线不画：跨组关系已由聚合边表达
+      // Do not draw derived lines inside/cross groups: cross-group relations are already expressed by aggregate edges
       if (
         datasetGroups.has(link.from_dataset) ||
         datasetGroups.has(link.to_dataset)
@@ -1010,9 +1010,9 @@ export function LineageCanvas({
   ]);
 
   /**
-   * R15.1 拆层③：追踪态染色——只对命中链路的节点 data 打浅补丁
-   * （chainFieldNames/focusedFieldNames），未命中节点保持对象引用不变，
-   * DatasetNode 的 memo 使其免于重渲染；无追踪态时直接复用基线集合。
+   * R15.1 split layer ③: trace coloring — shallow-patch only the data of nodes on the hit chain
+   * (chainFieldNames/focusedFieldNames); untouched nodes keep their object references,
+   * so DatasetNode's memo prevents re-rendering; without trace state the baseline collection is reused directly.
    */
   const finalNodes = useMemo(() => {
     if (!chain) return baseNodes;
@@ -1047,9 +1047,9 @@ export function LineageCanvas({
   }, [baseNodes, chain]);
 
   /**
-   * R15.1 拆层③（边）：按 focusState 重写染色相关字段（data.focusState/
-   * style/animated/markerEnd/zIndex）。边数组对象在追踪态激活时全量换新，
-   * 但不再触发 dagre 与节点重建。
+   * R15.1 split layer ③ (edges): rewrite coloring-related fields per focusState (data.focusState/
+   * style/animated/markerEnd/zIndex). Edge array objects are fully replaced when trace state activates,
+   * but dagre and node rebuilding are no longer triggered.
    */
   const finalEdges = useMemo(() => {
     if (!chain) return baseEdges;
@@ -1060,7 +1060,7 @@ export function LineageCanvas({
     });
   }, [baseEdges, chain]);
 
-  // 把 memo 产物同步进 React Flow 状态；引用未变时 effect 不触发，零状态写入
+  // Sync memo output into React Flow state; when references are unchanged the effect does not fire and nothing is written
   useEffect(() => {
     setNodes(finalNodes);
     setEdges(finalEdges);
@@ -1077,10 +1077,10 @@ export function LineageCanvas({
       });
     }, 100);
     return () => window.clearTimeout(timer);
-    // 过滤只改变边集合，不重置视口；种子/跳数/分组变化时重新适配
+    // Filtering only changes the edge set, not the viewport; seed/hop/group changes refit
   }, [flowInstance, seedDatasetId, hops, graph?.datasets.length, groups.length]);
 
-  // R15.5：React Flow 内置控件的 aria 文案本地化（v12 支持 ariaLabelConfig 覆盖）
+  // R15.5: localize aria copy of React Flow's built-in controls (v12 supports ariaLabelConfig overrides)
   const ariaLabelConfig = useMemo(
     () => ({
       'controls.ariaLabel': t('canvas.ariaControls'),
@@ -1096,12 +1096,12 @@ export function LineageCanvas({
     try {
       localStorage.setItem(MOBILE_HINTS_STORAGE_KEY, '1');
     } catch {
-      // localStorage 不可用（隐私模式等）时仅本次会话内不再显示
+      // When localStorage is unavailable (private mode, etc.), hide for this session only
     }
   }, []);
 
-  // R16：边列表数据源 = 当前过滤图（graph 即 Workspace 过滤后的结果），
-  // 含追踪焦点字段直接相连的边（置顶 + 高亮）；本地关键词过滤
+  // R16: edge-list data source = the current filtered graph (graph is the Workspace-filtered result),
+  // including edges directly connected to the traced focus field (pinned + highlighted); local keyword filtering
   const edgeListRows = useMemo(() => {
     if (!graph) return { rows: [] as EdgeListRow[], truncated: false };
     const tableLevel = t('canvas.edgeListTableLevel');
@@ -1127,7 +1127,7 @@ export function LineageCanvas({
             row.toLabel.toLowerCase().includes(query),
         )
       : rows;
-    // sort 在现代 JS 引擎稳定：相连边置顶，其余保持原序
+    // sort is stable in modern JS engines: connected edges first, the rest keep their order
     const sorted = [...matching].sort(
       (a, b) => Number(b.connectedToFocus) - Number(a.connectedToFocus),
     );
@@ -1139,7 +1139,7 @@ export function LineageCanvas({
 
   const handleEdgeListSelect = useCallback(
     (edge: LineageEdge) => {
-      // 与画布点边同链路：清追踪态 → 打开 EdgeDetailPanel
+      // Same flow as clicking an edge on the canvas: clear trace state → open EdgeDetailPanel
       setFocusFields([]);
       onSelectEdge(edge);
     },
@@ -1156,7 +1156,7 @@ export function LineageCanvas({
   const showFilteredEmptyHint =
     Boolean(graph) && filteredEdgeCount === 0 && totalEdgeCount > 0;
 
-  // R15.2：首屏数据集列表加载中时显示加载卡，不得闪现「请选择数据集」空态
+  // R15.2: show a loading card while the first-screen dataset list loads; never flash the "select a dataset" empty state
   if (!graph && !loading && !error && datasetsLoading) {
     return (
       <div className="relative flex h-full min-h-[560px] items-center justify-center overflow-hidden bg-page bg-dot-grid bg-grid-24">
@@ -1318,7 +1318,7 @@ export function LineageCanvas({
             </div>
           </Panel>
 
-          {/* R15.3：过滤把边清空但父图有边时的空态提示 */}
+          {/* R15.3: empty-state hint when filtering cleared all edges but the parent graph has some */}
           {showFilteredEmptyHint && (
             <Panel position="top-center" className="!mt-3">
               <div className="flex items-center gap-2 rounded-full border border-line bg-card/90 px-3 py-1.5 text-[12px] text-ink-muted shadow-float">
@@ -1346,7 +1346,7 @@ export function LineageCanvas({
             </div>
           </Panel>
 
-          {/* R15.4：md 以下首次进入引导（localStorage 记忆已读后不再出现） */}
+          {/* R15.4: first-visit hint below md (hidden once read state is remembered in localStorage) */}
           {!mobileHintsDismissed && (
             <Panel position="bottom-center" className="!mb-2 md:hidden">
               <div className="flex max-w-[92vw] flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg border border-line bg-card/95 px-3 py-1.5 font-mono text-[11px] text-ink-muted shadow-float">
@@ -1377,7 +1377,7 @@ export function LineageCanvas({
             </Panel>
           )}
 
-          {/* R16：边列表次入口（默认收起；位于底部 Controls 正上方） */}
+          {/* R16: secondary edge-list entry (collapsed by default; sits directly above the bottom Controls) */}
           {(filteredEdgeCount > 0 || totalEdgeCount > 0) && (
             <Panel
               position="bottom-left"

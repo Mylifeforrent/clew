@@ -1,11 +1,12 @@
-"""血缘边人工编辑 API（M3，editor+）。
+"""Manual lineage-edge editing API (M3, editor+).
 
-- ``POST /edges``：人工建边（source='manual'），自然键重复 409，混合字段边 400；
-- ``PATCH /edges/{id}``：改 transform/note/confidence；
-- ``DELETE /edges/{id}``：删除错边。
+- ``POST /edges``: create an edge manually (source='manual'); duplicate natural
+  key 409, mixed-field edge 400;
+- ``PATCH /edges/{id}``: change transform/note/confidence;
+- ``DELETE /edges/{id}``: delete a wrong edge.
 
-三类写操作均写 change_log（batch_id=NULL，actor=当前用户），
-供历史查看与标签回滚反做。
+All three write operations write change_log (batch_id=NULL, actor=current
+user), for history browsing and tag-rollback reversal.
 """
 
 import sqlite3
@@ -39,27 +40,28 @@ def _ensure_refs(conn, from_dataset: str, from_field: str | None,
     for dataset_id in dict.fromkeys((from_dataset, to_dataset)):
         if conn.execute("SELECT 1 FROM dataset WHERE id=?",
                         (dataset_id,)).fetchone() is None:
-            raise HTTPException(404, f"数据集「{dataset_id}」不存在")
+            raise HTTPException(404, f"Dataset \"{dataset_id}\" does not exist")
     for dataset_id, field_name in ((from_dataset, from_field),
                                    (to_dataset, to_field)):
         if field_name is not None and conn.execute(
                 "SELECT 1 FROM field WHERE dataset_id=? AND name=?",
                 (dataset_id, field_name)).fetchone() is None:
-            raise HTTPException(404, f"字段「{dataset_id}.{field_name}」不存在")
+            raise HTTPException(404, f"Field \"{dataset_id}.{field_name}\" does not exist")
 
 
 @router.post("/edges", status_code=201)
 def create_edge(body: EdgeCreate, user: dict = Depends(require_role("editor"))):
-    """人工新增血缘边；同自然键唯一，字段级/表级必须二选一。"""
+    """Manually add a lineage edge; unique by natural key, field-level/table-level must be one or the other."""
     from_dataset = _clean(body.from_dataset)
     to_dataset = _clean(body.to_dataset)
     if not from_dataset or not to_dataset:
-        raise HTTPException(400, "from_dataset / to_dataset 必填")
+        raise HTTPException(400, "from_dataset / to_dataset are required")
     from_field = _clean(body.from_field)
     to_field = _clean(body.to_field)
     if bool(from_field) != bool(to_field):
         raise HTTPException(
-            400, "血缘边必须同时提供上下游字段（字段级）或都不提供（表级）")
+            400, "Lineage edges must provide both upstream and downstream fields"
+                 " (field-level) or neither (table-level)")
     transform = _clean(body.transform)
     note = _clean(body.note)
 
@@ -71,7 +73,8 @@ def create_edge(body: EdgeCreate, user: dict = Depends(require_role("editor"))):
             (from_dataset, from_field, to_dataset, to_field)).fetchone()
         if existing is not None:
             raise HTTPException(
-                409, "同一上下游自然键的血缘边已存在（边唯一，不变量#3）")
+                409, "A lineage edge with the same upstream/downstream natural key"
+                     " already exists (edges are unique; invariant #3)")
         timestamp = now()
         try:
             cur = conn.execute(
@@ -82,9 +85,10 @@ def create_edge(body: EdgeCreate, user: dict = Depends(require_role("editor"))):
                  body.confidence, "manual", note, user["username"],
                  user["username"], timestamp, timestamp))
         except sqlite3.IntegrityError:
-            # 并发/绕过预检时由唯一索引兜底
+            # A concurrent request/bypassed pre-check is caught by the unique index
             raise HTTPException(
-                409, "同一上下游自然键的血缘边已存在（边唯一，不变量#3）") from None
+                409, "A lineage edge with the same upstream/downstream natural key"
+                     " already exists (edges are unique; invariant #3)") from None
         row = _edge_row(conn, cur.lastrowid)
         log_change(
             conn, entity_kind="edge",
@@ -97,18 +101,18 @@ def create_edge(body: EdgeCreate, user: dict = Depends(require_role("editor"))):
 @router.patch("/edges/{edge_id}")
 def patch_edge(edge_id: int, body: EdgePatch,
                user: dict = Depends(require_role("editor"))):
-    """修改边的转换说明/备注/置信度（endpoints 与 source 不可改）。"""
+    """Change an edge's transform/note/confidence (endpoints and source are immutable)."""
     provided = body.model_fields_set
     if not provided:
         raise HTTPException(
-            400, "至少提供一个可编辑字段（transform / note / confidence）")
+            400, "Provide at least one editable field (transform / note / confidence)")
     if "confidence" in provided and body.confidence is None:
-        raise HTTPException(400, "confidence 不能为空（0~1）")
+        raise HTTPException(400, "confidence cannot be empty (0-1)")
 
     with get_db() as conn:
         row = _edge_row(conn, edge_id)
         if row is None:
-            raise HTTPException(404, f"血缘边 {edge_id} 不存在")
+            raise HTTPException(404, f"Edge {edge_id} does not exist")
         new_transform = (_clean(body.transform) if "transform" in provided
                          else row["transform"])
         new_note = _clean(body.note) if "note" in provided else row["note"]
@@ -136,11 +140,11 @@ def patch_edge(edge_id: int, body: EdgePatch,
 
 @router.delete("/edges/{edge_id}", status_code=204)
 def delete_edge(edge_id: int, user: dict = Depends(require_role("editor"))):
-    """删除一条错边；before 快照写入 change_log 以支持标签回滚恢复。"""
+    """Delete a wrong edge; write the before snapshot to change_log so a tag rollback can restore it."""
     with get_db() as conn:
         row = _edge_row(conn, edge_id)
         if row is None:
-            raise HTTPException(404, f"血缘边 {edge_id} 不存在")
+            raise HTTPException(404, f"Edge {edge_id} does not exist")
         before = edge_snapshot(row)
         conn.execute("DELETE FROM edge WHERE id=?", (edge_id,))
         log_change(

@@ -61,11 +61,11 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [hops, setHops] = useState(3);
 
   const [graph, setGraph] = useState<LineageGraph | null>(null);
-  // AI 对话返回的子图：优先于按选中数据集拉取的 graph 显示；
-  // 数据集/跳数/刷新变化时清空，回到常规子图逻辑。
+  // Subgraph returned by AI chat: takes precedence over the graph fetched for the selected dataset;
+  // cleared when the dataset/hops/refresh changes, falling back to the regular subgraph logic.
   const [aiGraph, setAiGraph] = useState<LineageGraph | null>(null);
-  // AI 回答声明的高亮字段（mark_highlight）：seq 区分每一轮回答，
-  // fields 为空数组表示新一轮回答未声明高亮（画布应清除追踪态）。
+  // Highlight fields declared by AI answers (mark_highlight): seq distinguishes each answer round;
+  // an empty fields array means the new round declared no highlights (the canvas should clear the trace state).
   const [aiFieldFocus, setAiFieldFocus] = useState<{
     seq: number;
     fields: AiHighlightItem[];
@@ -81,7 +81,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [fieldsExpandedIds, setFieldsExpandedIds] = useState<Set<string>>(
     () => new Set(),
   );
-  // 画布过滤条件（设计方案 §5.1：置信度 / 编辑来源）
+  // Canvas filter conditions (design §5.1: confidence / edit source)
   const [minConfidence, setMinConfidence] = useState(0);
   const [hideAiEdges, setHideAiEdges] = useState(false);
   const [confirmedOnly, setConfirmedOnly] = useState(false);
@@ -93,7 +93,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [previewSelection, setPreviewSelection] =
     useState<FieldSelection | null>(null);
 
-  // M3：新增边草稿、删除确认、版本抽屉、用户管理
+  // M3: new edge draft, delete confirmation, versions drawer, user management
   const [edgeDraft, setEdgeDraft] = useState<EdgeDraft | null>(null);
   const [pendingDeleteEdge, setPendingDeleteEdge] = useState<LineageEdge | null>(
     null,
@@ -102,12 +102,12 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [usersOpen, setUsersOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  // 导入向导（hi-fi 06）：入口仅 editor+ 渲染
+  // Import wizard (hi-fi 06): the entry is rendered only for editor+
   const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastSeq = useRef(1);
 
-  // 自动消失计时由 Toast 组件自管（错误级 8s + hover 暂停，评审 R18）
+  // The auto-dismiss timer is managed by the Toast component (8s for errors + hover pause, review R18)
   const showToast = useCallback((message: string, tone: ToastTone = 'info') => {
     setToast({ id: toastSeq.current, message, tone });
     toastSeq.current += 1;
@@ -115,7 +115,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
 
   const dismissToast = useCallback(() => setToast(null), []);
 
-  /** 统一应用一份 GraphPayload：常规子图与 AI 出图共用同一套画布状态清理。 */
+  /** Apply a GraphPayload uniformly: the regular subgraph and AI-generated graph share one canvas state cleanup path. */
   const applyGraph = useCallback((payload: LineageGraph) => {
     setGraph(payload);
     setCollapsedIds((current) => {
@@ -181,7 +181,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
   }, [session.access_token, datasetsReloadKey]);
 
   useEffect(() => {
-    // 数据集、跳数或刷新变化时退出 AI 出图覆盖，回到常规子图逻辑。
+    // Exit the AI-graph override when the dataset, hops or refresh changes, returning to regular subgraph logic.
     setAiGraph(null);
     if (!selectedDatasetId) {
       setGraph(null);
@@ -216,7 +216,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     return () => controller.abort();
   }, [applyGraph, session.access_token, selectedDatasetId, hops, graphReloadKey]);
 
-  /** 画布最终展示的图：AI 返回的子图优先，直到用户改变数据集/跳数或刷新。 */
+  /** The graph finally shown on the canvas: the AI-returned subgraph wins until the user changes the dataset/hops or refreshes. */
   const displayGraph = aiGraph ?? graph;
 
   const visibleDatasets = useMemo(() => {
@@ -232,7 +232,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     );
   }, [datasets, search]);
 
-  // 过滤只影响画布/边列表，不改动后端返回的子图数据
+  // Filtering only affects the canvas/edge list; the backend-returned subgraph data is untouched
   const filteredGraph = useMemo(() => {
     if (!displayGraph) return null;
     if (!minConfidence && !hideAiEdges && !confirmedOnly) return displayGraph;
@@ -248,7 +248,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
       : { ...displayGraph, edges };
   }, [displayGraph, minConfidence, hideAiEdges, confirmedOnly]);
 
-  // 边详情使用未过滤的原始子图，避免画布过滤把正在查看的边藏掉
+  // Edge details use the unfiltered original subgraph so canvas filters do not hide the edge being viewed
   const selectedEdge = useMemo(
     () => displayGraph?.edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [displayGraph, selectedEdgeId],
@@ -327,7 +327,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     return null;
   }, [selectedField, selectedDatasetId]);
 
-  /** AI 回答联动：切换子图并把 mark_highlight 声明交给画布做追踪高亮。 */
+  /** AI answer sync: switch the subgraph and hand mark_highlight declarations to the canvas for trace highlighting. */
   const handleAiGraph = useCallback(
     (payload: LineageGraph | null, highlights?: AiHighlightItem[]) => {
       aiFocusSeq.current += 1;
@@ -437,7 +437,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     [showToast],
   );
 
-  /** 对话内 suggest_lineage 落库候选后：刷新画布（靛蓝虚线候选边）并提示。 */
+  /** After suggest_lineage saves candidates inside the chat: refresh the canvas (indigo dashed candidate edges) and notify. */
   const handleAiSuggested = useCallback(
     (count: number) => {
       refreshGraph();
@@ -446,7 +446,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     [refreshGraph, showToast, t],
   );
 
-  /** 回答内证据锚点点击：把该字段应用为画布追踪焦点（seq 递增触发应用）。 */
+  /** Evidence anchor click in an answer: apply that field as the canvas trace focus (an increasing seq triggers the application). */
   const handleAiFieldFocus = useCallback((dataset: string, field: string) => {
     aiFocusSeq.current += 1;
     setAiFieldFocus({
@@ -459,8 +459,8 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     refreshGraph();
   }, [refreshGraph]);
 
-  // R13：浮层开关/关闭回调统一 useCallback 稳定引用，
-  // 抽屉/模态的 effect 不得因父渲染重挂而抢焦点。
+  // R13: overlay open/close callbacks are stabilized with useCallback so drawer/modal
+  // effects never re-attach due to parent renders and steal focus.
   const handleOpenAi = useCallback(() => setAiOpen(true), []);
   const handleOpenImport = useCallback(() => setImportOpen(true), []);
   const handleOpenVersions = useCallback(() => setVersionsOpen(true), []);
@@ -491,7 +491,7 @@ export function Workspace({ session, onLogout }: WorkspaceProps) {
     setGraphReloadKey((value) => value + 1);
   }, []);
 
-  /** AI 出图时若原选中数据集不在子图内，用子图内节点作为画布种子。 */
+  /** When the AI graph is shown, if the previously selected dataset is not in the subgraph, use a node from it as the canvas seed. */
   const canvasSeedId = useMemo(() => {
     if (!aiGraph) return selectedDatasetId;
     const preferred = aiFocus?.dataset;

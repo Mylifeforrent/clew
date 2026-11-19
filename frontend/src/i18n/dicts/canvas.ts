@@ -1,4 +1,4 @@
-/** canvas.* 字典：血缘画布主体（空态/工具浮条/加载与错误/连线 aria）。 */
+/** canvas.* dictionary: lineage canvas body (empty state / floating toolbar / loading & errors / edge aria). */
 export const zhCanvas = {
   'canvas.groupNameJoin': '、',
   'canvas.groupLabelMore': '{names} 等',

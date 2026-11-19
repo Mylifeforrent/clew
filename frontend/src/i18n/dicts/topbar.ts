@@ -1,4 +1,4 @@
-/** topbar.* 字典：顶栏。 */
+/** topbar.* dictionary: top bar. */
 export const zhTopbar = {
   'topbar.workspacePath': '工作台 / 血缘画布',
   'topbar.pageTitle': '血缘画布',

@@ -1,16 +1,21 @@
-"""版本管理：按导入批次/业务标签回滚（change_log 反做）、变更查询与标签 diff。
+"""Version management: rollback by import batch/business tag (change_log reversal), change queries and tag diffs.
 
-回滚规则（数据模型 §七）：added→删除、updated→恢复 before、deleted→重插 before，
-按日志 id 倒序执行。反做函数对「行已不存在/已存在」均安全；标签回滚还会跳过已被
-先前回滚覆盖的日志（批次已回滚或落在 rollback_record 区间内），因此同一标签重复
-回滚（幂等）既不改变最终状态，也返回 0。
+Rollback rules (data model §7): added→delete, updated→restore before,
+deleted→reinsert before, executed in descending log-id order. The reversal
+functions are safe both when a row "no longer exists" and when it "already
+exists"; tag rollback also skips logs already covered by a previous rollback
+(batch already rolled back, or the log falls inside a rollback_record range),
+so rolling back to the same tag repeatedly (idempotent) neither changes the
+final state nor returns anything but 0.
 
-留痕策略：
-- 批次回滚沿用 import_batch.rolled_back_at/by；
-- 标签回滚写 rollback_record（不写 change_log，避免下次回滚反做回滚日志），
-  并把被反做日志所属的 import_batch 同样标记 rolled_back_at/by（标签边界
-  不会落在单个批次内部，因此这些批次的数据已被完整反做）；
-- 标签创建以 version_tag.created_by/created_at 留痕，标签永久保留。
+Audit strategy:
+- batch rollback reuses import_batch.rolled_back_at/by;
+- tag rollback writes rollback_record (no change_log, to avoid the next
+  rollback reversing the rollback log) and also marks the import_batch that
+  owns the reversed logs as rolled_back_at/by (tag boundaries never fall
+  inside a single batch, so those batches' data was fully reversed);
+- tag creation leaves a trail in version_tag.created_by/created_at and the tag
+  is retained permanently.
 """
 
 import sqlite3
@@ -24,12 +29,14 @@ def _now() -> str:
 
 
 def _edge_created_by(conn, snap: dict, actor: str, log_id: int) -> str:
-    """恢复已删除边时还原原始创建者。
+    """Restore the original creator when restoring a deleted edge.
 
-    快照只含业务列（``EDGE_SNAPSHOT_KEYS``），不含审计列；原始创建者从该
-    自然键在本次 ``deleted`` 日志之前、最近一条 ``added`` 日志的 actor 还原
-    （同一自然键被删除后重建时取重建者）。日志缺失（历史被裁剪）时退回本次
-    回滚执行者，保证 ``created_by`` 不为 NULL。
+    The snapshot contains only business columns (``EDGE_SNAPSHOT_KEYS``), not
+    audit columns; the original creator is restored from the actor of the most
+    recent ``added`` log for this natural key before this ``deleted`` log (when
+    the same natural key was deleted and recreated, use the recreator). When the
+    log is missing (history was trimmed), fall back to the current rollback
+    executor so ``created_by`` is never NULL.
     """
     if snap.get("created_by"):
         return str(snap["created_by"])
@@ -43,15 +50,17 @@ def _edge_created_by(conn, snap: dict, actor: str, log_id: int) -> str:
 
 
 def _restore_row(conn, table: str, snap: dict, actor: str, log_id: int) -> None:
-    """重插一行（deleted 的反做）。
+    """Reinsert a row (reversal of deleted).
 
-    使用幂等写法：目标行已存在时更新为快照值，保证重复回滚安全；
-    边的自然键含 NULL，SQLite 的部分唯一索引无法作为 ON CONFLICT 目标，
-    因此先查后写。
+    Uses an idempotent form: if the target row already exists, update it to the
+    snapshot values, keeping repeated rollbacks safe; edge natural keys contain
+    NULL and SQLite's partial unique index cannot be an ON CONFLICT target, so
+    read before writing.
 
-    审计列：``created_by`` 优先还原原始创建者（见 ``_edge_created_by``），
-    已存在的非空值不被覆盖、NULL 时回填；``updated_by`` 记录本次恢复/回滚
-    的执行者。
+    Audit columns: ``created_by`` prefers the original creator (see
+    ``_edge_created_by``); an existing non-null value is not overwritten and
+    NULL is backfilled; ``updated_by`` records the executor of this
+    restore/rollback.
     """
     if table == "dataset":
         conn.execute(
@@ -81,7 +90,7 @@ def _restore_row(conn, table: str, snap: dict, actor: str, log_id: int) -> None:
             (snap["from_dataset"], snap["from_field"], snap["to_dataset"],
              snap["to_field"])).fetchone()
         if existing is not None:
-            # 已存在的非空 created_by 不被覆盖；历史 NULL 回填原始创建者
+            # An existing non-null created_by is not overwritten; a historical NULL is backfilled with the original creator
             conn.execute(
                 "UPDATE edge SET transform=?, confidence=?, source=?, note=?,"
                 " created_by=COALESCE(created_by, ?), updated_by=?,"
@@ -135,7 +144,7 @@ def _restore_update(conn, table: str, snap: dict) -> None:
 
 
 def _reverse_log(conn, log, actor: str) -> None:
-    """反做一条 change_log；批次回滚与标签回滚共用。"""
+    """Reverse one change_log entry; shared by batch rollback and tag rollback."""
     kind, op = log["entity_kind"], log["op"]
     before = load_snapshot(log["before"])
     after = load_snapshot(log["after"])
@@ -152,27 +161,30 @@ def _reverse_logs(conn, logs, conflict_message: str, actor: str) -> None:
         for log in logs:
             _reverse_log(conn, log, actor)
     except sqlite3.IntegrityError as e:
-        # 外键/唯一约束冲突：抛 ValueError 由路由层转 409（get_db 回滚整个事务）
+        # Foreign-key/unique-constraint conflict: raise ValueError so the route
+        # layer turns it into 409 (get_db rolls back the whole transaction)
         raise ValueError(conflict_message) from e
 
 
 def rollback_batch(batch_id: int, actor: str) -> int:
-    """反做一个导入批次的全部变更，返回反做的日志条数。"""
+    """Reverse all changes of one import batch and return the number of reversed logs."""
     with get_db() as conn:
         batch = conn.execute("SELECT * FROM import_batch WHERE id=?",
                              (batch_id,)).fetchone()
         if batch is None:
-            raise LookupError(f"导入批次 {batch_id} 不存在")
+            raise LookupError(f"Import batch {batch_id} does not exist")
         if batch["rolled_back_at"]:
             raise ValueError(
-                f"批次 v{batch['version_no']} 已于 {batch['rolled_back_at']} 回滚")
+                f"Batch v{batch['version_no']} was already rolled back at"
+                f" {batch['rolled_back_at']}")
 
         logs = conn.execute(
             "SELECT * FROM change_log WHERE batch_id=? ORDER BY id DESC",
             (batch_id,)).fetchall()
         _reverse_logs(
             conn, logs,
-            "存在后续批次引用本批字段的边，请先回滚更晚的批次", actor)
+            "Edges from a later batch reference fields in this batch;"
+            " roll back the later batches first", actor)
 
         conn.execute(
             "UPDATE import_batch SET rolled_back_at=?, rolled_back_by=? WHERE id=?",
@@ -180,7 +192,7 @@ def rollback_batch(batch_id: int, actor: str) -> int:
         return len(logs)
 
 
-# ---------- 版本标签 ----------
+# ---------- Version tags ----------
 
 def _tag_row(conn, name: str):
     return conn.execute("SELECT * FROM version_tag WHERE name=?",
@@ -188,13 +200,14 @@ def _tag_row(conn, name: str):
 
 
 def create_tag(name: str, note: str | None, actor: str) -> dict:
-    """在 change_log 当前末尾打业务标签。"""
+    """Place a business tag at the current end of change_log."""
     with get_db() as conn:
         if _tag_row(conn, name) is not None:
-            raise ValueError(f"版本标签「{name}」已存在")
+            raise ValueError(f"Version tag \"{name}\" already exists")
         change_seq = conn.execute(
             "SELECT COALESCE(MAX(id), 0) AS n FROM change_log").fetchone()["n"]
-        # batch_id 仅作信息性记录（回滚不依赖它）：取当前最近导入批次
+        # batch_id is informational only (rollback does not depend on it): take
+        # the most recent import batch
         batch_id = conn.execute(
             "SELECT MAX(id) AS n FROM import_batch").fetchone()["n"]
         conn.execute(
@@ -213,10 +226,11 @@ def list_tags() -> list[dict]:
 
 
 def _already_reversed(conn: sqlite3.Connection, log: sqlite3.Row) -> bool:
-    """该日志是否已被更早的回滚反做过（重复回滚时应跳过）。
+    """Whether this log was already reversed by an earlier rollback (skip it on repeated rollback).
 
-    两种留痕覆盖同一判定：批次日志看 ``import_batch.rolled_back_at``；
-    人工日志看 ``rollback_record`` 的反做区间 ``(from_change_seq, to_change_seq]``。
+    Two audit trails cover the same decision: batch logs look at
+    ``import_batch.rolled_back_at``; manual logs look at the reversed range
+    ``(from_change_seq, to_change_seq]`` in ``rollback_record``.
     """
     if log["batch_id"] is not None:
         row = conn.execute(
@@ -232,17 +246,19 @@ def _already_reversed(conn: sqlite3.Connection, log: sqlite3.Row) -> bool:
 
 
 def rollback_to_tag(name: str, actor: str) -> int:
-    """反做标签 change_seq 之后的全部 change_log（含人工编辑），返回条数。
+    """Reverse all change_log entries after the tag's change_seq (including manual edits) and return the count.
 
-    反做不写 change_log；已被先前回滚反做过的日志跳过（``_already_reversed``），
-    因此重复回滚既是无副作用的、也返回 0——与 API 契约 §12.4 一致。
-    每次调用追加一条 rollback_record 审计。被反做日志所属的导入批次同步写
-    ``rolled_back_at/by``，使版本抽屉的批次状态与数据现状一致。
+    Reversal does not write change_log; logs already reversed by a previous
+    rollback are skipped (``_already_reversed``), so a repeated rollback has no
+    side effects and returns 0 — consistent with API contract §12.4. Each call
+    appends one rollback_record audit row. The import batches owning the
+    reversed logs also get ``rolled_back_at/by`` so the version drawer's batch
+    status matches the current data.
     """
     with get_db() as conn:
         tag = _tag_row(conn, name)
         if tag is None:
-            raise LookupError(f"版本标签「{name}」不存在")
+            raise LookupError(f"Version tag \"{name}\" does not exist")
         to_seq = conn.execute(
             "SELECT COALESCE(MAX(id), 0) AS n FROM change_log").fetchone()["n"]
         logs = conn.execute(
@@ -251,10 +267,13 @@ def rollback_to_tag(name: str, actor: str) -> int:
         pending = [log for log in logs if not _already_reversed(conn, log)]
         _reverse_logs(
             conn, pending,
-            "回滚遇引用完整性冲突：请先删除晚于该标签、引用将被删除字段的血缘边",
+            "Rollback hit a referential-integrity conflict: first delete lineage"
+            " edges created after this tag that reference fields about to be deleted",
             actor)
-        # 被反做日志所属的批次数据已整体回到标签时点，同步标记批次状态，
-        # 避免版本抽屉把已失效批次继续显示为「有效」。重复回滚保留首次时间。
+        # The batches owning the reversed logs have effectively returned to the
+        # tag point, so mark their status too, preventing the version drawer from
+        # still showing stale batches as "active". Repeated rollbacks keep the
+        # first timestamp.
         batch_ids = sorted({log["batch_id"] for log in pending
                             if log["batch_id"] is not None})
         if batch_ids:
@@ -273,22 +292,25 @@ def rollback_to_tag(name: str, actor: str) -> int:
 
 
 def tag_diff(from_name: str, to_name: str) -> dict:
-    """两个业务标签之间的净变更（change_log 区间按 entity_key 归并）。
+    """Net changes between two business tags (change_log range merged by entity_key).
 
-    - 区间内首次出现的 before 作为区间起点状态，最后一次 after 作为终点状态；
-    - 起点/终点均为空（区间内先增后删）视为无净变更；
-    - 净增/净删/值变化分别计入 added/deleted/updated。
+    - The first before in the range is the range-start state; the last after is
+      the end state;
+    - both start and end empty (added then deleted inside the range) means no
+      net change;
+    - net additions/deletions/value changes count as added/deleted/updated.
     """
     with get_db() as conn:
         from_tag = _tag_row(conn, from_name)
         to_tag = _tag_row(conn, to_name)
     if from_tag is None:
-        raise LookupError(f"版本标签「{from_name}」不存在")
+        raise LookupError(f"Version tag \"{from_name}\" does not exist")
     if to_tag is None:
-        raise LookupError(f"版本标签「{to_name}」不存在")
+        raise LookupError(f"Version tag \"{to_name}\" does not exist")
     if from_tag["change_seq"] > to_tag["change_seq"]:
         raise ValueError(
-            f"起始标签「{from_name}」晚于结束标签「{to_name}」，无法计算 diff")
+            f"Start tag \"{from_name}\" is later than end tag \"{to_name}\";"
+            " cannot compute the diff")
 
     with get_db() as conn:
         logs = conn.execute(
@@ -300,7 +322,7 @@ def tag_diff(from_name: str, to_name: str) -> dict:
         key = (log["entity_kind"], log["entity_key"])
         entry = states.get(key)
         if entry is None:
-            # 区间首条日志的 before 代表区间起点状态
+            # The first log's before represents the range-start state
             entry = {"before": load_snapshot(log["before"]), "after": None}
             states[key] = entry
         entry["after"] = load_snapshot(log["after"])
@@ -334,7 +356,7 @@ def tag_diff(from_name: str, to_name: str) -> dict:
 
 
 def get_snapshot() -> dict:
-    """当前血缘状态快照（用于回滚验证与基础浏览）。"""
+    """Current lineage state snapshot (for rollback verification and basic browsing)."""
     with get_db() as conn:
         datasets = [dict(r) for r in conn.execute("SELECT id, name FROM dataset ORDER BY id")]
         fields = [dict(r) for r in conn.execute(

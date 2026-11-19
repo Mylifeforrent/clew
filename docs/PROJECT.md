@@ -1,126 +1,126 @@
 # Clew
 
-字段级 AI 数据血缘工具（2026-10 起定名 **Clew**，取「线团/线索」之意——clue 的词源即 clew：走出迷宫的那团线；早期工作名 LineageLite）。
+A field-level AI data lineage tool (named **Clew** as of 2026-10, meaning "ball of thread / clue" — the word clue derives from clew: the thread that leads you out of the maze; formerly working name LineageLite).
 
 > Clew — field-level data lineage, visualized. Follow the thread out of the data maze.
 
-基于对两个开源血缘方案（OpenMetadata、DataHub）的源码调研，设计一个面向小团队的轻量级方案：**字段级血缘 + 源文件精确定位回源核查 + 版本化 + AI 辅助**。
+Based on source-code research into two open-source lineage solutions (OpenMetadata and DataHub), we design a lightweight solution for small teams: **field-level lineage + precise source file locator with verification against the actual file + versioning + AI assistance**.
 
-> 本文件是项目的详细说明（原仓库根 README）。产品展示首页见 [README](../README.md)（英文默认）· [README.zh](../README.zh.md)（中文）。
-> 说明：以下保留原 README 的结构与措辞；M5（LangChain、SSE 流式、描述草稿、对话内建议、MCP）的细节见根 README 与 [AI 模块演进规划](./03_dev/07_AI模块演进规划.md)。
-> 以下命令除特别说明外均在仓库根执行。
+> This file is the detailed project description (formerly the repository root README). For the product showcase home, see [README](../README.md) (English by default) · [README.zh](../README.zh.md) (Chinese).
+> Note: the structure and wording of the original README are preserved below; for details on M5 (LangChain, SSE streaming, description drafts, in-conversation suggestions, MCP), see the root README and the [AI Module Evolution Plan](./03_dev/07_ai-module-evolution-plan.md).
+> Unless otherwise noted, the commands below are run from the repository root.
 
-## 文档导航
+## Documentation Navigation
 
-所有设计文档与原型统一组织在 [`docs/`](./README.md) 下（阅读顺序与文档-代码对应关系见 [docs/README.md](./README.md)）：
+All design documents and prototypes are organized under [`docs/`](./README.md) (see [docs/README.md](./README.md) for the reading order and the document-to-code mapping):
 
-| 文档 | 内容 |
+| Document | Contents |
 |---|---|
-| [设计方案](./01_design/Clew-设计方案.md) | 总体技术方案：两大开源方案调研结论、导入格式规范、存储与版本管理（2026-11 起：SQLite 事实源 + Kùzu 血缘图双库）、系统级血缘（§4.7）、可视化、AI 对话、里程碑、已确认决策记录 |
-| [业务模型](./01_design/Clew-业务模型.md) | 业务层模型：定位与价值主张、干系人与角色、核心领域概念（含系统）、业务流程、业务规则与不变量 |
-| [数据模型](./01_design/Clew-数据模型.md) | 数据层模型：ER 图、SQLite 13 张业务表 + graph_state 定义、派生视图（含 v_system_edge）、JSON 结构、标识命名规则、索引与版本重建规则、§十 Kùzu 图 schema（含 System/LINEAGE_SYSTEM）与双写一致性 |
-| [低保真原型](./02_prototype/clew-lofi-prototype.html) | 6 个界面的线框原型（浏览器直接打开，已确认的 UI 基线） |
-| [高保真可点击原型](./02_prototype/clew-hifi-prototype.html) | 2026-11 双库方案配套演示：mock 数据、7 个可交互界面（血缘画布/回源预览/导入/AI 对话/版本/RBAC/架构总览） |
-| [系统级血缘原型](./02_prototype/clew-system-lineage-prototype.html) | 2026-11 系统级血缘设计配套：系统/数据集/字段三级视图、显式边与投影边、证据下钻；AI 助手抽屉（系统级工具调用、出图联动、建议边确认，交互设计见 [04_hifi/07](./04_hifi/07_系统级AI助手.md)） |
+| [Design Plan](./01_design/clew-design-proposal.md) | Overall technical design: research findings on the two open-source solutions, import format specification, storage and version management (since 2026-11: SQLite source of truth + Kùzu lineage graph dual database), system-level lineage (§4.7), visualization, AI chat, milestones, confirmed decision records |
+| [Business Model](./01_design/clew-business-model.md) | Business-layer model: positioning and value proposition, stakeholders and roles, core domain concepts (including systems), business processes, business rules and invariants |
+| [Data Model](./01_design/clew-data-model.md) | Data-layer model: ER diagram, definitions for 13 SQLite business tables + graph_state, derived views (including v_system_edge), JSON structures, identifier naming rules, index and version rebuild rules, §10 Kùzu graph schema (including System/LINEAGE_SYSTEM) and dual-write consistency |
+| [Lo-fi Prototype](./02_prototype/clew-lofi-prototype.html) | Wireframe prototype of 6 screens (open directly in a browser; the confirmed UI baseline) |
+| [Hi-fi Clickable Prototype](./02_prototype/clew-hifi-prototype.html) | Demo accompanying the 2026-11 dual-database plan: mock data, 7 interactive screens (lineage canvas/source preview/import/AI chat/versions/RBAC/architecture overview) |
+| [System-Level Lineage Prototype](./02_prototype/clew-system-lineage-prototype.html) | Accompanying the 2026-11 system-level lineage design: system/dataset/field three-level views, explicit and projected edges, evidence drill-down; AI assistant drawer (system-level tool calls, graph linking, suggested edge confirmation; see [04_hifi/07](./04_hifi/07_system-level-ai-assistant.md) for the interaction design) |
 
-## 目录结构
+## Directory Structure
 
 ```
 clew/
-├── backend/       # 正式后端项目（自 prototype/backend 移植）：M1 数据底座 + M2 图查询/回源预览 + M3 编辑/标注/版本标签 + M4 AI（FastAPI + SQLite + uv）
+├── backend/       # Official backend project (ported from prototype/backend): M1 data foundation + M2 graph query/source preview + M3 editing/annotation/version tags + M4 AI (FastAPI + SQLite + uv)
 │   ├── src/clew/
 │   ├── tests/
 │   ├── pyproject.toml
 │   └── uv.lock
-├── frontend/      # 正式前端项目（自 prototype/frontend 移植）：hi-fi 视觉 + 导入向导（React + TS + Vite + Tailwind + @xyflow/react）
+├── frontend/      # Official frontend project (ported from prototype/frontend): hi-fi visuals + import wizard (React + TS + Vite + Tailwind + @xyflow/react)
 │   ├── src/
 │   │   ├── components/
 │   │   └── lib/
 │   ├── package.json
 │   └── vite.config.ts
-├── docs/          # 设计文档（01_design）、低保真原型（02_prototype）、开发文档（03_dev）、高保真规范（04_hifi），索引见 docs/README.md
-├── scripts/demo/  # README 演示数据的准备与 Playwright 录制脚本（GIF 生成）
-├── prototype/     # 原型工作区（backend/frontend 的历史基线），仅作参照保留，后续功能在 backend/ 与 frontend/ 演进
-├── README.md      # 产品展示首页（英文默认）
-├── README.zh.md   # 产品展示首页（中文）
-└── .env.example   # 环境配置模板（复制为仓库根 .env 使用，.env 不入库）
+├── docs/          # Design documents (01_design), lo-fi prototype (02_prototype), development documents (03_dev), hi-fi spec (04_hifi); see docs/README.md for the index
+├── scripts/demo/  # Scripts for preparing README demo data and recording with Playwright (GIF generation)
+├── prototype/     # Prototype workspace (historical baseline for backend/frontend), kept for reference only; future features evolve in backend/ and frontend/
+├── README.md      # Product showcase home (English by default)
+├── README.zh.md   # Product showcase home (Chinese)
+└── .env.example   # Environment configuration template (copy to the repository root .env; .env is not committed)
 ```
 
-正式前端 `frontend/` 的开发服务器通过 Vite proxy 将 `/auth`、`/datasets`、`/lineage`、`/fields`、`/edges`、`/annotations`、`/changes`、`/version-tags`、`/users`、`/files`、`/import`、`/ai` 转发到 `http://127.0.0.1:8000`。
+The development server of the official frontend `frontend/` uses the Vite proxy to forward `/auth`, `/datasets`, `/lineage`, `/fields`, `/edges`, `/annotations`, `/changes`, `/version-tags`, `/users`, `/files`, `/import`, `/ai` to `http://127.0.0.1:8000`.
 
-## 后端（M1-M4 已实现）
+## Backend (M1-M4 Implemented)
 
-数据底座：JWT 认证 + RBAC（admin/editor/viewer）、源文件托管（sha256 去重）、CSV/XLSX/JSON 三格式导入（含 XLSX 合并单元格/多级表头定位解析与实文件核查）、版本批次 + change_log + 按批次回滚。
+Data foundation: JWT authentication + RBAC (admin/editor/viewer), source file hosting (sha256 deduplication), import of three formats CSV/XLSX/JSON (including locator parsing for merged cells and multi-level headers in XLSX, plus verification against the actual file), version batches + change_log + rollback by batch.
 
-M3 编辑与版本：标注（追加式）、字段描述/类型/定位器编辑（定位器重新实文件核查）、血缘边增删改（人工边 source='manual'）、变更历史、业务标签创建/列表/diff/回滚（回滚幂等，审计写 rollback_record）。
+M3 editing and versions: annotation (append-only), editing of field description/type/locator (locator re-verified against the actual file), create/update/delete of lineage edges (manual edges source='manual'), change history, business tag creation/list/diff/rollback (rollback is idempotent; audit written to rollback_record).
 
-M4 AI：只读工具集（`search_fields` / `get_field_details` / `trace_lineage` / `get_field_history`）+ OpenAI 兼容 function calling 对话；未配置 LLM 时 `/ai/status` 返回 `configured=false`，`/ai/chat` 返回 503。启发式血缘建议按同名字段（0.7）/包含关系（0.6）生成候选边，以 `source='ai'` 落库，必须人工确认后才转为 `manual`；拒绝即删除候选边。
+M4 AI: read-only toolset (`search_fields` / `get_field_details` / `trace_lineage` / `get_field_history`) + OpenAI-compatible function calling chat; when no LLM is configured, `/ai/status` returns `configured=false` and `/ai/chat` returns 503. Heuristic lineage suggestions generate candidate edges from same-name fields (0.7) / containment relationships (0.6), persisted with `source='ai'`; they must be manually confirmed before becoming `manual`, and rejection deletes the candidate edge.
 
 ```bash
-cp .env.example .env           # 仓库根配置（SECRET_KEY / ADMIN_PASSWORD 等）
+cp .env.example .env           # Repository root configuration (SECRET_KEY / ADMIN_PASSWORD, etc.)
 cd backend
-uv sync                        # 安装依赖
-uv run uvicorn clew.main:app --reload   # 启动，首次自动建库并创建初始管理员
-uv run pytest                  # 运行验收测试
+uv sync                        # Install dependencies
+uv run uvicorn clew.main:app --reload   # Start; the database and initial admin are created automatically on first run
+uv run pytest                  # Run acceptance tests
 ```
 
-API 一览（需 Bearer Token）：`POST /auth/login`、`POST/GET /users`（admin）、`POST/GET /files`、`GET /files/{id}/download`、`POST /import`（editor+，multipart：format + source_file_ids + 清单文件）、`GET /import/batches`、`POST /import/batches/{id}/rollback`（admin）、`GET /datasets`、`GET /lineage/subgraph?dataset=&field=&hops=&direction=`、`GET /fields/{dataset_id}/{field_name}/preview`；M3：`POST/GET /annotations`、`PATCH /fields/{dataset_id}/{field_name}`、`POST /edges`、`PATCH/DELETE /edges/{id}`、`GET /changes`、`POST/GET /version-tags`、`GET /version-tags/diff?from=&to=`、`POST /version-tags/{name}/rollback`（admin）；M4：`GET /ai/status`、`POST /ai/chat`（viewer+）、`POST /ai/suggest`、`POST /ai/suggest/confirm`、`POST /ai/suggest/reject`（editor+）。
+API overview (Bearer Token required): `POST /auth/login`, `POST/GET /users` (admin), `POST/GET /files`, `GET /files/{id}/download`, `POST /import` (editor+, multipart: format + source_file_ids + manifest file), `GET /import/batches`, `POST /import/batches/{id}/rollback` (admin), `GET /datasets`, `GET /lineage/subgraph?dataset=&field=&hops=&direction=`, `GET /fields/{dataset_id}/{field_name}/preview`; M3: `POST/GET /annotations`, `PATCH /fields/{dataset_id}/{field_name}`, `POST /edges`, `PATCH/DELETE /edges/{id}`, `GET /changes`, `POST/GET /version-tags`, `GET /version-tags/diff?from=&to=`, `POST /version-tags/{name}/rollback` (admin); M4: `GET /ai/status`, `POST /ai/chat` (viewer+), `POST /ai/suggest`, `POST /ai/suggest/confirm`, `POST /ai/suggest/reject` (editor+).
 
-需要演示数据时，可在后端目录执行 `uv run python -m clew.seed_demo`，生成 5 个数据集、4 跳血缘链及 csv/xlsx/json 三类回源样例。
+If you need demo data, run `uv run python -m clew.seed_demo` in the backend directory to generate 5 datasets, a 4-hop lineage chain, and csv/xlsx/json source preview samples.
 
-## 前端（M4）
+## Frontend (M4)
 
-字段级血缘画布：数据集筛选、dagre 左右分层布局、字段级/表级连线、节点字段折叠与「框选折叠为组」、跳数切换、字段详情与 CSV/XLSX/JSON 回源预览。
+Field-level lineage canvas: dataset filtering, dagre left-to-right layered layout, field-level/table-level connections, node field collapsing and "box-select collapse into group", hop count switching, field details and CSV/XLSX/JSON source preview.
 
-M3 编辑与版本：按登录角色隐藏写入口（viewer 只读）；悬停/选中边可编辑转换与备注、删除；拖拽字段/表级 handle 新增血缘；字段描述/类型/定位器编辑（409 原因回显）；字段与边的追加式标注；字段/边变更历史抽屉；版本抽屉（导入批次、标签创建、标签间差异、admin 回滚）；admin 用户管理。登录使用 JWT，Bearer Token 存于 `localStorage`，任意已认证请求返回 401 时会回到登录页。
+M3 editing and versions: write entry points hidden by login role (viewer is read-only); hover/select an edge to edit its transformation and notes, or delete it; drag field/table-level handles to add lineage; field description/type/locator editing (409 reason displayed); append-only annotation of fields and edges; field/edge change history drawer; version drawer (import batches, tag creation, diffs between tags, admin rollback); admin user management. Login uses JWT; the Bearer Token is stored in `localStorage`, and any authenticated request returning 401 sends the user back to the login page.
 
-M4 AI 助手：顶部栏「AI 助手」抽屉（对话、工具调用轨迹、`trace_lineage` 结果联动出图）；字段详情内一键生成启发式候选边；画布上任意 `source='ai'` 的边在边详情中都可「确认转为人工边」，不依赖候选卡片是否仍在内存中。
+M4 AI assistant: "AI assistant" drawer in the top bar (conversation, tool call trace, `trace_lineage` results linked to the graph); one-click generation of heuristic candidate edges inside field details; any edge with `source='ai'` on the canvas can be "confirmed as a manual edge" from its edge details, regardless of whether the candidate card is still in memory.
 
 ```bash
 cd frontend
 npm install
-npm run dev        # http://localhost:5173，API 由 Vite proxy 转至 :8000
+npm run dev        # http://localhost:5173; the API is proxied to :8000 by Vite
 npm run build      # tsc -b && vite build
 ```
 
-前端只使用 `fetch` 访问 API；画布依赖 `@xyflow/react`，分层布局依赖 `@dagrejs/dagre`。
+The frontend accesses the API using only `fetch`; the canvas relies on `@xyflow/react` and the layered layout on `@dagrejs/dagre`.
 
-前后端接口联调：启动后端后执行 `node scripts/api-e2e.mjs`（或 `E2E_BASE_URL=http://127.0.0.1:8001 node scripts/api-e2e.mjs`），镜像 `src/lib/api.ts` 全部请求做端到端校验（含 RBAC/错误语义），会写入 `e2e_` 前缀数据并自动回滚可回滚部分。
+Frontend/backend integration testing: after starting the backend, run `node scripts/api-e2e.mjs` (or `E2E_BASE_URL=http://127.0.0.1:8001 node scripts/api-e2e.mjs`), which mirrors every request in `src/lib/api.ts` for end-to-end validation (including RBAC/error semantics); it writes data with the `e2e_` prefix and automatically rolls back the parts that can be rolled back.
 
-## 已知差距
+## Known Gaps
 
-- **用户管理原型保真**：当前 `UserManagementModal` 只支持用户列表 + 新增用户（含创建时角色选择）；原型「版本与用户」屏中的逐行角色下拉与 RBAC 权限矩阵尚未实现。角色变更需要新增管理员接口，且涉及「是否允许管理员修改自己的角色/如何保证至少保留一名 admin」等业务规则（`[TBD-BIZ]`，需产品确认后再实现）；UI 已明确标注该限制。
-- **标注管理**：标注为追加式，当前无编辑/删除入口（与业务模型一致）。
+- **User management prototype fidelity**: the current `UserManagementModal` only supports a user list + adding users (including role selection at creation); the per-row role dropdown and RBAC permission matrix from the prototype "Versions and Users" screen are not yet implemented. Changing roles requires a new admin endpoint and involves business rules such as "whether admins may change their own role / how to guarantee at least one admin remains" (`[TBD-BIZ]`, to be confirmed by the product owner before implementation); the UI explicitly notes this limitation.
+- **Annotation management**: annotations are append-only and currently have no edit/delete entry point (consistent with the business model).
 
-## 引用仓库说明
+## Referenced Repositories
 
-`OpenMetadata/` 与 `datahub/` 为调研所用的两个开源项目源码副本，仅本地参考，**不纳入本仓库版本管理**（见 `.gitignore`）。
+`OpenMetadata/` and `datahub/` are source copies of the two open-source projects used for research; they are for local reference only and are **not version-controlled in this repository** (see `.gitignore`).
 
-## 演示资源与录制
+## Demo Assets and Recording
 
-README 中的功能 GIF 位于 [`docs/assets/demo/`](./assets/demo/)，由同仓库脚本针对独立演示库录制：
+The feature GIFs in the README live in [`docs/assets/demo/`](./assets/demo/) and are recorded by scripts in this repository against a separate demo database:
 
 ```bash
-# 终端 1：准备英文演示库（5 个数据集、4 跳血缘链）并启动独立后端
+# Terminal 1: prepare the English demo database (5 datasets, 4-hop lineage chain) and start a separate backend
 cd backend
 DATA_DIR=/tmp/clew-demo/data uv run python ../scripts/demo/seed_demo_en.py
 DATA_DIR=/tmp/clew-demo/data uv run uvicorn clew.main:app --port 8010
 
-# 终端 2（仓库根）：启动前端，把 API 代理到演示后端
+# Terminal 2 (repository root): start the frontend, proxying the API to the demo backend
 cd frontend && VITE_API_TARGET=http://127.0.0.1:8010 npx vite --port 5199
 
-# 终端 3：安装录制依赖，逐段录制并转 GIF
+# Terminal 3: install recording dependencies, record segment by segment and convert to GIF
 cd scripts/demo
 npm install
-npm run setup      # 通过 API 写入标注、变更历史与版本标签
-npm run record     # 每个功能一段 WebM（.work/video）
-npm run gifs       # Playwright ffmpeg 抽帧 + Pillow 调色板 + gifsicle
+npm run setup      # Write annotations, change history and version tags through the API
+npm run record     # One WebM per feature (.work/video)
+npm run gifs       # Playwright ffmpeg frame extraction + Pillow palette + gifsicle
 ```
 
-`record-demo.mjs` 逐段输出 WebM；`build-gifs.sh` 负责转码与压缩。导入片段需针对全新演示库录制。
+`record-demo.mjs` outputs WebM segment by segment; `build-gifs.sh` handles transcoding and compression. The import segment must be recorded against a fresh demo database.
 
-## 技术栈
+## Tech Stack
 
-- 后端：Python + FastAPI + uv，SQLite 起步（预留 Postgres 升级路径）
-- 前端：React + TypeScript + Vite + Tailwind + @xyflow/react + @dagrejs/dagre（组件源码内置，无额外 UI 组件库）
-- AI：OpenAI 兼容 Chat API + function calling（密钥经 `.env` 配置，不入库）
+- Backend: Python + FastAPI + uv, starting with SQLite (a Postgres upgrade path is reserved)
+- Frontend: React + TypeScript + Vite + Tailwind + @xyflow/react + @dagrejs/dagre (component sources vendored, no additional UI component library)
+- AI: OpenAI-compatible Chat API + function calling (keys configured via `.env`, never committed)

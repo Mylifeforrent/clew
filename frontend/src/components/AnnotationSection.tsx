@@ -19,8 +19,8 @@ interface AnnotationSectionProps {
 }
 
 /**
- * 标注区：追加式、只增不改，不写 change_log，也不随版本回滚删除。
- * viewer 可读；editor+ 才显示追加输入。
+ * Annotations section: append-only, never modified, not written to change_log, and not deleted by version rollbacks.
+ * Readable by viewers; only editor+ sees the append input.
  */
 export function AnnotationSection({
   token,

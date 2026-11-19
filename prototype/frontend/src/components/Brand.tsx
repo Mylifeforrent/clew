@@ -39,7 +39,7 @@ export function Brand({ compact = false }: { compact?: boolean }) {
         </div>
         {!compact && (
           <div className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] text-ink-faint">
-            字段级血缘 · 来源可查
+            Field-level lineage · Verifiable sources
           </div>
         )}
       </div>

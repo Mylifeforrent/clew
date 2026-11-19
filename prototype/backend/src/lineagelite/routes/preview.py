@@ -1,4 +1,4 @@
-"""字段回源预览 API：定位卡点击后高亮源文件对应区域（设计方案 §3.6）。"""
+"""Field source preview API: clicking a locator card highlights the corresponding source region (design §3.6)."""
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -12,7 +12,7 @@ router = APIRouter(tags=["preview"])
 @router.get("/fields/{dataset_id}/{field_name}/preview")
 def preview_field(dataset_id: str, field_name: str,
                   user: dict = Depends(require_role("viewer"))):
-    """按字段定位器返回 csv/xlsx/json 结构化预览；定位失效返回 409。"""
+    """Return a structured csv/xlsx/json preview by field locator; a stale locator returns 409."""
     with get_db() as conn:
         try:
             return field_preview(conn, dataset_id, field_name)

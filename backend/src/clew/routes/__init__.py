@@ -1,1 +1,1 @@
-"""FastAPI 路由。"""
+"""FastAPI routes."""

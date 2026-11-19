@@ -54,15 +54,15 @@ function readErrorDetail(payload: unknown, status: number): string {
           return '';
         })
         .filter(Boolean);
-      if (messages.length) return messages.join('；');
+      if (messages.length) return messages.join('; ');
     }
   }
-  if (status === 401) return '登录已过期，请重新登录';
-  if (status === 403) return '当前账号无权执行此操作';
-  if (status === 404) return '请求的资源不存在';
-  if (status === 409) return '操作冲突，请检查当前状态后重试';
-  if (status === 422) return '请求参数不合法';
-  return `请求失败（HTTP ${status}）`;
+  if (status === 401) return 'Your session has expired. Please log in again';
+  if (status === 403) return 'Your account is not allowed to perform this action';
+  if (status === 404) return 'The requested resource does not exist';
+  if (status === 409) return 'Operation conflict. Check the current state and try again';
+  if (status === 422) return 'Invalid request parameters';
+  return `Request failed (HTTP ${status})`;
 }
 
 async function request<T>(
@@ -84,7 +84,7 @@ async function request<T>(
     try {
       payload = await response.json();
     } catch {
-      // 非 JSON 错误体内不保留原始文本，避免把 HTML 错误页直接展示给用户。
+      // Do not keep the raw text of non-JSON error bodies, to avoid showing HTML error pages to users.
     }
     if (response.status === 401 && token) {
       window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));
@@ -114,7 +114,7 @@ export function loadSession(): Session | null {
       return parsed as Session;
     }
   } catch {
-    // 损坏的本地会话直接丢弃。
+    // Discard corrupted local sessions.
   }
   return null;
 }
@@ -123,7 +123,7 @@ export function persistSession(session: Session): void {
   try {
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch {
-    // 隐私模式或配额不足时仍允许当前页面使用会话。
+    // Still allow the current page to use the session in private mode or when quota is exhausted.
   }
 }
 
@@ -131,7 +131,7 @@ export function clearSession(): void {
   try {
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
   } catch {
-    // 清理失败不阻塞退出流程。
+    // Cleanup failures must not block the logout flow.
   }
 }
 
@@ -195,7 +195,7 @@ export async function getFieldPreview(
   );
 }
 
-// ---------- M3：标注 ----------
+// ---------- M3: annotations ----------
 
 export async function getAnnotations(
   token: string,
@@ -226,7 +226,7 @@ export async function createAnnotation(
   );
 }
 
-// ---------- M3：字段与边编辑 ----------
+// ---------- M3: field and edge editing ----------
 
 export async function patchField(
   token: string,
@@ -279,7 +279,7 @@ export async function deleteEdge(
   );
 }
 
-// ---------- M3：变更历史与版本标签 ----------
+// ---------- M3: change history and version tags ----------
 
 export async function getChanges(
   token: string,
@@ -362,7 +362,7 @@ export async function getImportBatches(
   return request<ImportBatch[]>('/import/batches', { signal }, token);
 }
 
-// ---------- 用户管理（admin） ----------
+// ---------- User management (admin) ----------
 
 export async function getUsers(
   token: string,
@@ -388,7 +388,7 @@ export async function createUser(
   );
 }
 
-// ---------- M4：AI 助手与启发式血缘建议 ----------
+// ---------- M4: AI assistant and heuristic lineage suggestions ----------
 
 export async function getAiStatus(
   token: string,
@@ -413,7 +413,7 @@ export interface AiStreamHandlers {
   onEvent: (event: AiStreamEvent) => void;
 }
 
-/** SSE 流式对话（POST /ai/chat/stream）：解析 text/event-stream 帧并逐事件回调。 */
+/** SSE streaming chat (POST /ai/chat/stream): parse text/event-stream frames and invoke the callback per event. */
 export async function sendAiChatStream(
   token: string,
   payload: { messages: AiChatMessage[]; focus?: AiFocus | null },
@@ -438,7 +438,7 @@ export async function sendAiChatStream(
     try {
       payloadError = await response.json();
     } catch {
-      // 非 JSON 错误体时使用状态码提示
+      // Fall back to the status code when the error body is not JSON
     }
     throw new ApiError(
       response.status,
@@ -453,7 +453,7 @@ export async function sendAiChatStream(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    // SSE 帧以空行分隔；同一 data 行可能跨 chunk，需在 buffer 内裁剪
+    // SSE frames are separated by blank lines; a data line may span chunks, so trim within the buffer
     let separator = buffer.indexOf('\n\n');
     while (separator !== -1) {
       const frame = buffer.slice(0, separator);
@@ -465,7 +465,7 @@ export async function sendAiChatStream(
         try {
           onEvent(JSON.parse(dataLine.slice(6)) as AiStreamEvent);
         } catch {
-          // 忽略无法解析的帧（防止半包/脏帧导致 UI 崩溃）
+          // Ignore unparsable frames (prevents partial/dirty frames from crashing the UI)
         }
       }
       separator = buffer.indexOf('\n\n');
@@ -554,7 +554,7 @@ export async function rejectAiSuggestion(
   );
 }
 
-/** 受控下载托管源文件；存储路径不经前端，只接受源文件 ID。 */
+/** Controlled download of a hosted source file; storage paths never pass through the frontend, only source file IDs are accepted. */
 export async function downloadSourceFile(
   token: string,
   fileId: number,
@@ -568,7 +568,7 @@ export async function downloadSourceFile(
     try {
       payload = await response.json();
     } catch {
-      // 下载失败且无可解析错误体时使用通用提示
+      // Fall back to a generic message when the download fails without a parsable error body
     }
     if (response.status === 401) {
       window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT));

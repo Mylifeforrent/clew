@@ -5,7 +5,7 @@ const OPTIONS: ReadonlyArray<{ value: Locale; label: string }> = [
   { value: 'en', label: 'EN' },
 ];
 
-/** 中/EN 两段式语言切换；偏好持久化由 I18nProvider 负责。 */
+/** Two-segment Chinese/English language switch; preference persistence is handled by I18nProvider. */
 export function LanguageToggle() {
   const { locale, setLocale, t } = useI18n();
   return (

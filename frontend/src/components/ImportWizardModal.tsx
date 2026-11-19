@@ -23,9 +23,9 @@ import type { ImportWizKey } from '../i18n/dicts/importWiz';
 interface ImportWizardModalProps {
   token: string;
   onClose: () => void;
-  /** 「完成」：关闭模态并让 Workspace 刷新数据集列表与子图 */
+  /** "Done": close the modal and let Workspace refresh the dataset list and subgraph */
   onCompleted: () => void;
-  /** 「查看版本抽屉」：复用 TopBar「版本」入口（hi-fi 06 §一） */
+  /** "View versions drawer": reuses the TopBar "Versions" entry (hi-fi 06 §1) */
   onOpenVersions: () => void;
   onNotify: (message: string, tone?: ToastTone) => void;
 }
@@ -67,7 +67,7 @@ function fileExtension(name: string): string {
   return index === -1 ? '' : name.slice(index + 1).toLowerCase();
 }
 
-/** 非组件场景：kind/status 映射查不到时回退后端原始值 */
+/** Non-component helper: fall back to the backend's raw value when a kind/status mapping is missing */
 function kindLabel(t: TranslateFn, kind: string): string {
   const key = KIND_KEYS[kind];
   return key ? t(key) : kind;
@@ -78,7 +78,7 @@ function statusLabel(t: TranslateFn, status: string): string {
   return key ? t(key) : status;
 }
 
-/** 步骤①上传行（hi-fi 06 §3.3 文件列表行） */
+/** Step ① upload row (hi-fi 06 §3.3 file list row) */
 interface UploadRow {
   key: string;
   file: File;
@@ -88,11 +88,11 @@ interface UploadRow {
 
 interface SubmitErrorState {
   message: string;
-  /** 网络错误提供「重试」，清单文件级错误回步骤②修改（hi-fi 06 §五） */
+  /** Network errors offer "Retry"; file-level manifest errors go back to step ② for corrections (hi-fi 06 §5) */
   retryable: boolean;
 }
 
-/** 通用 Dropzone（hi-fi 06 §3.3/§3.4：label 包裹 sr-only input，键盘经 focus-within 可达） */
+/** Generic Dropzone (hi-fi 06 §3.3/§3.4: label wraps an sr-only input, keyboard reachable via focus-within) */
 function Dropzone({
   title,
   hint,
@@ -158,7 +158,7 @@ function Dropzone({
   );
 }
 
-/** 步骤条（hi-fi 06 §3.2：纯展示，aria-current 标当前步，回退只经脚部「上一步」） */
+/** Step indicator (hi-fi 06 §3.2: display only, aria-current marks the current step, going back only via the footer "Previous") */
 function Stepper({ current }: { current: number }) {
   const { t } = useI18n();
   return (
@@ -213,7 +213,7 @@ function Stepper({ current }: { current: number }) {
   );
 }
 
-/** 绑定源文件 chip（hi-fi 06 §3.4，00 §7.5 chip 规格） */
+/** Bound source file chip (hi-fi 06 §3.4, 00 §7.5 chip spec) */
 function SourceChip({ record }: { record: SourceFileRecord }) {
   return (
     <span
@@ -227,7 +227,7 @@ function SourceChip({ record }: { record: SourceFileRecord }) {
   );
 }
 
-/** 已选清单文件行（hi-fi 06 §3.4：文件名 + 移除按钮） */
+/** Selected manifest file row (hi-fi 06 §3.4: file name + remove button) */
 function ManifestFileRow({
   file,
   onRemove,
@@ -260,7 +260,7 @@ function ManifestFileRow({
   );
 }
 
-/** 列结构参考折叠块（hi-fi 06 §3.4，复用 03 §3.2⑩ details 规格） */
+/** Column reference collapsible block (hi-fi 06 §3.4, reusing the 03 §3.2⑩ details spec) */
 function ColumnsReference() {
   const { t } = useI18n();
   return (
@@ -283,12 +283,12 @@ function ColumnsReference() {
 }
 
 /**
- * 导入向导（hi-fi 06）：xl 模态四步向导。
- * ① 上传源文件（POST /files，逐文件上传，任一失败保留已成功项）→
- * ② 上传清单/选格式（本地校验格式一致）→
- * ③ 校验与执行（POST /import 同事务完成）→
- * ④ 批次报告（拒绝行 / 统计 / 报告下载）。
- * busy（上传中/提交中）锁定 Esc、遮罩与关闭；有已上传文件时关闭前二次确认。
+ * Import wizard (hi-fi 06): four-step xl modal wizard.
+ * ① Upload source files (POST /files, one by one; successes are kept when any file fails) →
+ * ② Upload the manifest / pick a format (validate format match locally) →
+ * ③ Validate and execute (POST /import completes in one transaction) →
+ * ④ Batch report (rejected rows / stats / report download).
+ * busy (uploading/submitting) locks Esc, the mask and the close button; when files are already uploaded, closing asks for confirmation first.
  */
 export function ImportWizardModal({
   token,
@@ -311,7 +311,7 @@ export function ImportWizardModal({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [nextVersion, setNextVersion] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // 步②切换格式的二次确认（评审 R18）：有会被丢弃的已选清单文件时先确认
+  // Step ② format-switch confirmation (review R18): confirm first when selected manifest files would be discarded
   const [formatConfirmOpen, setFormatConfirmOpen] = useState(false);
   const pendingFormatRef = useRef<ImportFormat | null>(null);
 
@@ -327,7 +327,7 @@ export function ImportWizardModal({
     .map((row) => row.record)
     .filter((record): record is SourceFileRecord => record !== null);
 
-  // 头部「将入库为版本 v{n+1}」：n 取 GET /import/batches 的最大版本号；取不到可靠值则省略徽章
+  // Header "will be imported as v{n+1}": n is the max version from GET /import/batches; omit the badge when no reliable value is available
   useEffect(() => {
     const controller = new AbortController();
     getImportBatches(token, controller.signal)
@@ -340,13 +340,13 @@ export function ImportWizardModal({
         setNextVersion(maxVersion + 1);
       })
       .catch(() => {
-        // 预分配徽章仅提示用途；失败时省略，步骤④仍展示实际版本号
+        // The pre-allocated badge is only a hint; omit it on failure — step ④ still shows the actual version
       });
     return () => controller.abort();
   }, [token]);
 
-  // 打开时焦点移入、关闭后焦点还原、Esc 栈顶协议、Tab 圈定、body 滚动锁
-  // 均由 ModalShell → useOverlayBehavior 统一承担（评审 R13）
+  // Focus moves in on open, restores on close, Esc stack protocol, Tab containment, body scroll lock
+  // are all handled centrally by ModalShell → useOverlayBehavior (review R13)
 
   useEffect(() => {
     return () => {
@@ -355,11 +355,11 @@ export function ImportWizardModal({
     };
   }, []);
 
-  /** 关闭：导入已完成则等价「完成」（关闭 + 刷新）；无已上传文件直接关；有则先二次确认（hi-fi 06 §一/§八.4） */
+  /** Close: after a completed import this equals "Done" (close + refresh); with no uploaded files close directly; otherwise confirm first (hi-fi 06 §1/§8.4) */
   function requestClose() {
     if (busy) return;
     if (result) {
-      // 导入已落库，X / Esc / 遮罩关闭均需让工作台刷新（评审 F2）
+      // The import is already saved, so closing via X / Esc / mask must refresh the workspace (review F2)
       onCompleted();
       return;
     }
@@ -370,7 +370,7 @@ export function ImportWizardModal({
     onClose();
   }
 
-  /** 步骤①：选择文件后逐文件上传（POST /files）；失败行保留原因，可移除后重选 */
+  /** Step ①: upload selected files one by one (POST /files); failed rows keep their reason and can be removed and reselected */
   async function handleSourceFiles(fileList: File[]) {
     if (busy) return;
     const rejected: string[] = [];
@@ -412,7 +412,7 @@ export function ImportWizardModal({
         const [record] = await uploadSourceFiles(token, [row.file], controller.signal);
         if (controller.signal.aborted) return;
         if (!record) {
-          // 后端异常返回空数组时按失败行处理，避免 undefined 穿透类型守卫（评审 F4）
+          // Treat an empty array from a backend anomaly as a failed row, preventing undefined from slipping past type guards (review F4)
           setUploadRows((current) =>
             current.map((item) =>
               item.key === row.key
@@ -446,7 +446,7 @@ export function ImportWizardModal({
     }
   }
 
-  /** 步骤②：清单文件本地校验（与所选格式一致，hi-fi 06 §五） */
+  /** Step ②: local manifest file validation (must match the selected format, hi-fi 06 §5) */
   function acceptManifestFile(kind: 'datasets' | 'lineage' | 'manifest', file: File) {
     const currentFormat = format;
     if (!currentFormat) return;
@@ -463,7 +463,7 @@ export function ImportWizardModal({
     else setManifest(file);
   }
 
-  /** 实际切换格式：静默清空三类已选清单文件与格式级错误 */
+  /** Actually switch the format: silently clear all three kinds of selected manifest files and format-level errors */
   function applyFormatChange(next: ImportFormat) {
     setFormat(next);
     setManifestDatasets(null);
@@ -472,7 +472,7 @@ export function ImportWizardModal({
     setManifestError(null);
   }
 
-  /** 步②切换格式（评审 R18）：确有会被丢弃的已选清单文件时先二次确认，取消则不切换 */
+  /** Step ② format switch (review R18): confirm first when selected manifest files would really be discarded; cancel keeps the format */
   function handleFormatChange(next: ImportFormat) {
     if (next === format) return;
     if (manifestDatasets || manifestLineage || manifest) {
@@ -489,7 +489,7 @@ export function ImportWizardModal({
       ? manifestDatasets !== null && manifestLineage !== null
       : manifest !== null);
 
-  /** 步骤③：提交即执行（后端同事务完成校验与入库，hi-fi 06 §3.5 映射说明） */
+  /** Step ③: submit executes immediately (the backend validates and imports in one transaction; hi-fi 06 §3.5 mapping notes) */
   async function handleSubmitImport() {
     if (!format || !manifestReady || submitting) return;
     const controller = new AbortController();
@@ -510,7 +510,7 @@ export function ImportWizardModal({
       );
       if (controller.signal.aborted) return;
       setResult(payload);
-      // 同步预测徽章：再次导入时「将入库为版本 v{n+1}」不显示陈旧值
+      // Sync the predicted badge so "will be imported as v{n+1}" never shows a stale value on re-import
       setNextVersion(payload.version_no + 1);
       setStep(4);
     } catch (reason) {
@@ -527,7 +527,7 @@ export function ImportWizardModal({
     }
   }
 
-  /** 步骤④：报告 JSON（{batch_id, version_no, report}）序列化为 Blob 下载，无需二次请求 */
+  /** Step ④: serialize the report JSON ({batch_id, version_no, report}) into a Blob for download, no second request needed */
   function downloadReport() {
     if (!result) return;
     try {
@@ -554,7 +554,7 @@ export function ImportWizardModal({
     }
   }
 
-  /** 再次导入：重置回步骤①；步骤①已登记文件保留（sha256 去重，可重复引用） */
+  /** Import again: reset to step ①; files registered in step ① are kept (sha256 dedup allows reuse) */
   function restart() {
     setStep(1);
     setFormat(null);
@@ -935,7 +935,7 @@ export function ImportWizardModal({
       );
     }
 
-    // step === 4：批次报告（hi-fi 06 §3.6）
+    // step === 4: batch report (hi-fi 06 §3.6)
     const summary = result?.report.summary;
     const rejectedItems =
       result?.report.items.filter((item) => item.status === 'rejected') ?? [];
@@ -1192,7 +1192,7 @@ export function ImportWizardModal({
           </>
         }
       >
-        {/* key={step}：步骤切换时重建节点，让 animate-fade-in（200ms）重放（hi-fi 06 §六） */}
+        {/* key={step}: rebuild the node on step changes so animate-fade-in (200ms) replays (hi-fi 06 §6) */}
         <div key={step}>{renderStepBody()}</div>
       </ModalShell>
 
@@ -1236,7 +1236,7 @@ export function ImportWizardModal({
   );
 }
 
-/** 步骤③提交摘要卡（hi-fi 06 §3.5） */
+/** Step ③ submission summary card (hi-fi 06 §3.5) */
 function SummaryCard({
   format,
   records,
@@ -1286,7 +1286,7 @@ function SummaryCard({
 
 }
 
-/** 步骤④统计卡（hi-fi 06 §3.6） */
+/** Step ④ statistics card (hi-fi 06 §3.6) */
 function StatCard({
   label,
   value,

@@ -1,4 +1,4 @@
-"""导入与版本：三步导入 API、批次/报告查询、按批次回滚。"""
+"""Import and versions: three-step import API, batch/report queries, batch rollback."""
 
 import json
 
@@ -15,20 +15,20 @@ router = APIRouter(tags=["import"])
 
 @router.post("/import", status_code=201)
 async def import_data(
-    format: str = Form(...),  # noqa: A002 — 与清单格式同名，对外 API 语义
+    format: str = Form(...),  # noqa: A002 — same name as the manifest format, for external API semantics
     source_file_ids: str = Form(...),
     user: dict = Depends(require_role("editor")),
-    manifest: UploadFile | None = None,          # xlsx / json 单文件清单
-    manifest_datasets: UploadFile | None = None,  # csv：datasets.csv
-    manifest_lineage: UploadFile | None = None,   # csv：lineage.csv
+    manifest: UploadFile | None = None,          # xlsx / json single-file manifest
+    manifest_datasets: UploadFile | None = None,  # csv: datasets.csv
+    manifest_lineage: UploadFile | None = None,   # csv: lineage.csv
 ):
     fmt = format.lower()
     try:
         ids = [int(x) for x in source_file_ids.split(",") if x.strip()]
     except ValueError:
-        raise HTTPException(400, "source_file_ids 必须是逗号分隔的文件 ID") from None
+        raise HTTPException(400, "source_file_ids must be comma-separated file IDs") from None
     if not ids:
-        raise HTTPException(400, "至少绑定一个源文件")
+        raise HTTPException(400, "Bind at least one source file")
 
     with get_db() as conn:
         bound = []
@@ -37,30 +37,30 @@ async def import_data(
                 "SELECT id, original_name, src_type FROM source_file WHERE id=?",
                 (fid,)).fetchone()
             if row is None:
-                raise HTTPException(404, f"源文件 {fid} 不存在")
+                raise HTTPException(404, f"Source file {fid} does not exist")
             bound.append(dict(row))
 
     try:
         if fmt == "csv":
             if manifest_datasets is None or manifest_lineage is None:
-                raise HTTPException(400, "csv 格式需要上传 manifest_datasets 与 manifest_lineage 两个文件")
+                raise HTTPException(400, "CSV format requires both manifest_datasets and manifest_lineage files")
             ds_recs, edge_recs = read_csv_manifest(
                 await manifest_datasets.read(), await manifest_lineage.read())
         elif fmt == "xlsx":
             if manifest is None:
-                raise HTTPException(400, "xlsx 格式需要上传含 datasets/lineage 双 sheet 的清单文件")
+                raise HTTPException(400, "XLSX format requires a manifest file with datasets/lineage sheets")
             ds_recs, edge_recs = read_xlsx_manifest(await manifest.read())
         elif fmt == "json":
             if manifest is None:
-                raise HTTPException(400, "json 格式需要上传 {datasets:[], lineage:[]} 清单文件")
+                raise HTTPException(400, "JSON format requires a {datasets:[], lineage:[]} manifest file")
             ds_recs, edge_recs = read_json_manifest(await manifest.read())
         else:
-            raise HTTPException(400, f"format 必须是 csv/xlsx/json，收到「{fmt}」")
+            raise HTTPException(400, f'format must be csv/xlsx/json; got "{fmt}"')
     except ValueError as e:
         raise HTTPException(400, str(e)) from None
 
     if not ds_recs and not edge_recs:
-        raise HTTPException(400, "清单为空")
+        raise HTTPException(400, "Manifest is empty")
 
     batch_id, version_no, report = run_import(user["username"], fmt, bound,
                                               ds_recs, edge_recs)
@@ -86,7 +86,7 @@ def get_batch(batch_id: int, user: dict = Depends(require_role("viewer"))):
     with get_db() as conn:
         row = conn.execute("SELECT * FROM import_batch WHERE id=?", (batch_id,)).fetchone()
     if row is None:
-        raise HTTPException(404, f"导入批次 {batch_id} 不存在")
+        raise HTTPException(404, f"Import batch {batch_id} does not exist")
     d = dict(row)
     d["file_names"] = json.loads(d["file_names"]) if d["file_names"] else []
     d["report"] = json.loads(d["report"]) if d["report"] else None
@@ -106,5 +106,5 @@ def rollback(batch_id: int, admin: dict = Depends(require_role("admin"))):
 
 @router.get("/lineage/snapshot")
 def snapshot(user: dict = Depends(require_role("viewer"))):
-    """当前血缘状态（M1 验证用；M2 将替换为递归 CTE 子图查询）。"""
+    """Current lineage state (for M1 verification; M2 replaces it with a recursive CTE subgraph query)."""
     return versioning.get_snapshot()

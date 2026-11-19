@@ -1,4 +1,4 @@
-/** datasetNode.* 字典：画布表节点卡片。 */
+/** datasetNode.* dictionary: canvas dataset node card. */
 export const zhDatasetNode = {
   'datasetNode.aria': '数据集 {name}，{count} 个字段',
   'datasetNode.expandFields': '展开 {id} 的字段列表',

@@ -1,6 +1,7 @@
-"""变更历史查询 API（M3，viewer+）。
+"""Change history query API (M3, viewer+).
 
-``GET /changes`` 按实体过滤、id 倒序返回 change_log；before/after 解析为 JSON 对象。
+``GET /changes`` filters by entity and returns change_log in descending id order; before/after
+are parsed into JSON objects.
 """
 
 import json
@@ -21,7 +22,7 @@ def list_changes(
     limit: int = Query(50, ge=1, le=500),
     user: dict = Depends(require_role("viewer")),
 ):
-    """最近的变更日志（倒序）；可按 entity_kind + entity_key 精确定位某对象。"""
+    """Recent change logs (descending); filter precisely on one object with entity_kind + entity_key."""
     clauses, args = [], []
     if entity_kind is not None:
         clauses.append("entity_kind=?")

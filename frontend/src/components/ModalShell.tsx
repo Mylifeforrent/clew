@@ -5,17 +5,18 @@ import type { IconName } from './Icon';
 import { useOverlayBehavior } from '../lib/useOverlayBehavior';
 
 /**
- * 统一浮层壳（评审 R13）：遮罩 + 卡片容器 + header（图标徽章/标题/关闭钮）
- * + body + footer 插槽；行为（Esc 栈顶协议、Tab 圈禁、焦点保存/还原、
- * body 滚动锁）内部经 useOverlayBehavior 提供，调用方不再手写。
+ * Unified overlay shell (review R13): mask + card container + header (icon badge/title/close button)
+ * + body + footer slots; behavior (Esc stack protocol, Tab containment, focus save/restore,
+ * body scroll lock) is provided internally by useOverlayBehavior, so callers no longer hand-write it.
  *
- * 样式约定（hifi 00 §7.6/§7.7，视觉零变化迁移）：
- * - 基座类固定：遮罩 z（modal 50 / drawer 40）、卡片圆角/边框/阴影/进场动画；
- * - 宽度档、max-h、flex-col 等经 `className` 追加；遮罩内边距经 `overlayClassName` 追加；
- * - `bodyClassName` / `footerClassName` / `titleClassName` 提供时**替换**默认类
- *   （避免 Tailwind 同属性类冲突），缺省用默认类；
- * - 复杂头部（eyebrow 之上的组合行 / 标题行内徽章）经 `titleNode` 整体接管；
- *   ConfirmDialog 的「徽章+标题+正文同块、无关闭钮」经 `header` 整体接管。
+ * Style conventions (hifi 00 §7.6/§7.7, zero-visual-change migration):
+ * - Base classes are fixed: mask z (modal 50 / drawer 40), card radius/border/shadow/enter animation;
+ * - Width tiers, max-h, flex-col, etc. are appended via `className`; mask padding via `overlayClassName`;
+ * - When `bodyClassName` / `footerClassName` / `titleClassName` are provided they **replace** the
+ *   default classes (avoiding Tailwind same-property conflicts); otherwise defaults apply;
+ * - Complex headers (composite row above the eyebrow / badge inside the title row) are fully taken
+ *   over via `titleNode`;
+ *   ConfirmDialog's "badge + title + body in one block, no close button" is fully taken over via `header`.
  */
 
 const MODAL_OVERLAY_CLASS =
@@ -41,49 +42,49 @@ const DEFAULT_FOOTER_CLASS =
   'flex h-12 shrink-0 items-center justify-end gap-2 border-t border-line-soft px-4';
 
 export interface ModalShellProps {
-  /** modal = 居中卡片（z-50）；drawer = 右侧滑入抽屉（z-40）。 */
+  /** modal = centered card (z-50); drawer = right-side sliding drawer (z-40). */
   variant: 'modal' | 'drawer';
   open: boolean;
-  /** 标题文本；titleNode / header 接管时仅作契约必填与 aria 兜底。 */
+  /** Title text; when titleNode / header take over it remains the required contract value and aria fallback. */
   title: string;
-  /** 标题元素 id：aria-labelledby 目标；titleNode 自带标题元素时须与之一致。 */
+  /** Title element id: the aria-labelledby target; must match when titleNode supplies its own title element. */
   titleId: string;
-  /** header 图标徽章图标（沿用现有 8×8 品牌徽章样式）。 */
+  /** Header icon badge icon (following the existing 8×8 brand badge style). */
   titleIcon?: IconName;
-  /** 徽章替换类（AI 抽屉用 ai 色徽章时传入完整徽章类）。 */
+  /** Badge override class (the AI drawer passes its full badge class for the ai-colored badge). */
   badgeClassName?: string;
-  /** 标题上方 mono 小字行（EdgeCreate / UserManagement / History）。 */
+  /** Small mono line above the title (EdgeCreate / UserManagement / History). */
   eyebrow?: ReactNode;
-  /** 自定义标题节点（须含 id={titleId} 的标题元素）：ImportWizard / Preview / AI。 */
+  /** Custom title node (must contain a title element with id={titleId}): ImportWizard / Preview / AI. */
   titleNode?: ReactNode;
-  /** 标题元素替换类（History 的 mono 13px 标题等）。 */
+  /** Title element override class (e.g. History's mono 13px title). */
   titleClassName?: string;
-  /** header 右侧、关闭钮左侧的操作（刷新、复制定位器等）。 */
+  /** Actions on the header's right side, left of the close button (refresh, copy locator, etc.). */
   headerExtra?: ReactNode;
-  /** header 与 body 之间的条带（导入向导步骤条、AI 焦点条/状态横幅）。 */
+  /** Strip between header and body (import wizard step indicator, AI focus strip/status banner). */
   subHeader?: ReactNode;
-  /** 整个 header 的自定义替换（ConfirmDialog：徽章+标题+正文同块、无关闭钮）。 */
+  /** Full custom replacement of the header (ConfirmDialog: badge + title + body in one block, no close button). */
   header?: ReactNode;
   onRequestClose: () => void;
-  /** busy 等拒关态传 false：Esc / 遮罩 / 关闭钮全部拒关；默认 true。 */
+  /** Pass false in busy refusal states: Esc / mask / close button all refuse closing; defaults to true. */
   dismissable?: boolean;
   children?: ReactNode;
   footer?: ReactNode;
-  /** 卡片容器追加类（宽度档、max-h-[85vh] flex flex-col 等）。 */
+  /** Extra classes for the card container (width tiers, max-h-[85vh] flex flex-col, etc.). */
   className?: string;
-  /** 遮罩追加类（模态内边距 p-3 sm:p-6 / p-4）。 */
+  /** Extra classes for the mask (modal padding p-3 sm:p-6 / p-4). */
   overlayClassName?: string;
-  /** body 容器类：提供时替换默认类。 */
+  /** body container classes: when provided they replace the defaults. */
   bodyClassName?: string;
-  /** body 容器透传属性（AI 抽屉的列表 ref / role=log / aria-live / aria-label）。 */
+  /** Props forwarded to the body container (AI drawer's list ref / role=log / aria-live / aria-label). */
   bodyProps?: ComponentProps<'div'>;
-  /** footer 容器类：提供时替换默认类。 */
+  /** footer container classes: when provided they replace the defaults. */
   footerClassName?: string;
-  /** 关闭钮 aria-label（沿用各浮层现有 i18n 键）；缺省不渲染关闭钮。 */
+  /** Close button aria-label (reusing each overlay's existing i18n key); when omitted no close button renders. */
   closeLabel?: string;
-  /** 卡片 role；ConfirmDialog 用 'alertdialog'；缺省 'dialog'。 */
+  /** Card role; ConfirmDialog uses 'alertdialog'; defaults to 'dialog'. */
   role?: 'dialog' | 'alertdialog';
-  /** 打开时优先聚焦的元素；缺省聚焦关闭钮（AI 抽屉传输入框、ConfirmDialog 传取消钮）。 */
+  /** Element to focus first on open; defaults to the close button (the AI drawer passes the input, ConfirmDialog the cancel button). */
   initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
@@ -136,7 +137,7 @@ export function ModalShell({
     <div
       className={overlayClassName ? `${overlayClass} ${overlayClassName}` : overlayClass}
       onMouseDown={(event) => {
-        // 仅遮罩本身（而非卡片内部冒泡）触发；busy 拒关态不响应
+        // Only the mask itself (not bubbled events from inside the card) triggers; busy refusal states do not respond
         if (event.target === event.currentTarget && dismissable) {
           onRequestClose();
         }

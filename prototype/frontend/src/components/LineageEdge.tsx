@@ -14,16 +14,16 @@ import { Icon } from './Icon';
 export type EdgeKind = 'field' | 'table';
 
 export interface LineageEdgeData extends Record<string, unknown> {
-  /** 库内血缘边；derived（同名字段匹配推断）线没有对应实体，为空 */
+  /** Stored lineage edge; derived (same-name field match inference) links have no entity and leave this empty */
   edge?: LineageEdge;
   kind: EdgeKind;
   fromLabel: string;
   toLabel: string;
-  /** 折叠分组时跨组边的聚合条数；存在时该连线不可单独操作 */
+  /** Number of aggregated cross-group edges while groups are collapsed; when present the link cannot be operated individually */
   aggregateCount?: number;
-  /** true = 表级血缘同名字段匹配的视图派生线（非库内边，不可选中/编辑） */
+  /** true = view-derived link from same-name field matching of table-level lineage (not a stored edge, not selectable/editable) */
   derived?: boolean;
-  /** 字段追踪焦点态：'chain' = 命中链路（红），'dim' = 被压暗 */
+  /** Field trace focus state: 'chain' = on the hit chain (red), 'dim' = dimmed */
   focusState?: 'chain' | 'dim';
   canEdit?: boolean;
   onSelect?: () => void;
@@ -179,7 +179,7 @@ export function LineageEdgeView({
               <div className="edge-tooltip animate-fade-in rounded-lg border border-line bg-card p-3 text-left shadow-float">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
-                    同名字段匹配 · 推断
+                    Same-name field match · Inferred
                   </span>
                   <span className="rounded border border-line-soft bg-subtle px-1.5 py-px font-mono text-[11px] uppercase text-ink-faint">
                     derived
@@ -199,7 +199,7 @@ export function LineageEdgeView({
                   </span>
                 </div>
                 <p className="mt-2 border-t border-line-soft pt-2 text-[11px] leading-4 text-ink-muted">
-                  由两端数据集的表级血缘按同名字段匹配推断，仅用于上下游追踪演示，不是库内血缘边。
+                  Inferred from same-name field matching of the table-level lineage between both datasets; used only for upstream/downstream tracing demos, not a stored lineage edge.
                 </p>
               </div>
             ) : edge ? (
@@ -207,8 +207,8 @@ export function LineageEdgeView({
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
                     {isAggregate
-                      ? `跨组聚合 · ${aggregateCount} 条边`
-                      : `${kind === 'field' ? '字段级血缘' : '表级血缘'} · #${edge.id}`}
+                      ? `Cross-group aggregate · ${aggregateCount} edges`
+                      : `${kind === 'field' ? 'Field-level lineage' : 'Table-level lineage'} · #${edge.id}`}
                   </span>
                   <SourceBadge source={edge.source} withDescription={false} />
                 </div>
@@ -226,17 +226,17 @@ export function LineageEdgeView({
                 </span>
               </div>
               <div className="mt-2.5 grid grid-cols-[48px_1fr] gap-x-2 gap-y-1.5 border-t border-line-soft pt-2.5 text-[11px]">
-                <span className="text-ink-faint">转换</span>
+                <span className="text-ink-faint">Transform</span>
                 <span className="break-words font-mono text-[13px] leading-4 text-ink-soft">
-                  {edge.transform || '未填写'}
+                  {edge.transform || 'Not set'}
                 </span>
-                <span className="text-ink-faint">置信度</span>
+                <span className="text-ink-faint">Confidence</span>
                 <span className="font-mono text-[13px] tabular-nums text-ink-soft">
                   {formatConfidence(edge.confidence)}
                 </span>
-                <span className="text-ink-faint">来源</span>
+                <span className="text-ink-faint">Source</span>
                 <span className="font-mono text-[13px] text-ink-soft">
-                  {edge.source || '未登记'}
+                  {edge.source || 'Not registered'}
                 </span>
               </div>
               {edge.note && (
@@ -246,7 +246,7 @@ export function LineageEdgeView({
               )}
               {isAggregate ? (
                 <p className="mt-2 border-t border-line-soft pt-2 text-[11px] leading-4 text-ink-faint">
-                  展开分组后可查看并编辑其中每一条具体血缘。
+                  Expand the group to view and edit each individual lineage edge within it.
                 </p>
               ) : (
                 <div className="mt-2 flex items-center gap-1.5 border-t border-line-soft pt-2">
@@ -258,7 +258,7 @@ export function LineageEdgeView({
                     }}
                     className="inline-flex h-7 items-center rounded-md border border-line-strong bg-card px-2.5 text-[12px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60"
                   >
-                    查看详情
+                    View details
                   </button>
                   {canEdit && (
                     <>
@@ -271,7 +271,7 @@ export function LineageEdgeView({
                         className="inline-flex h-7 items-center gap-1 rounded-md border border-line-strong bg-card px-2.5 text-[12px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60"
                       >
                         <Icon name="edit" size={12} />
-                        编辑
+                        Edit
                       </button>
                       <button
                         type="button"
@@ -282,7 +282,7 @@ export function LineageEdgeView({
                         className="ml-auto inline-flex h-7 items-center gap-1 rounded-md border border-danger/25 bg-danger-soft px-2.5 text-[12px] font-medium text-danger-deep transition-colors duration-150 hover:border-danger/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
                       >
                         <Icon name="trash" size={12} />
-                        删除
+                        Delete
                       </button>
                     </>
                   )}

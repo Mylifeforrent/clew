@@ -631,8 +631,8 @@ export function PreviewModal({ selection, token, onClose }: PreviewModalProps) {
     return () => controller.abort();
   }, [token, datasetId, fieldName, reloadKey]);
 
-  // 打开时焦点移入、关闭后焦点还原、Esc 栈顶协议、Tab 圈定、body 滚动锁
-  // 均由 ModalShell → useOverlayBehavior 统一承担（评审 R13）
+  // Focus moves in on open, restores on close, Esc stack protocol, Tab containment, body scroll lock
+  // are all handled centrally by ModalShell → useOverlayBehavior (review R13)
 
   const resolvedFile = data?.file ?? selection.field.source_file;
   const resolvedLocator = data?.locator ?? selection.field.src_locator;
@@ -735,7 +735,7 @@ export function PreviewModal({ selection, token, onClose }: PreviewModalProps) {
             <Icon name="download" size={12} />
             {downloading ? t('preview.downloading') : t('preview.downloadButton')}
           </button>
-          {/* 移动端入口：header 复制按钮 `hidden sm:flex` 在小屏不可达（评审 R18），footer 补同逻辑副本 */}
+          {/* Mobile entry: the header copy button is `hidden sm:flex` and unreachable on small screens (review R18); the footer provides an equivalent copy */}
           <button
             type="button"
             onClick={copyLocator}

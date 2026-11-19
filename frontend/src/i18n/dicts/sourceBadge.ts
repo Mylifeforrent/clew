@@ -1,4 +1,4 @@
-/** sourceBadge.* 字典：血缘来源徽章。 */
+/** sourceBadge.* dictionary: lineage source badge. */
 export const zhSourceBadge = {
   'sourceBadge.importedDesc': '文件导入',
   'sourceBadge.manualDesc': '人工确认',

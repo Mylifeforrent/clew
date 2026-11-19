@@ -39,9 +39,9 @@ interface DetailPanelProps {
 }
 
 const DETAIL_HINTS: Array<[string, string, IconName]> = [
-  ['定位器', 'sheet / 行列 / JSONPath', 'code'],
-  ['来源徽章', 'imported · manual · ai', 'link'],
-  ['回源预览', 'CSV / XLSX / JSON', 'file-search'],
+  ['Locator', 'sheet / rows / columns / JSONPath', 'code'],
+  ['Source badge', 'imported · manual · ai', 'link'],
+  ['Source preview', 'CSV / XLSX / JSON', 'file-search'],
 ];
 
 function FileTypeBadge({ type }: { type: string | null | undefined }) {
@@ -63,10 +63,10 @@ function EmptyDetail() {
             1
           </span>
         </div>
-        <h2 className="mt-4 text-xl font-medium text-ink">核对字段的来源</h2>
+        <h2 className="mt-4 text-xl font-medium text-ink">Verify where a field comes from</h2>
         <p className="mt-2 text-[13px] leading-5 text-ink-muted">
-          点击画布节点中的任意字段，查看字段属性、人类可读定位与上游血缘，
-          并直接打开源文件区域预览。
+          Click any field in a canvas node to see its properties, a human-readable locator
+          and upstream lineage, and open the source file preview directly.
         </p>
       </div>
 
@@ -92,7 +92,7 @@ function EmptyDetail() {
 
       <div className="mx-auto mt-7 flex max-w-[262px] items-start gap-2 rounded-lg border border-dashed border-line px-3 py-2.5 text-[11px] leading-4 text-ink-muted">
         <Icon name="info" size={12} className="mt-0.5 shrink-0" />
-        悬停或点击画布上的连线可查看转换说明，并在右侧面板追加标注。
+        Hover or click a link on the canvas to see its transform description and add annotations in the right-hand panel.
       </div>
     </div>
   );
@@ -108,20 +108,20 @@ function IncomingEdgeCard({ edge }: { edge: LineageEdge }) {
             <span className="font-medium text-ink">{edge.from_field}</span>
           </div>
           <div className="mt-1 flex items-center gap-1 font-mono text-[11px] text-ink-faint">
-            <span>置信度</span>
+            <span>Confidence</span>
             <span className="tabular-nums text-ink-soft">
               {formatConfidence(edge.confidence)}
             </span>
             <span className="text-line-strong">·</span>
-            <span>字段级</span>
+            <span>Field-level</span>
           </div>
         </div>
         <SourceBadge source={edge.source} withDescription={false} />
       </div>
       <div className="mt-2 border-t border-line-soft pt-2">
         <div className="font-mono text-[11px] leading-4 text-ink-muted">
-          <span className="text-ink-faint">转换 · </span>
-          {edge.transform || '未填写'}
+          <span className="text-ink-faint">Transform · </span>
+          {edge.transform || 'Not set'}
         </div>
         {edge.note && (
           <p className="mt-1 text-[11px] leading-4 text-ink-faint">{edge.note}</p>
@@ -155,8 +155,8 @@ function draftFromField(field: DatasetField): LocatorDraft {
   const headerPath = Array.isArray(input.header_path)
     ? input.header_path.map((item) => String(item)).join(' → ')
     : '';
-  // CSV 的 header / column 与 XLSX 的 header_path / column 都是二选一语义：
-  // 初始值只回填实际生效的那一种，避免「改了列号却被表头优先命中」。
+  // CSV header / column and XLSX header_path / column are both either-or semantics:
+  // only seed the variant that is actually in effect, so changing the column number does not lose to a header match.
   const csvUsesHeader = type === 'csv' && input.header !== null &&
     input.header !== undefined;
   const xlsxUsesPath = type === 'xlsx' && headerPath.length > 0;
@@ -184,7 +184,7 @@ function draftFromField(field: DatasetField): LocatorDraft {
 
 function splitHeaderPath(raw: string): string[] {
   return raw
-    .split(/[→>,，]/)
+    .split(/[→>,]/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -211,41 +211,41 @@ function buildLocatorInput(
     if (draft.column.trim()) {
       const column = Number(draft.column);
       if (!Number.isInteger(column) || column < 1) {
-        throw new Error('CSV 列号必须是大于等于 1 的整数。');
+        throw new Error('The CSV column number must be an integer greater than or equal to 1.');
       }
       payload.column = column;
     }
     if (draft.header.trim()) payload.header = draft.header.trim();
     if (!payload.column && !payload.header) {
-      throw new Error('CSV 定位器至少填写列号或表头名称。');
+      throw new Error('A CSV locator needs at least a column number or a header name.');
     }
     if (payload.column && payload.header) {
-      throw new Error('CSV 列号与表头名称只能填写一个。');
+      throw new Error('A CSV locator accepts either a column number or a header name, not both.');
     }
     return payload;
   }
 
   if (type === 'xlsx') {
     if (!draft.sheet.trim()) {
-      throw new Error('XLSX 定位器必须填写工作表名称。');
+      throw new Error('An XLSX locator must include a sheet name.');
     }
     const payload: Record<string, unknown> = { sheet: draft.sheet.trim() };
     const headerPath = splitHeaderPath(draft.headerPath);
     if (draft.column.trim() && headerPath.length) {
-      throw new Error('XLSX 列标识与表头路径只能二选一。');
+      throw new Error('An XLSX locator accepts either a column identifier or a header path, not both.');
     }
     if (draft.column.trim()) payload.column = draft.column.trim();
     if (draft.rowStart.trim()) {
       const rowStart = Number(draft.rowStart);
       if (!Number.isInteger(rowStart) || rowStart < 1) {
-        throw new Error('起始行必须是大于等于 1 的整数。');
+        throw new Error('The start row must be an integer greater than or equal to 1.');
       }
       payload.row_start = rowStart;
     }
     if (draft.rowEnd.trim()) {
       const rowEnd = Number(draft.rowEnd);
       if (!Number.isInteger(rowEnd) || rowEnd < 1) {
-        throw new Error('结束行必须是大于等于 1 的整数。');
+        throw new Error('The end row must be an integer greater than or equal to 1.');
       }
       payload.row_end = rowEnd;
     }
@@ -253,7 +253,7 @@ function buildLocatorInput(
     if (draft.headerRows.trim()) {
       const headerRows = Number(draft.headerRows);
       if (!Number.isInteger(headerRows) || headerRows < 1) {
-        throw new Error('表头行数必须是大于等于 1 的整数。');
+        throw new Error('The header row count must be an integer greater than or equal to 1.');
       }
       payload.header_rows = headerRows;
     }
@@ -262,12 +262,12 @@ function buildLocatorInput(
 
   if (type === 'json') {
     if (!draft.jsonPath.trim()) {
-      throw new Error('JSON 定位器必须填写 JSONPath。');
+      throw new Error('A JSON locator must include a JSONPath.');
     }
     return { json_path: draft.jsonPath.trim() };
   }
 
-  throw new Error('源文件类型未知，无法编辑定位器。');
+  throw new Error('The source file type is unknown; the locator cannot be edited.');
 }
 
 interface FieldEditorProps {
@@ -327,7 +327,7 @@ function FieldEditor({
           payload.src_locator = nextLocator;
         }
       } catch (reason) {
-        setError(reason instanceof Error ? reason.message : '定位器格式不合法。');
+        setError(reason instanceof Error ? reason.message : 'Invalid locator format.');
         return;
       }
     }
@@ -345,7 +345,7 @@ function FieldEditor({
       setError(
         reason instanceof ApiError
           ? reason.message
-          : '字段保存失败，请稍后重试。',
+          : 'Failed to save the field. Please try again later.',
       );
     } finally {
       if (!controller.signal.aborted) setSaving(false);
@@ -357,16 +357,16 @@ function FieldEditor({
       <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5">
         <div className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-blue-700">
           <Icon name="edit" size={11} />
-          编辑字段属性
+          Edit field properties
         </div>
         <p className="mt-1 text-[12px] leading-4 text-blue-800">
-          保存定位器时后端会重新做结构校验与实文件核查，失败返回 409 并保留原值。
+          When saving a locator the backend re-runs structural validation and source file verification; on failure it returns 409 and keeps the original value.
         </p>
       </div>
 
       <div>
         <label htmlFor="field-description" className="mb-1.5 block text-[12px] font-medium text-ink-soft">
-          描述
+          Description
         </label>
         <textarea
           id="field-description"
@@ -374,7 +374,7 @@ function FieldEditor({
           onChange={(event) => setDescription(event.target.value)}
           rows={2}
           maxLength={1000}
-          placeholder="字段业务含义（留空表示未登记）"
+          placeholder="Business meaning of the field (leave empty if not registered)"
           className="field-input resize-y py-2 text-[13px] leading-5"
           disabled={saving}
         />
@@ -382,14 +382,14 @@ function FieldEditor({
 
       <div>
         <label htmlFor="field-type" className="mb-1.5 block text-[12px] font-medium text-ink-soft">
-          字段类型
+          Field type
         </label>
         <input
           id="field-type"
           type="text"
           value={fieldType}
           onChange={(event) => setFieldType(event.target.value)}
-          placeholder="如 STRING / DECIMAL / TIMESTAMP"
+          placeholder="e.g. STRING / DECIMAL / TIMESTAMP"
           className="field-input h-8 font-mono text-[13px]"
           disabled={saving}
           maxLength={64}
@@ -400,7 +400,7 @@ function FieldEditor({
         <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
           <span className="flex items-center gap-1.5 text-[12px] font-medium text-ink-soft">
             <Icon name="code" size={11} className="text-blue-600" />
-            源定位器
+            Source locator
           </span>
           <FileTypeBadge type={locatorType} />
         </div>
@@ -408,14 +408,14 @@ function FieldEditor({
         <div className="space-y-2.5 px-3 py-2.5">
           {!locatorType && (
             <p className="text-[11px] leading-4 text-ink-muted">
-              源文件类型未知，当前只能编辑描述与字段类型。
+              The source file type is unknown; only the description and field type can be edited.
             </p>
           )}
 
           {locatorType === 'csv' && (
             <div className="grid grid-cols-2 gap-2">
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">列号</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">Column number</span>
                 <input
                   type="number"
                   min={1}
@@ -425,11 +425,11 @@ function FieldEditor({
                   }
                   className="field-input h-8 font-mono text-[13px]"
                   disabled={saving}
-                  placeholder="如 3"
+                  placeholder="e.g. 3"
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">表头名称</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">Header name</span>
                 <input
                   type="text"
                   value={draft.header}
@@ -438,33 +438,33 @@ function FieldEditor({
                   }
                   className="field-input h-8 text-[13px]"
                   disabled={saving}
-                  placeholder="如 order_id"
+                  placeholder="e.g. order_id"
                 />
               </label>
             </div>
           )}
           {locatorType === 'csv' && (
             <p className="text-[11px] leading-4 text-ink-muted">
-              列号与表头名称二选一；填写表头时按表头定位。
+              Use either a column number or a header name; when a header is given, it is used for locating.
             </p>
           )}
 
           {locatorType === 'xlsx' && (
             <div className="space-y-2">
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">工作表</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">Sheet</span>
                 <input
                   type="text"
                   value={draft.sheet}
                   onChange={(event) => updateDraft({ sheet: event.target.value })}
                   className="field-input h-8 text-[13px]"
                   disabled={saving}
-                  placeholder="如 订单"
+                  placeholder="e.g. Orders"
                 />
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">列</span>
+                  <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">Column</span>
                   <input
                     type="text"
                     value={draft.column}
@@ -477,11 +477,11 @@ function FieldEditor({
                     }
                     className="field-input h-8 font-mono text-[13px]"
                     disabled={saving}
-                    placeholder="如 C"
+                    placeholder="e.g. C"
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">起始行</span>
+                  <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">Start row</span>
                   <input
                     type="number"
                     min={1}
@@ -492,7 +492,7 @@ function FieldEditor({
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">结束行</span>
+                  <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">End row</span>
                   <input
                     type="number"
                     min={1}
@@ -505,7 +505,7 @@ function FieldEditor({
               </div>
               <label className="block">
                 <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">
-                  表头路径（用 → 或逗号分隔）
+                  Header path (separated by → or commas)
                 </span>
                 <input
                   type="text"
@@ -518,11 +518,11 @@ function FieldEditor({
                   }
                   className="field-input h-8 text-[13px]"
                   disabled={saving}
-                  placeholder="如 商品信息 → 订单号"
+                  placeholder="e.g. Product info → Order no."
                 />
               </label>
               <label className="block">
-                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">表头行数</span>
+                <span className="mb-1.5 block text-[12px] font-medium text-ink-soft">Header row count</span>
                 <input
                   type="number"
                   min={1}
@@ -530,11 +530,11 @@ function FieldEditor({
                   onChange={(event) => updateDraft({ headerRows: event.target.value })}
                   className="field-input h-8 font-mono text-[13px]"
                   disabled={saving}
-                  placeholder="可选"
+                  placeholder="Optional"
                 />
               </label>
               <p className="text-[11px] leading-4 text-ink-muted">
-                列标识与表头路径二选一；填写表头路径时按路径定位。
+                Use either a column identifier or a header path; when a header path is given, it is used for locating.
               </p>
             </div>
           )}
@@ -548,7 +548,7 @@ function FieldEditor({
                 onChange={(event) => updateDraft({ jsonPath: event.target.value })}
                 className="field-input h-8 font-mono text-[13px]"
                 disabled={saving}
-                placeholder="如 $.orders[*].order_id"
+                placeholder="e.g. $.orders[*].order_id"
               />
             </label>
           )}
@@ -574,12 +574,12 @@ function FieldEditor({
           {saving ? (
             <>
               <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-white/40 border-t-white" />
-              保存并核查…
+              Saving & verifying…
             </>
           ) : (
             <>
               <Icon name="check" size={12} />
-              保存
+              Save
             </>
           )}
         </button>
@@ -589,7 +589,7 @@ function FieldEditor({
           disabled={saving}
           className="h-8 rounded-lg border border-line-strong bg-card px-3 text-[13px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          取消
+          Cancel
         </button>
       </div>
     </form>
@@ -640,9 +640,9 @@ export function DetailPanel({
       <aside className="relative flex w-full shrink-0 flex-col border-t border-line bg-card xl:h-full xl:w-[320px] xl:border-l xl:border-t-0">
         <div className="flex h-12 shrink-0 flex-col justify-center border-b border-line-soft px-4">
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-faint">
-            检查器
+            Inspector
           </div>
-          <h2 className="mt-0.5 text-[12px] font-semibold text-ink">字段详情</h2>
+          <h2 className="mt-0.5 text-[12px] font-semibold text-ink">Field details</h2>
         </div>
         <EmptyDetail />
       </aside>
@@ -659,7 +659,7 @@ export function DetailPanel({
     ) ?? [];
   const locatorText = humanizeLocator(field.src_locator);
   const rawLocator = JSON.stringify(field.src_locator, null, 2);
-  // 字段本身由源文件导入；若有上游字段级边，则优先展示该边的 source。
+  // The field itself is imported from a source file; if an upstream field-level edge exists, its source is shown first.
   const fieldSource = incomingEdges[0]?.source ?? 'imported';
   const entityKey = fieldEntityKey(dataset.id, field.name);
 
@@ -702,21 +702,21 @@ export function DetailPanel({
           return Array.from(merged.values());
         });
         onNotify(
-          `已生成 ${candidates.length} 条 AI 候选血缘（source=ai）`,
+          `Generated ${candidates.length} AI candidate lineage edges (source=ai)`,
           'success',
         );
-        // 新候选已落库，刷新子图让 ai 边立即出现在画布上
+        // New candidates are persisted; refresh the subgraph so ai edges appear on the canvas immediately
         onRefresh();
       } else {
         setSuggestNote(
           suggestions.length > 0
-            ? '没有新的候选（已存在的边会被排除）。'
-            : '未发现候选（已存在的边会被排除）。',
+            ? 'No new candidates (existing edges are excluded).'
+            : 'No candidates found (existing edges are excluded).',
         );
         onNotify(
           suggestions.length > 0
-            ? '没有新的候选血缘'
-            : '没有发现可补充的字段级血缘候选',
+            ? 'No new candidate lineage'
+            : 'No field-level lineage candidates found',
           'info',
         );
       }
@@ -725,7 +725,7 @@ export function DetailPanel({
       setSuggestError(
         reason instanceof ApiError
           ? reason.message
-          : 'AI 建议生成失败，请稍后重试。',
+          : 'Failed to generate AI suggestions. Please try again later.',
       );
     } finally {
       if (!controller.signal.aborted) setSuggesting(false);
@@ -751,15 +751,15 @@ export function DetailPanel({
         (candidate) => suggestionId(candidate) !== key,
       );
       setSuggestions(remaining);
-      if (remaining.length === 0) setSuggestNote('候选已全部处理。');
-      onNotify(`已确认 AI 建议：#${edge.id} 已转为 manual`, 'success');
+      if (remaining.length === 0) setSuggestNote('All candidates have been handled.');
+      onNotify(`AI suggestion confirmed: #${edge.id} converted to manual`, 'success');
       onRefresh();
     } catch (reason) {
       if (controller.signal.aborted) return;
       setSuggestError(
         reason instanceof ApiError
           ? reason.message
-          : '确认 AI 建议失败，请稍后重试。',
+          : 'Failed to confirm the AI suggestion. Please try again later.',
       );
     } finally {
       if (!controller.signal.aborted) setBusySuggestionKey(null);
@@ -781,15 +781,15 @@ export function DetailPanel({
         (candidate) => suggestionId(candidate) !== key,
       );
       setSuggestions(remaining);
-      if (remaining.length === 0) setSuggestNote('候选已全部处理。');
-      onNotify('已拒绝该 AI 候选血缘', 'info');
+      if (remaining.length === 0) setSuggestNote('All candidates have been handled.');
+      onNotify('Rejected the AI candidate lineage edge', 'info');
       onRefresh();
     } catch (reason) {
       if (controller.signal.aborted) return;
       setSuggestError(
         reason instanceof ApiError
           ? reason.message
-          : '拒绝 AI 建议失败，请稍后重试。',
+          : 'Failed to reject the AI suggestion. Please try again later.',
       );
     } finally {
       if (!controller.signal.aborted) setBusySuggestionKey(null);
@@ -799,12 +799,12 @@ export function DetailPanel({
   return (
     <aside
       className="relative flex w-full shrink-0 flex-col border-t border-line bg-card xl:h-full xl:w-[320px] xl:border-l xl:border-t-0"
-      aria-label="字段详情"
+      aria-label="Field details"
     >
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-line-soft px-4">
         <div className="min-w-0">
           <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-faint">
-            字段检查
+            Field inspection
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-1.5 font-mono text-[12px] text-ink-muted">
             <Icon name="database" size={12} className="shrink-0" />
@@ -818,8 +818,8 @@ export function DetailPanel({
             type="button"
             onClick={() => setHistoryOpen(true)}
             className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-ink-faint transition-colors duration-150 hover:border-line hover:bg-card hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-            aria-label="查看字段变更历史"
-            title="变更历史"
+            aria-label="View field change history"
+            title="Change history"
           >
             <Icon name="history" size={14} />
           </button>
@@ -828,8 +828,8 @@ export function DetailPanel({
               type="button"
               onClick={() => setEditing((value) => !value)}
               className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-ink-faint transition-colors duration-150 hover:border-line hover:bg-card hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-              aria-label={editing ? '退出字段编辑' : '编辑字段属性'}
-              title={editing ? '退出编辑' : '编辑字段'}
+              aria-label={editing ? 'Exit field editing' : 'Edit field properties'}
+              title={editing ? 'Exit editing' : 'Edit field'}
             >
               <Icon name="edit" size={14} />
             </button>
@@ -838,8 +838,8 @@ export function DetailPanel({
             type="button"
             onClick={onClose}
             className="flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-ink-faint transition-colors duration-150 hover:border-line hover:bg-card hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-            aria-label="关闭字段详情"
-            title="关闭字段详情"
+            aria-label="Close field details"
+            title="Close field details"
           >
             <Icon name="close" size={14} />
           </button>
@@ -850,7 +850,7 @@ export function DetailPanel({
         <div className="animate-fade-in">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="rounded border border-line bg-card px-1.5 py-0.5 font-mono text-[11px] uppercase text-ink-muted">
-              {field.field_type || '类型未登记'}
+              {field.field_type || 'Type not registered'}
             </span>
             <FileTypeBadge type={field.src_locator.type} />
             <SourceBadge source={fieldSource} />
@@ -859,7 +859,7 @@ export function DetailPanel({
             {field.name}
           </h2>
           <p className="mt-1.5 text-[13px] leading-5 text-ink-muted">
-            {field.description || '暂无字段描述'}
+            {field.description || 'No field description yet'}
           </p>
         </div>
 
@@ -872,7 +872,7 @@ export function DetailPanel({
             onCancel={() => setEditing(false)}
             onSaved={() => {
               setEditing(false);
-              onNotify('字段属性已更新', 'success');
+              onNotify('Field properties updated', 'success');
               onRefresh();
             }}
           />
@@ -882,7 +882,7 @@ export function DetailPanel({
               <div className="flex items-center gap-2 border-b border-line-soft px-3 py-2">
                 <Icon name="file" size={12} className="text-blue-600" />
                 <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-faint">
-                  源文件
+                  Source file
                 </span>
               </div>
               <div className="px-3 py-2.5">
@@ -894,11 +894,11 @@ export function DetailPanel({
                     {field.source_file.original_name}
                   </span>
                   <span className="shrink-0 rounded border border-line bg-subtle px-1.5 py-px font-mono text-[11px] text-ink-muted">
-                    托管文件
+                    Managed file
                   </span>
                 </div>
                 <div className="mt-1 font-mono text-[11px] text-ink-faint">
-                  源文件 #{field.source_file.id}
+                  Source file #{field.source_file.id}
                 </div>
               </div>
             </div>
@@ -906,10 +906,10 @@ export function DetailPanel({
             <section className="mt-4">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
-                  源文件定位
+                  Source file location
                 </h3>
                 <span className="rounded-full border border-line bg-page px-1.5 py-px font-mono text-[11px] text-ink-faint">
-                  可读定位
+                  Readable locator
                 </span>
               </div>
               <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
@@ -918,7 +918,7 @@ export function DetailPanel({
                 </p>
                 <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-blue-100 pt-2">
                   <span className="font-mono text-[11px] text-blue-700">
-                    定位器信封 · {field.src_locator.type || '未知'}
+                    Locator envelope · {field.src_locator.type || 'unknown'}
                   </span>
                   <button
                     type="button"
@@ -926,7 +926,7 @@ export function DetailPanel({
                     className="flex items-center gap-1 rounded px-1 py-0.5 font-mono text-[11px] text-blue-700 transition-colors duration-150 hover:bg-blue-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
                   >
                     <Icon name="copy" size={10} />
-                    {copied ? '已复制' : copyError ? '复制失败' : '复制定位'}
+                    {copied ? 'Copied' : copyError ? 'Copy failed' : 'Copy locator'}
                   </button>
                 </div>
               </div>
@@ -939,7 +939,7 @@ export function DetailPanel({
                 className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 text-[13px] font-medium text-white transition-colors duration-150 hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
               >
                 <Icon name="file-search" size={14} />
-                回源预览
+                Source preview
               </button>
               {canEdit && (
                 <button
@@ -948,15 +948,15 @@ export function DetailPanel({
                   className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-card px-3 text-[13px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
                 >
                   <Icon name="edit" size={14} />
-                  编辑
+                  Edit
                 </button>
               )}
             </div>
             <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-ink-faint">
               <Icon name="lock" size={12} />
               {canEdit
-                ? '回源预览只读 · 编辑字段会写入变更日志'
-                : '只读角色 · 可查看标注与变更历史'}
+                ? 'Source preview is read-only · Editing the field writes to the change log'
+                : 'Read-only role · Can view annotations and change history'}
             </div>
 
             {canEdit && (
@@ -966,11 +966,11 @@ export function DetailPanel({
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 text-[13px] font-semibold text-ai-deep">
                         <Icon name="sparkles" size={12} className="text-ai" />
-                        AI 建议
+                        AI suggestions
                       </div>
                       <p className="mt-1 text-[12px] leading-4 text-ink-muted">
-                        按同名字段/包含关系查找可能缺失的字段级血缘；
-                        候选以 source=ai 落库，必须人工确认后才转为 manual。
+                        Find possibly missing field-level lineage by same-name fields / containment;
+                        candidates are stored with source=ai and become manual only after manual confirmation.
                       </p>
                     </div>
                     <button
@@ -984,7 +984,7 @@ export function DetailPanel({
                       ) : (
                         <Icon name="sparkles" size={11} />
                       )}
-                      {suggesting ? '分析中…' : 'AI 建议'}
+                      {suggesting ? 'Analyzing…' : 'Suggest'}
                     </button>
                   </div>
 
@@ -1034,7 +1034,7 @@ export function DetailPanel({
                                 </div>
                               </div>
                               <span className="shrink-0 rounded-full border border-ai/20 bg-ai-soft px-1.5 py-px font-mono text-[11px] text-ai-deep">
-                                置信 {formatConfidence(item.confidence)}
+                                Conf {formatConfidence(item.confidence)}
                               </span>
                             </div>
                             <p className="mt-1.5 text-[12px] leading-4 text-ink-muted">
@@ -1050,7 +1050,7 @@ export function DetailPanel({
                                   className="flex h-7 items-center gap-1 rounded-lg bg-blue-600 px-2 text-[13px] font-medium text-white transition-colors duration-150 hover:bg-blue-700 active:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
                                 >
                                   <Icon name="check" size={12} />
-                                  {busy ? '确认中…' : '确认'}
+                                  {busy ? 'Confirming…' : 'Confirm'}
                                 </button>
                                 <button
                                   type="button"
@@ -1059,7 +1059,7 @@ export function DetailPanel({
                                   className="flex h-7 items-center gap-1 rounded-lg border border-line-strong bg-card px-2 text-[12px] font-medium text-ink-soft transition-colors duration-150 hover:border-danger/30 hover:text-danger-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   <Icon name="trash" size={12} />
-                                  {busy ? '拒绝中…' : '拒绝'}
+                                  {busy ? 'Rejecting…' : 'Reject'}
                                 </button>
                               </div>
                             </div>
@@ -1081,10 +1081,10 @@ export function DetailPanel({
             <section className="mt-5">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink-faint">
-                  上游血缘
+                  Upstream lineage
                 </h3>
                 <span className="font-mono text-[11px] tabular-nums text-ink-faint">
-                  {incomingEdges.length} 条字段级边
+                  {incomingEdges.length} field-level edges
                 </span>
               </div>
               {incomingEdges.length > 0 ? (
@@ -1099,10 +1099,10 @@ export function DetailPanel({
               ) : (
                 <div className="rounded-xl border border-dashed border-line px-3 py-3 text-center">
                   <div className="font-mono text-[12px] text-ink-muted">
-                    根字段 / 无字段级入边
+                    Root field / No field-level incoming edges
                   </div>
                   <p className="mt-1 text-[11px] leading-4 text-ink-muted">
-                    该字段可能是链路起点，或仅由表级血缘覆盖。
+                    This field may be the start of a chain or covered only by table-level lineage.
                   </p>
                 </div>
               )}
@@ -1123,7 +1123,7 @@ export function DetailPanel({
               >
                 <span className="flex items-center gap-1.5">
                   <Icon name="history" size={12} />
-                  变更历史
+                  Change history
                 </span>
                 <Icon name="chevron-right" size={12} className="text-ink-faint" />
               </button>
@@ -1131,7 +1131,7 @@ export function DetailPanel({
 
             <details className="group mt-4 rounded-xl border border-line-soft bg-card">
               <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-[13px] font-medium text-ink-muted outline-none transition-colors duration-150 hover:text-ink focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white">
-                查看原始定位器
+                View raw locator
                 <Icon
                   name="chevron-down"
                   size={12}

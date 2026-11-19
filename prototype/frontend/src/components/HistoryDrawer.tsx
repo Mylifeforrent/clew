@@ -13,32 +13,32 @@ interface HistoryDrawerProps {
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  dataset_id: '数据集',
-  name: '名称',
-  field_type: '类型',
-  source_file_id: '源文件',
-  src_locator: '定位器',
-  description: '描述',
-  from_dataset: '上游数据集',
-  from_field: '上游字段',
-  to_dataset: '下游数据集',
-  to_field: '下游字段',
-  transform: '转换',
-  confidence: '置信度',
-  source: '来源',
-  note: '备注',
+  dataset_id: 'Dataset',
+  name: 'Name',
+  field_type: 'Type',
+  source_file_id: 'Source file',
+  src_locator: 'Locator',
+  description: 'Description',
+  from_dataset: 'Upstream dataset',
+  from_field: 'Upstream field',
+  to_dataset: 'Downstream dataset',
+  to_field: 'Downstream field',
+  transform: 'Transform',
+  confidence: 'Confidence',
+  source: 'Source',
+  note: 'Note',
 };
 
 const KIND_LABELS: Record<TargetKind, string> = {
-  dataset: '数据集',
-  field: '字段',
-  edge: '血缘边',
+  dataset: 'Dataset',
+  field: 'Field',
+  edge: 'Lineage edge',
 };
 
 const OP_LABELS: Record<ChangeOp, string> = {
-  added: '新增',
-  updated: '修改',
-  deleted: '删除',
+  added: 'Added',
+  updated: 'Updated',
+  deleted: 'Deleted',
 };
 
 const OP_STYLES: Record<ChangeOp, string> = {
@@ -54,8 +54,8 @@ const OP_DOT_STYLES: Record<ChangeOp, string> = {
 };
 
 function valueText(value: unknown): string {
-  if (value === null || value === undefined) return '空';
-  if (typeof value === 'string') return value || '空';
+  if (value === null || value === undefined) return 'Empty';
+  if (typeof value === 'string') return value || 'Empty';
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (typeof value === 'object') {
     const record = value as Record<string, unknown>;
@@ -65,7 +65,7 @@ function valueText(value: unknown): string {
     try {
       return JSON.stringify(value);
     } catch {
-      return '[无法展示]';
+      return '[Cannot display]';
     }
   }
   return String(value);
@@ -92,7 +92,7 @@ function ChangeSummary({ entry }: { entry: ChangeEntry }) {
     if (keys.length === 0) {
       return (
         <p className="text-[11px] leading-4 text-ink-faint">
-          内容与上一版本一致（未产生实质变更）。
+          Identical to the previous version (no substantive change).
         </p>
       );
     }
@@ -134,7 +134,7 @@ function ChangeSummary({ entry }: { entry: ChangeEntry }) {
   );
 }
 
-/** 字段 / 边的变更历史抽屉；数据来自 GET /changes，按 id 倒序。 */
+/** Change history drawer for fields / edges; data comes from GET /changes, ordered by id descending. */
 export function HistoryDrawer({
   token,
   entityKind,
@@ -161,7 +161,7 @@ export function HistoryDrawer({
         setError(
           reason instanceof ApiError
             ? reason.message
-            : '无法读取变更历史，请稍后重试。',
+            : 'Unable to load the change history. Please try again later.',
         );
       })
       .finally(() => {
@@ -208,7 +208,7 @@ export function HistoryDrawer({
             </span>
             <div className="min-w-0">
               <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-faint">
-                变更历史 · {KIND_LABELS[entityKind]}
+                Change history · {KIND_LABELS[entityKind]}
               </div>
               <h2
                 id="history-drawer-title"
@@ -223,8 +223,8 @@ export function HistoryDrawer({
               type="button"
               onClick={() => setReloadKey((value) => value + 1)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors duration-150 hover:bg-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-              aria-label="刷新变更历史"
-              title="刷新"
+              aria-label="Refresh change history"
+              title="Refresh"
             >
               <Icon name="refresh" size={14} />
             </button>
@@ -233,7 +233,7 @@ export function HistoryDrawer({
               type="button"
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors duration-150 hover:bg-subtle hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
-              aria-label="关闭变更历史"
+              aria-label="Close change history"
             >
               <Icon name="close" size={16} />
             </button>
@@ -248,8 +248,8 @@ export function HistoryDrawer({
             <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-4 text-ink-muted">
               <Icon name="info" size={11} className="mt-0.5 shrink-0 text-ink-faint" />
               <span>
-                变更日志按时间倒序展示（最多 50 条）。导入与人工编辑都会留痕，
-                标注不写入变更日志。
+                The change log is shown newest first (up to 50 entries). Imports and manual edits are recorded,
+                annotations are not written to the change log.
               </span>
             </p>
           </div>
@@ -274,16 +274,16 @@ export function HistoryDrawer({
                 className="mt-2 inline-flex h-7 items-center gap-1 rounded-lg border border-line-strong bg-card px-2 text-[11px] font-medium text-ink-soft transition-colors duration-150 hover:border-blue-400 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-1 focus-visible:ring-offset-white"
               >
                 <Icon name="refresh" size={11} />
-                重新加载
+                Reload
               </button>
             </div>
           )}
 
           {!loading && !error && entries?.length === 0 && (
             <div className="rounded-xl border border-dashed border-line px-4 py-8 text-center">
-              <div className="text-[12px] text-ink-muted">暂无变更记录</div>
+              <div className="text-[12px] text-ink-muted">No change records yet</div>
               <p className="mt-1 text-[11px] text-ink-muted">
-                该实体的创建与修改尚未写入变更日志。
+                Creates and updates of this entity have not been written to the change log yet.
               </p>
             </div>
           )}
@@ -315,7 +315,7 @@ export function HistoryDrawer({
                     </div>
                     <div className="mt-1.5 flex items-center gap-1 font-mono text-[11px] text-ink-faint">
                       <Icon name="user" size={10} />
-                      操作者 {entry.actor}
+                      Actor {entry.actor}
                     </div>
                   </article>
                 </li>

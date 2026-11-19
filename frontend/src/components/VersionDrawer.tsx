@@ -58,7 +58,8 @@ export function VersionDrawer({
   onDataChanged,
   onNotify,
 }: VersionDrawerProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const fileSeparator = locale === 'zh' ? '、' : ', ';
   const canWrite = isEditor(role);
   const canRollback = isAdmin(role);
 
@@ -84,7 +85,7 @@ export function VersionDrawer({
   const [rollbackNotice, setRollbackNotice] = useState<string | null>(null);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
 
-  // 三个写操作（建标签 / diff / 回滚）各持一个 controller，卸载即断（评审 R18）
+  // Each of the three write operations (create tag / diff / rollback) owns a controller, aborted on unmount (review R18)
   const createAbortRef = useRef<AbortController | null>(null);
   const diffAbortRef = useRef<AbortController | null>(null);
   const rollbackAbortRef = useRef<AbortController | null>(null);
@@ -141,9 +142,9 @@ export function VersionDrawer({
     );
   }, [tags]);
 
-  // 打开时焦点移入、关闭后焦点还原、Esc 栈顶协议、Tab 圈定、body 滚动锁
-  // 均由 ModalShell → useOverlayBehavior 统一承担（评审 R13）；
-  // pendingRollback（回滚确认弹窗打开）期间拒关，与原行为一致。
+  // Focus moves in on open, restores on close, Esc stack protocol, Tab containment, body scroll lock
+  // are all handled centrally by ModalShell → useOverlayBehavior (review R13);
+  // closing is refused while pendingRollback (the rollback confirmation dialog) is open, matching the previous behavior.
 
   const handleCreateTag = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -233,7 +234,7 @@ export function VersionDrawer({
       onDataChanged();
     } catch (reason) {
       if (isAbortError(reason)) return;
-      // 失败信息在回滚正文区保留 persistent 副本，不再只靠 4s toast（评审 R18）
+      // Failure messages are kept as a persistent copy in the rollback body, no longer relying only on a 4s toast (review R18)
       const message = reason instanceof ApiError
         ? reason.message
         : t('version.rollbackFailed');
@@ -340,8 +341,8 @@ export function VersionDrawer({
                         <span className="rounded border border-line bg-page px-1.5 py-px font-mono text-[11px] uppercase text-ink-faint">
                           {batch.format}
                         </span>
-                        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-faint" title={batch.file_names.join('、')}>
-                          {batch.file_names.join('、') || '—'}
+                        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-faint" title={batch.file_names.join(fileSeparator)}>
+                          {batch.file_names.join(fileSeparator) || '—'}
                         </span>
                         <span className="shrink-0 font-mono text-[11px] text-ink-faint">
                           {formatDateTime(batch.created_at)} · {batch.created_by}

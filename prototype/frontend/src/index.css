@@ -76,7 +76,7 @@
 @layer components {
   .field-input {
     @apply w-full rounded-md border border-line bg-card/60 px-3 text-[13px] text-ink outline-none transition-all duration-150 placeholder:text-ink-faint;
-    height: 36px; /* 紧凑场景由页面加 h-8 覆盖 */
+    height: 36px; /* compact contexts override with h-8 at the page level */
   }
 
   .field-input:hover:not(:disabled) {
@@ -98,7 +98,7 @@
 /* ---------- React Flow canvas ---------- */
 
 .lineage-flow {
-  background: #f8fafc; /* 点阵由容器类 bg-dot-grid bg-grid-24 提供 */
+  background: #f8fafc; /* dot grid comes from the container classes bg-dot-grid bg-grid-24 */
   font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
@@ -110,7 +110,7 @@
   cursor: grabbing;
 }
 
-/* 02 文档改造点 #27：框选矩形（blue-600/15 填充 + blue-600/55 描边，待回写 00 §2.5） */
+/* Doc 02 change #27: selection rectangle (blue-600/15 fill + blue-600/55 border; to be back-ported to 00 §2.5) */
 .lineage-flow .react-flow__selection {
   background: rgba(37, 99, 235, 0.15);
   border: 1px solid rgba(37, 99, 235, 0.55);
@@ -201,7 +201,7 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-/* 字段追踪链路命中的字段行：handle 转为红色追踪态 */
+/* Field row hit by the field trace chain: the handle switches to the red traced state */
 .react-flow__handle.field-handle.field-handle-traced {
   opacity: 1;
   border-color: #dc2626;

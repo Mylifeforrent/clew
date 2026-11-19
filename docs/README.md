@@ -1,90 +1,90 @@
-# Clew 文档索引
+# Clew Documentation Index
 
-本目录按「设计 → 原型 → 实现」的层次组织项目文档，建议按编号顺序阅读。
+This directory organizes project documentation in a "design → prototype → implementation" hierarchy; reading in numeric order is recommended.
 
-> 产品展示首页：[README](../README.md)（英文默认）· [README.zh](../README.zh.md)（中文）
-> 项目详细说明（原仓库根 README）：[PROJECT.md](./PROJECT.md)
+> Product showcase home: [README](../README.md) (English by default) · [README.zh](../README.zh.md) (Chinese)
+> Detailed project description (formerly the repository root README): [PROJECT.md](./PROJECT.md)
 
-## 目录结构
+## Directory Structure
 
 ```
 docs/
-├── README.md                          # 本索引
-├── PROJECT.md                         # 项目详细说明（原仓库根 README）
-├── assets/                            # 品牌图标与 README 演示 GIF（brand/、demo/）
-├── 01_design/                         # 设计文档（评审与开发的唯一依据）
-│   ├── Clew-设计方案.md      # 总体方案：调研结论、架构、里程碑、决策记录
-│   ├── Clew-业务模型.md      # 业务层：定位、干系人、领域概念、业务规则与不变量
-│   └── Clew-数据模型.md      # 数据层：ER 图、表定义、索引、版本重建规则
+├── README.md                          # This index
+├── PROJECT.md                         # Detailed project description (formerly the repository root README)
+├── assets/                            # Brand icons and README demo GIFs (brand/, demo/)
+├── 01_design/                         # Design documents (the sole basis for review and development)
+│   ├── clew-design-proposal.md      # Overall plan: research findings, architecture, milestones, decision records
+│   ├── clew-business-model.md      # Business layer: positioning, stakeholders, domain concepts, business rules and invariants
+│   └── clew-data-model.md      # Data layer: ER diagram, table definitions, indexes, version rebuild rules
 ├── 02_prototype/
-│   ├── clew-lofi-prototype.html # 低保真原型（浏览器直接打开，标签页切换 6 个界面，2026-10-23 确认的 UI 基线）
-│   ├── clew-hifi-prototype.html # 高保真可点击原型（2026-11 SQLite+Kùzu 双库方案配套：mock 数据、7 个可交互界面含架构总览）
-│   └── clew-system-lineage-prototype.html # 系统级血缘原型（2026-11：系统视图/数据集视图/字段视图三级切换、系统边证据下钻）
-└── 03_dev/                            # 开发文档（基于 01_design 设计与 prototype 实现整理）
-    ├── 01_架构设计.md                   # 系统上下文、模块划分、关键数据流、部署形态、架构决策摘要
-    ├── 02_前端开发文档.md               # 前端技术栈、组件清单、血缘画布实现、认证与状态管理
-    ├── 03_后端开发文档.md               # 后端技术栈、模块职责、.env 配置、导入/版本/AI 实现说明
-    ├── 04_前后端职责边界.md             # 14 个功能域的前后端职责矩阵与安全边界
-    ├── 05_API接口文档.md                # 全部 36 个端点的契约（参数、响应、错误、权限）
-    ├── 06_AI画布联动高亮修复.md          # AI 回答经 mark_highlight 驱动画布追踪高亮：问题/根因/契约/验证记录
-    ├── 07_AI模块演进规划.md              # LangChain 化 / 流式 / 对话内建议 / 描述草稿 / MCP：决策记录与技术设计
-    └── 08_评审修复批次2026-10-26.md      # 全站评审修复：AI 权限护栏与上下文预算、浮层基座、TopBar 响应式、边键盘可达
+│   ├── clew-lofi-prototype.html # Lo-fi prototype (open directly in a browser, tabs across 6 screens, UI baseline confirmed 2026-10-23)
+│   ├── clew-hifi-prototype.html # Hi-fi clickable prototype (supporting the 2026-11 SQLite+Kùzu dual-database plan: mock data, 7 interactive screens including the architecture overview)
+│   └── clew-system-lineage-prototype.html # System-level lineage prototype (2026-11: system/dataset/field three-level switching, drill-down into system edge evidence)
+└── 03_dev/                            # Development documents (compiled from the 01_design designs and the prototype implementation)
+    ├── 01_architecture.md                   # System context, module breakdown, key data flows, deployment shape, architecture decision summary
+    ├── 02_frontend-development.md               # Frontend tech stack, component inventory, lineage canvas implementation, authentication and state management
+    ├── 03_backend-development.md               # Backend tech stack, module responsibilities, .env configuration, import/version/AI implementation notes
+    ├── 04_frontend-backend-boundaries.md             # Frontend/backend responsibility matrix and security boundaries for 14 functional domains
+    ├── 05_api-reference.md                # Contracts for all 36 endpoints (parameters, responses, errors, permissions)
+    ├── 06_ai-canvas-highlight-fix.md          # AI answers driving canvas tracking highlights via mark_highlight: problem/root cause/contract/verification record
+    ├── 07_ai-module-evolution-plan.md              # LangChain adoption / streaming / in-conversation suggestions / description drafts / MCP: decision records and technical design
+    └── 08_review-fix-batch-2026-10-26.md      # Site-wide review fixes: AI permission guardrails and context budget, overlay foundation, TopBar responsiveness, keyboard-accessible edges
 
-再下还有 04_hifi/（高保真设计规范，2026-10-24 定稿：白底 + blue 主色，已落地 prototype/frontend）：
-    ├── 00_设计总览与DesignToken.md      # token 唯一来源：色彩/字体/间距/动效/通用组件规格 + 旧→新映射
-    ├── 01_登录页.md                     # 左右分栏大卡：blue-900 品牌面板 + 白色表单
-    ├── 02_血缘画布工作区.md             # 顶栏/侧栏/画布三区骨架与节点、边、浮层完整规格
-    ├── 03_详情与预览.md                 # 右侧详情面板、回源预览模态、新增边模态
-    ├── 04_AI助手.md                     # AI 对话抽屉：消息气泡、工具轨迹卡、候选边卡
-    ├── 05_版本与用户.md                 # 版本抽屉、变更历史时间线、用户管理模态
-    ├── 06_导入向导.md                   # [TBD-FE] 全新设计基线，本轮未实现
-    └── 07_系统级AI助手.md               # 系统级血缘原型的 AI 集成：系统级工具、出图联动、建议边生命周期
+Below that is 04_hifi/ (hi-fi design spec, finalized 2026-10-24: white background + blue primary color, already implemented in prototype/frontend):
+    ├── 00_design-overview-and-tokens.md      # Single source of tokens: color/typography/spacing/motion/common component specs + old→new mapping
+    ├── 01_login.md                     # Split-pane large card: blue-900 brand panel + white form
+    ├── 02_lineage-canvas-workspace.md             # Top bar/sidebar/canvas three-region skeleton with full specs for nodes, edges, overlays
+    ├── 03_details-and-preview.md                 # Right-side detail panel, source preview modal, add-edge modal
+    ├── 04_ai-assistant.md                     # AI conversation drawer: message bubbles, tool trace cards, candidate edge cards
+    ├── 05_versions-and-users.md                 # Version drawer, change history timeline, user management modal
+    ├── 06_import-wizard.md                   # [TBD-FE] Brand-new design baseline, not implemented in this round
+    └── 07_system-level-ai-assistant.md               # AI integration for the system-level lineage prototype: system-level tools, graph linking, suggested edge lifecycle
 ```
 
-## 阅读顺序
+## Reading Order
 
-| 顺序 | 文档 | 回答的问题 |
+| Order | Document | Questions It Answers |
 |---|---|---|
-| 1 | [设计方案](./01_design/Clew-设计方案.md) | 为什么这么做：两大开源方案的调研结论、总体架构（2026-11 起为 SQLite 事实源 + Kùzu 血缘图双库）、技术选型、里程碑与已确认决策记录（§十） |
-| 2 | [业务模型](./01_design/Clew-业务模型.md) | 业务上是什么：价值主张、角色权限、14 个领域概念（含系统/系统级血缘）、8 条业务流程、11 条业务不变量 |
-| 3 | [数据模型](./01_design/Clew-数据模型.md) | 数据怎么存：SQLite 13 张业务表 + graph_state 逐列定义、定位器 JSON 信封、Kùzu 图 schema（含 System/LINEAGE_SYSTEM）与双写一致性（§十）、回滚重建规则、M2–M6 API 契约增量 |
-| 4 | [低保真原型](./02_prototype/clew-lofi-prototype.html) | 长什么样（线框基线）：血缘画布、源文件预览、导入向导、AI 对话、版本与用户、登录 6 个界面 |
-| 5 | [高保真可点击原型](./02_prototype/clew-hifi-prototype.html) | 交互起来什么样（2026-11 双库方案配套演示）：mock 电商订单数仓数据，血缘画布（追踪链/折叠/过滤/缩放）、回源预览、导入向导、AI 工具对话与建议确认、版本标签 diff/回滚（联动图重建）、RBAC 视角切换、存储架构总览 |
-| 6 | [系统级血缘原型](./02_prototype/clew-system-lineage-prototype.html) | 系统间上下游长什么样（2026-11 设计新增）：系统/数据集/字段三级视图切换、显式边与投影边区分、系统边证据下钻、未归属数据集提示、环提示；含 AI 助手抽屉（系统级工具调用、出图联动、建议边确认，交互设计见 04_hifi/07） |
+| 1 | [Design Plan](./01_design/clew-design-proposal.md) | Why we do it this way: research findings on the two open-source solutions, overall architecture (since 2026-11 a dual database of SQLite source of truth + Kùzu lineage graph), technology choices, milestones and confirmed decision records (§10) |
+| 2 | [Business Model](./01_design/clew-business-model.md) | What it is in business terms: value proposition, role permissions, 14 domain concepts (including systems and system-level lineage), 8 business processes, 11 business invariants |
+| 3 | [Data Model](./01_design/clew-data-model.md) | How data is stored: column-by-column definitions for 13 SQLite business tables + graph_state, locator JSON envelope, Kùzu graph schema (including System/LINEAGE_SYSTEM) and dual-write consistency (§10), rollback rebuild rules, M2–M6 API contract increments |
+| 4 | [Lo-fi Prototype](./02_prototype/clew-lofi-prototype.html) | What it looks like (wireframe baseline): 6 screens — lineage canvas, source file preview, import wizard, AI chat, versions and users, login |
+| 5 | [Hi-fi Clickable Prototype](./02_prototype/clew-hifi-prototype.html) | What it feels like to interact with (demo accompanying the 2026-11 dual-database plan): mock e-commerce order warehouse data, lineage canvas (trace chains/collapse/filter/zoom), source preview, import wizard, AI tool chat with suggestion confirmation, version tag diff/rollback (with linked graph rebuild), RBAC perspective switching, storage architecture overview |
+| 6 | [System-Level Lineage Prototype](./02_prototype/clew-system-lineage-prototype.html) | What upstream/downstream relationships between systems look like (new in the 2026-11 design): system/dataset/field three-level view switching, distinction between explicit and projected edges, drill-down into system edge evidence, hints for unassigned datasets, cycle warnings; includes an AI assistant drawer (system-level tool calls, graph linking, suggested edge confirmation; see 04_hifi/07 for the interaction design) |
 
-## 开发文档（03_dev/）
+## Development Documents (03_dev/)
 
-基于 01_design 设计文档与 prototype/ 实现整理，面向开发者。设计文档与实现不一致时以代码现状为准，差异记录在各文档的「已知差距 / 差异」小节。正式工程目录为仓库根 `backend/` 与 `frontend/`（自 prototype 同源移植，差异见各自 README）；本文路径引用仍指 prototype 基线。
+Compiled from the 01_design documents and the prototype/ implementation, aimed at developers. Where design documents and implementation disagree, the current code prevails; differences are recorded in each document's "Known Gaps / Differences" section. The official project directories are `backend/` and `frontend/` at the repository root (ported from the same prototype sources; see each README for differences); path references in this document still point to the prototype baseline.
 
-| 文档 | 内容 |
+| Document | Contents |
 |---|---|
-| [架构设计](./03_dev/01_架构设计.md) | 系统定位与上下文、总体架构与模块划分、关键数据流（导入/子图/预览/AI/回滚）、外部依赖、部署形态、架构决策摘要 |
-| [前端开发文档](./03_dev/02_前端开发文档.md) | 前端技术栈与版本、目录结构、开发工作流、认证与全局状态、API 访问层、组件清单、血缘画布实现、角色权限的 UI 表现 |
-| [后端开发文档](./03_dev/03_后端开发文档.md) | 后端技术栈与版本、模块职责表、.env 配置、数据库与 RBAC、导入流水线、版本与回滚、AI 模块、错误处理约定、测试与运维命令 |
-| [前后端职责边界](./03_dev/04_前后端职责边界.md) | 边界总原则、14 个功能域职责矩阵、认证授权边界、数据契约边界、AI 边界、禁止事项清单 |
-| [API 接口文档](./03_dev/05_API接口文档.md) | 通用约定（认证/错误结构/状态码语义）、按功能域分组的全部 36 个端点契约、数据结构附录、端点总表（§15.1 另列系统级血缘设计新增端点） |
-| [AI 画布联动高亮修复](./03_dev/06_AI画布联动高亮修复.md) | 一次缺陷修复的完整记录：AI 回答高亮不生效的问题与根因、`mark_highlight` 工具与 `highlights` 契约、前端联动链路、验证记录与已知边界 |
-| [AI 模块演进规划](./03_dev/07_AI模块演进规划.md) | AI 从查询器到治理 copilot 的蓝图：LangChain 接入（OpenAI/DashScope 双供应商）、SSE 流式、对话内建议、描述草稿流、MCP server，以及不引入 LangGraph 等决策记录 |
-| [评审修复批次 2026-10-26](./03_dev/08_评审修复批次2026-10-26.md) | 全站评审（布局/交互/AI）的修复批次：AI 工具角色护栏、SSE 心跳/断开即停、上下文预算、速率限制、浮层基座（ModalShell + useOverlayBehavior）、TopBar 响应式、画布性能与空态、边键盘可达、AI 抽屉停止/清空/内联确认卡 |
+| [Architecture Design](./03_dev/01_architecture.md) | System positioning and context, overall architecture and module breakdown, key data flows (import/subgraph/preview/AI/rollback), external dependencies, deployment shape, architecture decision summary |
+| [Frontend Development](./03_dev/02_frontend-development.md) | Frontend tech stack and versions, directory structure, development workflow, authentication and global state, API access layer, component inventory, lineage canvas implementation, UI representation of role permissions |
+| [Backend Development](./03_dev/03_backend-development.md) | Backend tech stack and versions, module responsibility table, .env configuration, database and RBAC, import pipeline, versions and rollback, AI module, error handling conventions, test and operations commands |
+| [Frontend/Backend Responsibility Boundary](./03_dev/04_frontend-backend-boundaries.md) | General boundary principles, responsibility matrix for 14 functional domains, authentication and authorization boundaries, data contract boundaries, AI boundaries, list of prohibitions |
+| [API Reference](./03_dev/05_api-reference.md) | General conventions (authentication/error structure/status code semantics), contracts for all 36 endpoints grouped by functional domain, data structure appendix, endpoint summary table (§15.1 separately lists endpoints added by the system-level lineage design) |
+| [AI Canvas Linking Highlight Fix](./03_dev/06_ai-canvas-highlight-fix.md) | A complete record of one defect fix: the problem of AI answer highlights not taking effect and its root cause, the `mark_highlight` tool and `highlights` contract, the frontend linking chain, verification record and known boundaries |
+| [AI Module Evolution Plan](./03_dev/07_ai-module-evolution-plan.md) | Blueprint for AI evolving from a query engine into a governance copilot: LangChain integration (OpenAI/DashScope dual providers), SSE streaming, in-conversation suggestions, description draft stream, MCP server, and decision records such as not adopting LangGraph |
+| [Review Fix Batch 2026-10-26](./03_dev/08_review-fix-batch-2026-10-26.md) | Fix batch from the site-wide review (layout/interaction/AI): AI tool role guardrails, SSE heartbeat/stop on disconnect, context budget, rate limiting, overlay foundation (ModalShell + useOverlayBehavior), TopBar responsiveness, canvas performance and empty states, keyboard-accessible edges, AI drawer stop/clear/inline confirmation cards |
 
-## 文档与代码的对应关系
+## Document-to-Code Mapping
 
-| 文档章节 | 代码落点 |
+| Document Section | Code Location |
 |---|---|
-| 数据模型 §二 表定义 | `prototype/backend/src/lineagelite/db.py`（DDL 与文档逐表对齐，含 rollback_record） |
-| 数据模型 §四 JSON 结构 | `prototype/backend/src/lineagelite/locator.py`、`manifest.py`（定位器信封 + 实文件核查） |
-| 设计方案 §3.5-3.6 导入流程 | `prototype/backend/src/lineagelite/import_service.py`、`routes/imports.py` |
-| 设计方案 §4.4 用户与权限 | `prototype/backend/src/lineagelite/security.py`、`routes/auth.py` |
-| 数据模型 §七 版本重建 | `prototype/backend/src/lineagelite/versioning.py`（按批次/按标签回滚、标签 diff、幂等反做） |
-| 数据模型 §九 M2 契约增量 | `prototype/backend/src/lineagelite/routes/datasets.py`（field_names）、`preview.py`（file/verification）、`lineage.py`（edge.id） |
-| 数据模型 §九 M3 编辑与标注 | `prototype/backend/src/lineagelite/routes/annotations.py`、`routes/fields.py`、`routes/edges.py`、`routes/changes.py`、`routes/version_tags.py`、`changes.py` |
-| 数据模型 §九 M4 AI 接口 | `prototype/backend/src/lineagelite/routes/ai.py`、`ai/suggest.py`、`ai/tools.py`、`ai/chat.py`、`ai/llm.py`；前端 `components/AiAssistantDrawer.tsx`、`components/EdgeDetailPanel.tsx` |
-| 数据模型 §十 Kùzu 图存储 | 设计已定稿、代码待迁移（现有 `backend/src/clew`/`prototype` 仍为单 SQLite 递归 CTE；落地时新增 `graph.py` 双写与重建，读路径路由见该节） |
-| 设计方案 §4.7 系统级血缘 | 设计已定稿、代码待实现；原型见 `docs/02_prototype/clew-system-lineage-prototype.html`，目标模块 `routes/systems.py`、`lineage.system_subgraph()`、`graph.py` |
-| 业务模型 §六 不变量 | 部分由数据库约束保证（边唯一部分索引），部分由服务层校验保证，均有对应测试（`prototype/backend/tests/test_m3_api.py` 等） |
+| Data Model §2 Table Definitions | `prototype/backend/src/lineagelite/db.py` (DDL aligned table by table with the document, including rollback_record) |
+| Data Model §4 JSON Structures | `prototype/backend/src/lineagelite/locator.py`, `manifest.py` (locator envelope + actual file verification) |
+| Design Plan §3.5-3.6 Import Flow | `prototype/backend/src/lineagelite/import_service.py`, `routes/imports.py` |
+| Design Plan §4.4 Users and Permissions | `prototype/backend/src/lineagelite/security.py`, `routes/auth.py` |
+| Data Model §7 Version Rebuild | `prototype/backend/src/lineagelite/versioning.py` (rollback by batch/by tag, tag diff, idempotent undo) |
+| Data Model §9 M2 Contract Increments | `prototype/backend/src/lineagelite/routes/datasets.py` (field_names), `preview.py` (file/verification), `lineage.py` (edge.id) |
+| Data Model §9 M3 Editing and Annotation | `prototype/backend/src/lineagelite/routes/annotations.py`, `routes/fields.py`, `routes/edges.py`, `routes/changes.py`, `routes/version_tags.py`, `changes.py` |
+| Data Model §9 M4 AI Interfaces | `prototype/backend/src/lineagelite/routes/ai.py`, `ai/suggest.py`, `ai/tools.py`, `ai/chat.py`, `ai/llm.py`; frontend `components/AiAssistantDrawer.tsx`, `components/EdgeDetailPanel.tsx` |
+| Data Model §10 Kùzu Graph Storage | Design finalized, code migration pending (the current `backend/src/clew`/`prototype` still use a single SQLite recursive CTE; when implemented, add `graph.py` dual-write and rebuild; see that section for read-path routing) |
+| Design Plan §4.7 System-Level Lineage | Design finalized, code pending implementation; prototype at `docs/02_prototype/clew-system-lineage-prototype.html`, target modules `routes/systems.py`, `lineage.system_subgraph()`, `graph.py` |
+| Business Model §6 Invariants | Partly guaranteed by database constraints (partial unique index on edges), partly by service-layer validation, each covered by corresponding tests (`prototype/backend/tests/test_m3_api.py` and others) |
 
-## 维护约定
+## Maintenance Conventions
 
-- 文档冲突时以「数据模型 → 设计方案 → 业务模型」的数据层优先顺序裁决，并按 AGENTS.md 规范在冲突处标 `[CONFLICT]`；
-- 涉及表结构、不变量、接口语义的代码改动，必须同步更新对应文档章节；
-- 原型为 2026-10-23 确认的 UI 基线（设计方案 §十 决策#6），M2 前端开发以其为布局依据。
+- When documents conflict, resolve in the data-layer-first order "Data Model → Design Plan → Business Model", and mark the conflict point with `[CONFLICT]` per the AGENTS.md conventions;
+- Code changes involving table structures, invariants, or interface semantics must update the corresponding document sections in the same change;
+- The prototype is the UI baseline confirmed on 2026-10-23 (Design Plan §10 Decision #6); M2 frontend development uses it as the layout basis.

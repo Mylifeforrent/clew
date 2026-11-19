@@ -1,3 +1,3 @@
-"""Clew — 字段级 AI 数据血缘工具。"""
+"""Clew — field-level AI data lineage tool."""
 
 __version__ = "0.1.0"

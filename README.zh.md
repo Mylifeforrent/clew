@@ -100,7 +100,7 @@
 ![在英文与中文之间切换界面](docs/assets/demo/07-bilingual.gif)
 
 工作台全部界面 —— 画布、详情面板、导入向导、AI 抽屉、版本与用户面板 —— 都支持
-**英文与简体中文**，偏好本地持久化。应用默认中文；本 README 默认英文。
+**英文与简体中文**，偏好本地持久化。应用默认英文，可随时通过语言切换改为简体中文；英文版说明见 [README.md](./README.md)。
 
 ## 工作原理
 
@@ -204,8 +204,8 @@ clew/
 
 - [docs/PROJECT.md](./docs/PROJECT.md) — 项目详细说明：里程碑范围、前后端行为、API 清单、已知差距。
 - [docs/README.md](./docs/README.md) — 文档索引与阅读顺序。
-- [API 契约](./docs/03_dev/05_API接口文档.md) — 全部端点、权限与错误语义。
-- [设计文档](./docs/01_design/Clew-设计方案.md) — 方案调研与架构决策。
+- [API 契约](./docs/03_dev/05_api-reference.md) — 全部端点、权限与错误语义。
+- [设计文档](./docs/01_design/clew-design-proposal.md) — 方案调研与架构决策。
 
 ## 当前状态与已知差距
 

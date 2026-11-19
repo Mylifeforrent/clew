@@ -1,29 +1,39 @@
-"""AI 对话编排：OpenAI 兼容 function calling 循环（最多 5 轮工具调用）。
+"""AI chat orchestration: OpenAI-compatible function calling loop (at most 5 tool rounds).
 
-流程：
-1. 固定 system 提示（含可选的 focus 上下文与写类工具角色说明）+ 前端传来的对话历史；
-2. 调 ``llm.complete(messages, tools)``；模型返回 tool_calls 时逐个执行工具，
-   把结果以 role=tool 的消息追加回去，继续下一轮；
-3. 模型不再请求工具时，取该条消息的 content 作为最终 answer；
-4. 若连续 5 轮都在调用工具，再发一次不带 tools 的请求强制收口（保证循环有界）。
+Flow:
+1. A fixed system prompt (with optional focus context and write-tool role notes)
+   + the conversation history sent by the frontend;
+2. Call ``llm.complete(messages, tools)``; when the model returns tool_calls,
+   execute each tool, append the results as role=tool messages, and continue to
+   the next round;
+3. When the model no longer requests tools, take that message's content as the
+   final answer;
+4. If 5 consecutive rounds all call tools, send one more request without tools
+   to force a conclusion (guaranteeing the loop is bounded).
 
-``tool_trace`` 记录每次工具调用的 ``{tool, args, ok}``；``graph`` 取最后一次
-图查询工具（trace_lineage）返回的 GraphPayload，供前端画布联动渲染；
-``highlights`` 汇总 mark_highlight 声明的字段（画布红色追踪链联动信号）；
-``suggestions``/``drafts`` 为 M5 新增（suggest_lineage 候选、描述草稿）。
+``tool_trace`` records ``{tool, args, ok}`` for every tool call; ``graph`` takes
+the GraphPayload returned by the last graph-query tool (trace_lineage), for the
+frontend canvas to render; ``highlights`` aggregates the fields declared by
+mark_highlight (canvas red tracing-chain signal); ``suggestions``/``drafts``
+are new in M5 (suggest_lineage candidates, description drafts).
 
-流式：``stream_run_chat`` 复用同一编排，仅把模型调用换成 ``llm.stream_complete``
-（逐 token 回调）并把工具轮事件经 ``on_event`` 实时抛给 SSE 路由。
+Streaming: ``stream_run_chat`` reuses the same orchestration, only swapping the
+model call for ``llm.stream_complete`` (per-token callback) and emitting tool
+round events to the SSE route in real time via ``on_event``.
 
-08 号修复（2026-10-26）：
+Doc 08 fixes (2026-10-26):
 
-- R8 写类工具角色护栏：调用方 ``role`` 必传，viewer 触发 suggest_lineage /
-  draft_descriptions 时由 ``run_tool`` 抛 ToolError（不写库）；
-- R9 断开即停：``should_interrupt`` 在每轮开始与每个工具调用前检查，置位即抛
-  :class:`ChatInterrupted`，未执行的轮次与写操作不再进行；
-- R10 上下文预算：工具结果拼回前截断（``MAX_TOOL_RESULT_CHARS``）；
-  每轮拼回后按 token 预算（``CONTEXT_TOKEN_BUDGET``，``.env`` 的
-  ``LLM_CONTEXT_TOKEN_BUDGET`` 可覆盖）整块修剪最旧轮次。
+- R8 write-tool role guard: the caller's ``role`` is mandatory; when a viewer
+  triggers suggest_lineage / draft_descriptions, ``run_tool`` raises ToolError
+  (no DB write);
+- R9 disconnect-stops: ``should_interrupt`` is checked at the start of every
+  round and before every tool call; once set, :class:`ChatInterrupted` is raised
+  and unexecuted rounds and write operations no longer proceed;
+- R10 context budget: tool results are truncated before being appended
+  (``MAX_TOOL_RESULT_CHARS``); after each round is appended, the oldest rounds
+  are trimmed as a whole block according to the token budget
+  (``CONTEXT_TOKEN_BUDGET``, overridable via ``LLM_CONTEXT_TOKEN_BUDGET`` in
+  ``.env``).
 """
 
 from __future__ import annotations
@@ -38,46 +48,47 @@ from . import llm
 from .tools import MAX_HIGHLIGHT_FIELDS, TOOL_SCHEMAS, run_tool
 
 MAX_TOOL_ROUNDS = 5
-# R10：工具结果对模型可见文本的字符上限（graph/highlights 抽取发生在截断之前）
+# R10: character cap of the tool result text visible to the model (graph/highlights extraction happens before truncation)
 MAX_TOOL_RESULT_CHARS = 4000
 DEFAULT_CONTEXT_TOKEN_BUDGET = 96_000
 
 
 class ChatInterrupted(Exception):
-    """客户端已断开：编排有序收敛（R9），未开始的轮次与写操作不再执行。"""
+    """The client has disconnected: orchestrate an orderly convergence (R9); unstarted rounds and write operations no longer execute."""
 
 
-SYSTEM_PROMPT = """你是 Clew（字段级 AI 数据血缘工具）的助手。
+SYSTEM_PROMPT = """You are the assistant for Clew (a field-level AI data lineage tool).
 
-你可以调用工具查询数据集字段、源文件定位、上下游血缘与变更历史：
-- search_fields：按关键词定位字段；
-- get_field_details：字段详情、源文件定位器与回源预览；
-- trace_lineage：按数据集/字段追溯上下游 N 跳子图；
-- get_field_history：字段的变更历史；
-- mark_highlight：声明要在画布上橙色追踪高亮的字段（画布联动信号，不返回数据）；
-- suggest_lineage：对数据集/字段运行血缘建议，候选边落库并出现在画布上（用户人工确认后生效）；
-- analyze_impact：分析字段下游影响面（下游字段、源文件、最近变更）；
-- draft_descriptions：为缺描述的字段生成描述草稿（用户确认后才成为标注）。
+You can call tools to query dataset fields, source-file locators, upstream/downstream lineage and change history:
+- search_fields: locate fields by keyword;
+- get_field_details: field details, source-file locator and source preview;
+- trace_lineage: trace the N-hop upstream/downstream subgraph by dataset/field;
+- get_field_history: the field's change history;
+- mark_highlight: declare fields to highlight with orange tracing on the canvas (a canvas-linking signal; returns no data);
+- suggest_lineage: run lineage suggestions for a dataset/field; candidate edges are persisted and appear on the canvas (effective only after the user confirms them manually);
+- analyze_impact: analyze a field's downstream impact surface (downstream fields, source files, recent changes);
+- draft_descriptions: generate description drafts for fields missing descriptions (become annotations only after user acceptance).
 
-回答规则：
-1. 必须基于工具返回的数据作答，不得编造数据集、字段、边或文件位置；
-   查不到时明确说明「未找到」，并给出下一步建议。
-2. 用户用中文提问时用中文回答，用英文提问时用英文回答；涉及血缘时说明方向、跳数与置信度，
-   涉及回源时给出文件名与定位器（sheet/列/JSONPath）。
-3. 你没有直接修改业务数据的权限：血缘候选必须经用户确认、描述草稿必须经
-   用户采纳，不要声称已修改任何正式数据。
-4. 当用户要求「高亮/标记/标出」结果，或回答围绕某些字段的上下游时，
-   在给出最终回答前调用 mark_highlight，fields 传本次回答聚焦的字段
-   （最多 8 个）；这些字段会在画布上以橙色追踪链高亮。
-5. 回答中的字段尽量写成 `数据集.字段` 形式（如 d0.amount），前端会渲染为
-   可点击的证据锚点。
-6. 回答语言必须与用户最新一条提问的语言一致：英文提问必须用英文回答，
-   中文提问用中文回答；不要因为本系统提示是中文就默认用中文。"""
+Answering rules:
+1. You must answer based on data returned by tools; never fabricate datasets, fields, edges or file locations;
+   when nothing is found, clearly say "not found" and give the next-step suggestion.
+2. Answer in Chinese when the user asks in Chinese, and in English when the user asks in English; when lineage is involved, state the direction, hop count and confidence;
+   when source tracing is involved, give the file name and locator (sheet/column/JSONPath).
+3. You have no permission to directly modify business data: lineage candidates must be confirmed by the user and description drafts must be
+   accepted by the user; do not claim you have modified any formal data.
+4. When the user asks to "highlight/mark/point out" results, or the answer revolves around the upstream/downstream of certain fields,
+   call mark_highlight before giving the final answer, passing the fields this answer focuses on
+   (at most 8); these fields will be highlighted with an orange tracing chain on the canvas.
+5. Write fields in answers as `dataset.field` where possible (e.g. d0.amount); the frontend renders them as
+   clickable evidence anchors.
+6. The answer language must match the language of the user's latest question: answer English questions in English and
+   Chinese questions in Chinese; never default to Chinese just because this system prompt is in English."""
 
 VIEWER_TOOL_PROMPT = (
-    "7. 当前对话用户是 viewer 角色：suggest_lineage / draft_descriptions 写类工具"
-    "对你不可用（被角色护栏拒绝）。当用户请求「补充血缘/生成描述建议」时，"
-    "说明该操作需要 editor 角色账号在画布详情面板执行，不要反复尝试这两个工具。")
+    "7. The current chat user has the viewer role: the write-type tools suggest_lineage / draft_descriptions"
+    " are unavailable to you (rejected by the role guard). When the user asks to \"add lineage/generate"
+    " description suggestions\", explain that this operation requires an editor account in the canvas"
+    " detail panel, and do not retry these two tools repeatedly.")
 
 
 def _system_prompt(focus: dict | None, role: str = "editor") -> str:
@@ -88,23 +99,25 @@ def _system_prompt(focus: dict | None, role: str = "editor") -> str:
         dataset = str(focus.get("dataset") or "").strip()
         field = str(focus.get("field") or "").strip()
         if dataset:
-            scope = f"数据集「{dataset}」"
+            scope = f"dataset \"{dataset}\""
             if field:
-                scope += f"的字段「{field}」"
-            lines.append(f"当前用户聚焦于{scope}，请优先围绕该范围回答。")
+                scope += f" field \"{field}\""
+            lines.append(
+                f"The current user is focused on {scope};"
+                " prioritize answering within that scope.")
     return "\n\n".join(lines)
 
 
 def _response_message(response: dict) -> dict:
     if not isinstance(response, dict):
-        raise llm.LLMError("LLM 响应不是 JSON 对象")
+        raise llm.LLMError("LLM response is not a JSON object")
     choices = response.get("choices")
     if not isinstance(choices, list) or not choices:
-        raise llm.LLMError("LLM 响应缺少 choices")
+        raise llm.LLMError("LLM response is missing choices")
     first = choices[0]
     message = first.get("message") if isinstance(first, dict) else None
     if not isinstance(message, dict):
-        raise llm.LLMError("LLM 响应缺少 message")
+        raise llm.LLMError("LLM response is missing message")
     return message
 
 
@@ -114,7 +127,7 @@ def _tool_calls(message: dict) -> list:
 
 
 def _content_text(content) -> str:
-    """兼容 content 为字符串或 [{type:text,text:...}] 的供应商差异。"""
+    """Tolerate provider differences where content is a string or [{type:text,text:...}]."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -137,11 +150,11 @@ def _parse_arguments(raw) -> dict:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError:
-            raise ValueError("工具参数不是合法 JSON") from None
+            raise ValueError("Tool arguments are not valid JSON") from None
         if not isinstance(parsed, dict):
-            raise ValueError("工具参数必须是 JSON 对象")
+            raise ValueError("Tool arguments must be a JSON object")
         return parsed
-    raise ValueError("工具参数必须是 JSON 对象")
+    raise ValueError("Tool arguments must be a JSON object")
 
 
 def _is_graph_payload(value) -> bool:
@@ -150,11 +163,11 @@ def _is_graph_payload(value) -> bool:
             and isinstance(value.get("edges"), list))
 
 
-# ---------- R10：上下文预算 ----------
+# ---------- R10: context budget ----------
 
 
 def _estimate_tokens(text: str) -> float:
-    """粗略 token 估算：非 ASCII ≈ 1 token/字符，ASCII ≈ 0.25 token/字符。"""
+    """Rough token estimate: non-ASCII ≈ 1 token/char, ASCII ≈ 0.25 token/char."""
     if not text:
         return 0.0
     non_ascii = sum(1 for ch in text if ord(ch) > 0x7F)
@@ -162,7 +175,7 @@ def _estimate_tokens(text: str) -> float:
 
 
 def _conversation_tokens(conversation: list[dict]) -> float:
-    """整段对话（含 tool_calls 参数）的估算 token 总量。"""
+    """Estimated total tokens of the whole conversation (including tool_calls arguments)."""
     return sum(
         _estimate_tokens(json.dumps(message, ensure_ascii=False, default=str))
         for message in conversation)
@@ -177,10 +190,12 @@ def _context_budget() -> int:
 
 
 def _trim_context(conversation: list[dict]) -> list[dict]:
-    """超预算时整块修剪最旧轮次（原地修改）。
+    """When over budget, trim the oldest rounds as a whole block (in place).
 
-    「一整块」= 从 index 1 起到下一个 user 消息之前的全部消息——保证修剪后
-    对话仍以 user 消息开始、system 与当前轮次永不删除。
+    "A whole block" = all messages from index 1 up to (but excluding) the next
+    user message — ensuring that after trimming the conversation still starts
+    with a user message and that the system prompt and the current round are
+    never deleted.
     """
     if len(conversation) <= 1:
         return conversation
@@ -198,25 +213,28 @@ def _trim_context(conversation: list[dict]) -> list[dict]:
 
 
 def _truncate_tool_result(result: dict) -> str:
-    """工具结果 JSON 序列化；超过 ``MAX_TOOL_RESULT_CHARS`` 截断并附标记。
+    """Serialize the tool result to JSON; if it exceeds ``MAX_TOOL_RESULT_CHARS``, truncate and append a marker.
 
-    仅影响拼回对话、供模型阅读的文本；graph/highlights/suggestions/drafts
-    的抽取在调用本函数之前完成，画布联动不受影响（08 号 R10）。
+    Only affects the text appended to the conversation for the model to read;
+    graph/highlights/suggestions/drafts extraction happens before this function
+    is called, so canvas linking is unaffected (doc 08 R10).
     """
     payload = json.dumps(result, ensure_ascii=False, default=str)
     if len(payload) <= MAX_TOOL_RESULT_CHARS:
         return payload
     return (payload[:MAX_TOOL_RESULT_CHARS]
-            + f"…[工具结果已截断：完整数据共 {len(payload)} 字符，此处仅返回前段]")
+            + f"...[tool result truncated: full data is {len(payload)}"
+              " characters; only the leading part is returned here]")
 
 
 def _drive(messages: list[dict], focus: dict | None, actor: str, role: str,
            complete_fn: Callable, on_event: Callable[[dict], None] | None,
            should_interrupt: Callable[[], bool] | None = None) -> dict:
-    """function calling 主循环；``complete_fn`` 可替换为流式实现。
+    """Main function-calling loop; ``complete_fn`` may be replaced with a streaming implementation.
 
-    ``role`` 为调用方角色（随 ``run_tool`` 下发到写类工具，08 号 R8）；
-    ``should_interrupt`` 置位时抛 :class:`ChatInterrupted`（08 号 R9）。
+    ``role`` is the caller's role (passed with ``run_tool`` to write-type tools,
+    doc 08 R8); when ``should_interrupt`` is set, :class:`ChatInterrupted` is
+    raised (doc 08 R9).
     """
     conversation: list[dict] = [
         {"role": "system", "content": _system_prompt(focus, role)},
@@ -244,7 +262,7 @@ def _drive(messages: list[dict], focus: dict | None, actor: str, role: str,
 
     while True:
         interrupted()
-        # 第 6 次请求（rounds == 5）不再提供工具，强制模型给出最终回答
+        # The 6th request (rounds == 5) no longer offers tools, forcing the model to give a final answer
         tools = TOOL_SCHEMAS if rounds < MAX_TOOL_ROUNDS else None
         response = complete_fn(conversation, tools)
         message = _response_message(response)
@@ -283,7 +301,7 @@ def _drive(messages: list[dict], focus: dict | None, actor: str, role: str,
                         result = run_tool(conn, name, args, actor=actor,
                                           role=role)
                     ok = True
-                except Exception as exc:  # 工具错误回传给模型，不中断整轮对话
+                except Exception as exc:  # Tool errors are returned to the model; the whole conversation is not interrupted
                     result = {"error": str(exc) or exc.__class__.__name__}
                     ok = False
             else:
@@ -326,7 +344,8 @@ def _drive(messages: list[dict], focus: dict | None, actor: str, role: str,
                 "content": _truncate_tool_result(result),
             })
 
-        # 本轮工具结果拼回后检查上下文预算；超预算整块修剪最旧轮次（R10）
+        # After this round's tool results are appended, check the context budget;
+        # over budget trims the oldest rounds as a whole block (R10)
         _trim_context(conversation)
 
     payload: dict = {"answer": answer, "tool_trace": tool_trace}
@@ -343,11 +362,13 @@ def _drive(messages: list[dict], focus: dict | None, actor: str, role: str,
 
 def run_chat(messages: list[dict], focus: dict | None = None,
              actor: str = "system", *, role: str) -> dict:
-    """执行一轮 AI 对话（非流式），返回编排 payload。
+    """Run one AI chat round (non-streaming) and return the orchestration payload.
 
-    ``messages`` 已由路由层校验为 ``[{role, content}]``（role 仅 user/assistant）。
-    ``role`` 必传（调用方角色，R8）。未配置 LLM 抛 :class:`llm.LLMNotConfigured`；
-    上游 HTTP/结构错误抛 :class:`llm.LLMError`。
+    ``messages`` has already been validated by the route layer as
+    ``[{role, content}]`` (role is only user/assistant). ``role`` is mandatory
+    (the caller's role, R8). An unconfigured LLM raises
+    :class:`llm.LLMNotConfigured`; upstream HTTP/structure errors raise
+    :class:`llm.LLMError`.
     """
     if not llm.is_configured(get_settings()):
         raise llm.LLMNotConfigured(llm.NOT_CONFIGURED_MESSAGE)
@@ -357,10 +378,11 @@ def run_chat(messages: list[dict], focus: dict | None = None,
 def stream_run_chat(messages: list[dict], focus: dict | None, actor: str,
                     role: str, on_event: Callable[[dict], None],
                     should_interrupt: Callable[[], bool] | None = None) -> dict:
-    """流式编排：最终回答经 ``llm.stream_complete`` 逐 token 回调，其余同构。
+    """Streaming orchestration: the final answer is token-callbacked via ``llm.stream_complete``; the rest is isomorphic.
 
-    ``role`` 必传（调用方角色，R8）；``should_interrupt`` 断开即停（R9）。
-    返回完整 payload（含 answer/graph/highlights/suggestions/drafts）。
+    ``role`` is mandatory (the caller's role, R8); ``should_interrupt`` stops on
+    disconnect (R9). Returns the full payload (including
+    answer/graph/highlights/suggestions/drafts).
     """
     if not llm.is_configured(get_settings()):
         raise llm.LLMNotConfigured(llm.NOT_CONFIGURED_MESSAGE)

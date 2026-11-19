@@ -1,4 +1,4 @@
-/** workspace.* 字典：工作台容器（加载兜底、toast、删除确认）。 */
+/** workspace.* dictionary: workspace container (load fallbacks, toasts, deletion confirmations). */
 export const zhWorkspace = {
   'workspace.loadDatasetsFailed': '无法读取数据集列表，请检查后端服务是否已启动',
   'workspace.loadGraphFailed': '无法读取血缘子图，请稍后重试',

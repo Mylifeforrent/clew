@@ -1,8 +1,9 @@
 /**
- * 中文聚合字典（默认语言，消息键的类型基准）。
+ * Chinese aggregate dictionary (message-key type baseline; English is the default locale).
  *
- * 各命名空间词条在 dicts/ 下按组件分模块维护，此处只做聚合；
- * 新增模块时在此追加 import 与展开（并行改造约定：字典模块各自独立，不互相编辑）。
+ * Namespaced entries are maintained per component under dicts/ and only aggregated here;
+ * when adding a module, append its import and spread here (parallel-change convention:
+ * dictionary modules stay independent and never edit each other).
  */
 import { zhCommon } from './dicts/common';
 import { zhApp } from './dicts/app';

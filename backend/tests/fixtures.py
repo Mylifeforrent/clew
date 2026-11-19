@@ -1,4 +1,4 @@
-"""源文件：构造含多级表头 + 合并单元格的 XLSX、CSV、JSON 第一手文件。"""
+"""Source files: build first-party XLSX (multi-level headers + merged cells), CSV and JSON files."""
 
 import io
 import json
@@ -7,15 +7,16 @@ from openpyxl import Workbook
 
 
 def order_xlsx_bytes() -> bytes:
-    """订单明细.xlsx：第 1 行 B1:F1 合并「商品信息」、G1「运费信息」；
-    第 2 行多级表头；第 3-4 行数据。"""
+    """orders.xlsx: row 1 has B1:F1 merged as "Product Info" and G1 "Shipping Info";
+    row 2 has multi-level headers; rows 3-4 are data."""
     wb = Workbook()
     ws = wb.active
-    ws.title = "订单"
-    ws["B1"] = "商品信息"
+    ws.title = "Orders"
+    ws["B1"] = "Product Info"
     ws.merge_cells("B1:F1")
-    ws["G1"] = "运费信息"
-    for col, name in zip("BCDEFG", ["商品ID", "订单号", "数量", "单价", "金额", "运费"],
+    ws["G1"] = "Shipping Info"
+    for col, name in zip("BCDEFG", ["Product ID", "Order No", "Quantity", "Unit Price",
+                                    "Amount", "Shipping Fee"],
                          strict=True):
         ws[f"{col}2"] = name
     rows = [("S001", "SO-1001", 2, 9.9, 19.8, 5),
@@ -30,8 +31,8 @@ def order_xlsx_bytes() -> bytes:
 
 def user_csv_bytes() -> bytes:
     return ("user_id,user_name,phone\n"
-            "1,张三,138*\n"
-            "2,李四,139*\n").encode("utf-8")
+            "1,Alice,138*\n"
+            "2,Bob,139*\n").encode("utf-8")
 
 
 def source_json_bytes() -> bytes:

@@ -1,11 +1,15 @@
-"""AI 自动补描述：草稿 → 人工确认 → annotation（M5，演进规划 07 §4.5）。
+"""AI auto-descriptions: draft → manual confirmation → annotation (M5, evolution plan 07 §4.5).
 
-草稿落在 ``description_draft`` 工作区表，**不触碰** ``field.description``
-（原始导入值，业务不变量：原始导入与人工见解分离）；采纳时写 annotation
-（追加式业务说明），拒绝则标记 rejected 且不再为该字段重复生成。
+Drafts live in the ``description_draft`` workspace table and **never touch**
+``field.description`` (the original imported value; business invariant: keep
+original imports separate from human insight); on acceptance an annotation
+(append-only business note) is written, and rejection marks the draft rejected
+so no further drafts are generated for that field.
 
-生成输入：字段名/类型/现状描述 + 上下游边 + 其他数据集的同名字段——全部来自
-既有只读查询，不联网拿任何额外数据；生成调用走统一 LLM 接入层（llm.complete）。
+Generation input: field name/type/current description + upstream/downstream
+edges + same-named fields in other datasets — all from existing read-only
+queries, no extra data fetched from the network; generation calls go through
+the unified LLM access layer (llm.complete).
 """
 
 from __future__ import annotations
@@ -19,15 +23,18 @@ from .llm import LLMError, LLMNotConfigured
 MAX_DRAFT_FIELDS = 10
 DRAFT_MAX_CHARS = 200
 
-# 描述草稿语言（08 号 R12）：按语言参数化 prompt，避免英文对话产出中文草稿
+# Description draft language (doc 08 R12): parameterize the prompt by language,
+# so English conversations do not produce Chinese drafts
 _DRAFT_PROMPTS = {
-    "zh": """你是数据目录的文档助手。为下面的数据字段写一句中文描述（不超过 60 字），\
-说明它是什么、怎么来的（如果给了上游信息）。只输出描述本身，不要任何前缀、引号或解释。
+    "zh": """You are a documentation assistant for a data catalog. Write one Chinese \
+sentence (at most 60 characters) describing the data field below — what it is and how it \
+is derived (from upstream info, if given). Output only the description itself: no prefix, \
+quotes, or explanations.
 
-字段：{dataset}.{name}（类型 {field_type}）
-现状描述：{description}
-上下游血缘：{lineage}
-其他数据集的同名字段：{siblings}
+Field: {dataset}.{name} (type {field_type})
+Current description: {description}
+Upstream/downstream lineage: {lineage}
+Same-named fields in other datasets: {siblings}
 """,
     "en": """You are a data catalog writer. Write one sentence in English (at most 25 words) \
 describing the data field below — what it is and how it is derived (from upstream info, \
@@ -42,10 +49,10 @@ Same-named fields in other datasets: {siblings}
 
 
 class DescriptionError(RuntimeError):
-    """草稿生成/流转的业务错误（路由层转 400/404）。"""
+    """Business error in draft generation/transitions (route layer turns it into 400/404)."""
 
 
-# ---------- 生成 ----------
+# ---------- Generation ----------
 
 
 def _field_context(conn: sqlite3.Connection, dataset: str, name: str) -> dict:
@@ -53,16 +60,16 @@ def _field_context(conn: sqlite3.Connection, dataset: str, name: str) -> dict:
         "SELECT name, field_type, COALESCE(description, '') AS description"
         " FROM field WHERE dataset_id=? AND name=?", (dataset, name)).fetchone()
     if row is None:
-        raise LookupError(f"字段「{dataset}.{name}」不存在")
+        raise LookupError(f"Field \"{dataset}.{name}\" does not exist")
     edges = conn.execute(
         "SELECT from_dataset, from_field, to_dataset, to_field, transform,"
         " confidence FROM edge"
         " WHERE (from_dataset=? AND from_field=?) OR (to_dataset=? AND to_field=?)"
         " ORDER BY id LIMIT 8", (dataset, name, dataset, name)).fetchall()
-    lineage = "；".join(
+    lineage = "; ".join(
         f"{e['from_dataset']}.{e['from_field']} → {e['to_dataset']}.{e['to_field']}"
-        f"（{e['transform'] or '未填写'}，置信度 {e['confidence']}）" for e in edges
-    ) or "无"
+        f" ({e['transform'] or 'not provided'}, confidence {e['confidence']})" for e in edges
+    ) or "none"
     siblings = conn.execute(
         "SELECT dataset_id || '.' || name AS ref FROM field"
         " WHERE name=? AND dataset_id<>? ORDER BY dataset_id LIMIT 5",
@@ -70,26 +77,29 @@ def _field_context(conn: sqlite3.Connection, dataset: str, name: str) -> dict:
     return {
         "dataset": dataset,
         "name": name,
-        "field_type": row["field_type"] or "未知",
-        "description": row["description"] or "（空）",
+        "field_type": row["field_type"] or "unknown",
+        "description": row["description"] or "(empty)",
         "lineage": lineage,
-        "siblings": "、".join(s["ref"] for s in siblings) or "无",
+        "siblings": ", ".join(s["ref"] for s in siblings) or "none",
     }
 
 
 def draft_descriptions(conn: sqlite3.Connection, dataset: str,
                        fields: list[str], actor: str,
                        lang: str = "zh") -> list[dict]:
-    """为一组字段生成描述草稿并落 pending；返回可确认的草稿清单。
+    """Generate description drafts for a group of fields as pending; return the confirmable draft list.
 
-    - ``fields`` 为空时自动选取该数据集描述为空的字段（上限 MAX_DRAFT_FIELDS）；
-    - 已有 pending 草稿的字段跳过；rejected 的字段也跳过（不再重复生成）；
-    - 单字段生成失败不阻断其余字段；
-    - ``lang`` 控制草稿语言（zh/en，08 号 R12），未知取值按 zh 处理。
+    - When ``fields`` is empty, automatically pick fields in the dataset whose
+      description is empty (up to MAX_DRAFT_FIELDS);
+    - fields that already have a pending draft are skipped; rejected fields are
+      also skipped (not generated again);
+    - a single-field failure does not block the remaining fields;
+    - ``lang`` controls the draft language (zh/en, doc 08 R12); unknown values
+      are treated as zh.
     """
     prompt_template = _DRAFT_PROMPTS.get(lang, _DRAFT_PROMPTS["zh"])
     if conn.execute("SELECT 1 FROM dataset WHERE id=?", (dataset,)).fetchone() is None:
-        raise LookupError(f"数据集「{dataset}」不存在")
+        raise LookupError(f"Dataset \"{dataset}\" does not exist")
 
     if fields:
         placeholders = ",".join("?" for _ in fields[:MAX_DRAFT_FIELDS])
@@ -102,7 +112,9 @@ def draft_descriptions(conn: sqlite3.Connection, dataset: str,
             " AND (description IS NULL OR description='')"
             " ORDER BY name LIMIT ?", (dataset, MAX_DRAFT_FIELDS)).fetchall()
     if not rows:
-        raise LookupError("没有可起草的字段（字段不存在，或描述均已填写且未指定字段）")
+        raise LookupError(
+            "No fields available for drafting (the fields do not exist, or all"
+            " descriptions are filled and no fields were specified)")
 
     blocked = {
         r["field_name"] for r in conn.execute(
@@ -112,13 +124,14 @@ def draft_descriptions(conn: sqlite3.Connection, dataset: str,
     targets = [r["name"] for r in rows if r["name"] not in blocked][:MAX_DRAFT_FIELDS]
     if not targets:
         raise LookupError(
-            "所选字段都已有草稿（待确认/已采纳/已拒绝），请先在草稿区处理")
+            "All selected fields already have drafts (pending/accepted/rejected);"
+            " process them in the drafts area first")
 
     timestamp = now()
     settings_model = "unknown"
     try:
         settings_model = llm.get_chat_model().model_name or "unknown"
-    except Exception:  # 模型名仅用于审计，失败不阻断
+    except Exception:  # The model name is for auditing only; failure does not block
         pass
 
     drafts: list[dict] = []
@@ -131,7 +144,7 @@ def draft_descriptions(conn: sqlite3.Connection, dataset: str,
             content = response["choices"][0]["message"]["content"]
             draft = (content or "").strip().splitlines()[0][:DRAFT_MAX_CHARS]
         except (LLMError, LLMNotConfigured, KeyError, IndexError):
-            continue  # 单字段失败不阻断
+            continue  # A single-field failure does not block the rest
         if not draft:
             continue
         cur = conn.execute(
@@ -143,11 +156,13 @@ def draft_descriptions(conn: sqlite3.Connection, dataset: str,
             " FROM description_draft WHERE id=?", (cur.lastrowid,)).fetchone()
         drafts.append(dict(row))
     if not drafts:
-        raise DescriptionError("描述草稿生成失败：LLM 未返回有效内容，请稍后重试")
+        raise DescriptionError(
+            "Description draft generation failed: the LLM returned no valid"
+            " content; please retry later")
     return drafts
 
 
-# ---------- 确认流 ----------
+# ---------- Confirmation flow ----------
 
 
 def list_drafts(conn: sqlite3.Connection, dataset: str | None,
@@ -170,20 +185,21 @@ def _pending_draft(conn: sqlite3.Connection, draft_id: int) -> sqlite3.Row:
         "SELECT id, dataset_id, field_name, draft, status FROM description_draft"
         " WHERE id=?", (draft_id,)).fetchone()
     if row is None:
-        raise LookupError(f"描述草稿 #{draft_id} 不存在")
+        raise LookupError(f"Description draft #{draft_id} does not exist")
     if row["status"] != "pending":
-        raise DescriptionError(f"草稿 #{draft_id} 已处理（{row['status']}）")
+        raise DescriptionError(
+            f"Draft #{draft_id} has already been processed ({row['status']})")
     return row
 
 
 def accept_draft(conn: sqlite3.Connection, draft_id: int, actor: str) -> dict:
-    """采纳草稿：写 annotation（追加式业务说明）+ 置 accepted。"""
+    """Accept a draft: write an annotation (append-only business note) + set accepted."""
     row = _pending_draft(conn, draft_id)
     conn.execute(
         "INSERT INTO annotation(target_kind, target_id, body, author, created_at)"
         " VALUES ('field', ?, ?, ?, ?)",
         (f"{row['dataset_id']}.{row['field_name']}",
-         f"【AI 描述采纳｜model={conn.execute('SELECT model FROM description_draft WHERE id=?', (draft_id,)).fetchone()['model']}】{row['draft']}",
+         f"[AI description accepted | model={conn.execute('SELECT model FROM description_draft WHERE id=?', (draft_id,)).fetchone()['model']}]{row['draft']}",
          actor, now()))
     conn.execute(
         "UPDATE description_draft SET status='accepted', decided_at=? WHERE id=?",
@@ -194,7 +210,7 @@ def accept_draft(conn: sqlite3.Connection, draft_id: int, actor: str) -> dict:
 
 
 def reject_draft(conn: sqlite3.Connection, draft_id: int, actor: str) -> None:
-    """拒绝草稿：置 rejected（该字段不再重复生成）。"""
+    """Reject a draft: set rejected (no further drafts for that field)."""
     row = _pending_draft(conn, draft_id)
     conn.execute(
         "UPDATE description_draft SET status='rejected', decided_at=? WHERE id=?",

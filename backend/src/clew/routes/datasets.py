@@ -1,4 +1,4 @@
-"""数据集与字段的基础浏览（M1 验证用；M2 扩展图查询与定位卡预览）。"""
+"""Basic browsing for datasets and fields (used by M1 verification; M2 extends graph queries and locator-card previews)."""
 
 import json
 
@@ -17,7 +17,7 @@ def list_datasets(user: dict = Depends(require_role("viewer"))):
             "SELECT d.id, d.name, COUNT(f.id) AS field_count"
             " FROM dataset d LEFT JOIN field f ON f.dataset_id = d.id"
             " GROUP BY d.id ORDER BY d.id").fetchall()
-        # 侧栏搜索需要「数据集 / 字段」两类匹配目标（设计方案 §5.1）
+        # Sidebar search needs both "dataset / field" match targets (design §5.1)
         field_rows = conn.execute(
             "SELECT dataset_id, name FROM field ORDER BY dataset_id, name").fetchall()
     field_names: dict[str, list[str]] = {}
@@ -33,7 +33,7 @@ def get_dataset(dataset_id: str, user: dict = Depends(require_role("viewer"))):
         ds = conn.execute("SELECT id, name, description FROM dataset WHERE id=?",
                           (dataset_id,)).fetchone()
         if ds is None:
-            raise HTTPException(404, f"数据集「{dataset_id}」不存在")
+            raise HTTPException(404, f"Dataset \"{dataset_id}\" does not exist")
         fields = conn.execute(
             "SELECT f.name, f.field_type, f.description, f.src_locator,"
             " f.source_file_id, s.original_name AS source_file_name"

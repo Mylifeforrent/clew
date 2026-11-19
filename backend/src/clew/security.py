@@ -1,4 +1,4 @@
-"""认证与 RBAC：pbkdf2 口令哈希、JWT 签发/校验、FastAPI 角色守卫。"""
+"""Authentication and RBAC: pbkdf2 password hashing, JWT issue/verify, FastAPI role guards."""
 
 import hashlib
 import hmac
@@ -47,7 +47,7 @@ def create_token(username: str, role: str) -> str:
 def _bearer_payload(request: Request) -> dict:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
-        raise HTTPException(401, "缺少 Bearer 凭据")
+        raise HTTPException(401, "Missing Bearer credentials")
     try:
         return jwt.decode(
             auth.removeprefix("Bearer "),
@@ -55,7 +55,7 @@ def _bearer_payload(request: Request) -> dict:
             algorithms=["HS256"],
         )
     except jwt.PyJWTError:
-        raise HTTPException(401, "凭据无效或已过期") from None
+        raise HTTPException(401, "Invalid or expired credentials") from None
 
 
 def current_user(request: Request) -> dict:
@@ -64,10 +64,11 @@ def current_user(request: Request) -> dict:
 
 
 def require_role(minimum: str):
-    """角色守卫依赖：声明当前路由的最低角色（viewer < editor < admin）。
+    """Role guard dependency: declares the minimum role of the current route (viewer < editor < admin).
 
-    角色以数据库当前值为准（JWT 中的 role 仅在登录时签发），
-    保证管理员变更角色后旧 token 立即按新角色生效。
+    The role is taken from the current database value (the role in the JWT is
+    only issued at login), so after an admin changes someone's role the old
+    token immediately takes effect with the new role.
     """
 
     def guard(user: dict = Depends(current_user)) -> dict:
@@ -75,9 +76,9 @@ def require_role(minimum: str):
             row = conn.execute("SELECT role FROM user WHERE username=?",
                                (user["username"],)).fetchone()
         if row is None:
-            raise HTTPException(401, "用户不存在或已删除")
+            raise HTTPException(401, "User does not exist or has been deleted")
         if ROLE_ORDER[row["role"]] < ROLE_ORDER[minimum]:
-            raise HTTPException(403, f"需要 {minimum} 及以上角色")
+            raise HTTPException(403, f"Role {minimum} or higher is required")
         return {"username": user["username"], "role": row["role"]}
 
     return guard
